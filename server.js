@@ -840,7 +840,7 @@ app.post('/api/broadcasts/generate', requireAuth, async (req, res) => {
 5- هل تعلم؟: تبدأ بـ "والآن مع فقرة هل تعلم، يقدمها الطالب: (........)." ثم 3 نقاط تبدأ كل نقطة بـ "• هل تعلم أن ...؟".
 6- الخاتمة: تبدأ بـ "وفي ختام إذاعتنا المدرسية، ..." مع خلاصة وتوصية وتنتهي بـ "والسلام عليكم ورحمة الله وبركاته."
 
-أعد النتيجة بصيغة JSON فقط بهذا الشكل الدقيق:
+أعد النتيجة بصيغة JSON فقط بهذا الشكل الدقيق دون أي كلام قبله أو بعده:
 {
   "title": "إذاعة مدرسية عن ...",
   "theme": "موضوع مختصر",
@@ -854,31 +854,78 @@ app.post('/api/broadcasts/generate', requireAuth, async (req, res) => {
   }
 }`;
 
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        temperature: 0.6,
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: 'أنت معد إذاعات مدرسية للمرحلة المتوسطة باللغة العربية الفصحى السليمة. تلتزم بدقة الآيات والأحاديث وتعيد الإخراج بصيغة JSON فقط.',
-          },
-          { role: 'user', content: prompt },
-        ],
-      }),
-    });
+    const preferredModels = [
+      process.env.GROQ_MODEL?.trim(),
+      'llama-3.3-70b-versatile',
+      'openai/gpt-oss-120b',
+      'meta-llama/llama-4-scout-17b-16e-instruct',
+      'llama-3.1-8b-instant',
+      'openai/gpt-oss-20b',
+      'allam-2-7b',
+    ].filter(Boolean);
 
-    const data = await groqRes.json().catch(() => ({}));
-    if (!groqRes.ok) {
-      return res.status(502).json({ error: data?.error?.message || 'تعذر الاتصال بخدمة Groq' });
+    let availableIds = [];
+    try {
+      const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (modelsRes.ok) {
+        const modelsJson = await modelsRes.json();
+        availableIds = (modelsJson.data || [])
+          .map((m) => m.id)
+          .filter((id) => !/whisper|guard|safeguard|orpheus|tts|embed|vision-preview/i.test(id));
+      }
+    } catch {}
+
+    const candidates = availableIds.length > 0
+      ? [...preferredModels.filter((m) => availableIds.includes(m)), ...availableIds.filter((id) => !preferredModels.includes(id))]
+      : preferredModels;
+
+    if (candidates.length === 0) {
+      return res.status(502).json({ error: 'لا توجد نماذج نصية متاحة في حساب Groq الحالي' });
     }
-    const parsed = JSON.parse(data?.choices?.[0]?.message?.content || '{}');
+
+    let rawContent = '';
+    let lastError = 'تعذر الاتصال بخدمة Groq';
+
+    for (const modelId of candidates) {
+      for (const useJsonMode of [true, false]) {
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: modelId,
+            temperature: 0.6,
+            ...(useJsonMode ? { response_format: { type: 'json_object' } } : {}),
+            messages: [
+              {
+                role: 'system',
+                content: 'أنت معد إذاعات مدرسية للمرحلة المتوسطة باللغة العربية الفصحى السليمة. تلتزم بدقة الآيات والأحاديث وتعيد الإخراج بصيغة JSON فقط.',
+              },
+              { role: 'user', content: prompt },
+            ],
+          }),
+        });
+        const data = await groqRes.json().catch(() => ({}));
+        if (groqRes.ok && data?.choices?.[0]?.message?.content) {
+          rawContent = data.choices[0].message.content;
+          break;
+        }
+        lastError = data?.error?.message || lastError;
+        const msg = lastError.toLowerCase();
+        if (msg.includes('does not exist') || msg.includes('do not have access') || groqRes.status === 404) break;
+      }
+      if (rawContent) break;
+    }
+
+    if (!rawContent) {
+      return res.status(502).json({ error: lastError });
+    }
+    const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : rawContent);
     res.json({
       title: parsed.title || `إذاعة مدرسية عن ${topic}`,
       theme: parsed.theme || topic,
