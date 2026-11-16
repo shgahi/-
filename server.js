@@ -821,6 +821,81 @@ app.patch('/api/suggestions/:id', requireAuth, requireMgmt, async (req, res) => 
   }
 });
 
+app.post('/api/broadcasts/generate', requireAuth, async (req, res) => {
+  try {
+    const topic = String(req.body?.title || '').trim();
+    if (!topic) return res.status(400).json({ error: 'يرجى كتابة عنوان الإذاعة أولاً' });
+
+    const apiKey = (process.env.GROQ_API_KEY || '').trim();
+    if (!apiKey) {
+      return res.status(400).json({ error: 'مفتاح GROQ_API_KEY غير مضاف في متغيرات البيئة' });
+    }
+
+    const prompt = `اكتب إذاعة مدرسية كاملة للمرحلة المتوسطة بعنوان/موضوع: "${topic}"
+بنفس الأسلوب والترتيب التالي بالضبط:
+1- المقدمة: تبدأ بـ "بسم الله الرحمن الرحيم، والصلاة والسلام على أشرف الأنبياء والمرسلين. مديرنا الفاضل، معلمينا الكرام، زملائي الطلاب، السلام عليكم ورحمة الله وبركاته." ثم تعريف جميل وواضح بموضوع الإذاعة.
+2- القرآن الكريم: تبدأ بـ "خير ما نبدأ به إذاعتنا آيات عطرة من القرآن الكريم، يتلوها على مسامعكم الطالب............" ثم آية قرآنية مناسبة وصحيحة للموضوع بين ﴿...﴾.
+3- الحديث الشريف: تبدأ بـ "والآن مع الحديث الشريف، يقدمه الطالب..........." ثم حديث نبوي صحيح أو مشهور مناسب للموضوع بين «...».
+4- كلمة الصباح: تبدأ بـ "والآن مع كلمة الصباح يقدمها الطالب............" ثم كلمة مفيدة ومبسطة لطلاب المرحلة المتوسطة عن الموضوع.
+5- هل تعلم؟: تبدأ بـ "والآن مع فقرة هل تعلم، يقدمها الطالب: (........)." ثم 3 نقاط تبدأ كل نقطة بـ "• هل تعلم أن ...؟".
+6- الخاتمة: تبدأ بـ "وفي ختام إذاعتنا المدرسية، ..." مع خلاصة وتوصية وتنتهي بـ "والسلام عليكم ورحمة الله وبركاته."
+
+أعد النتيجة بصيغة JSON فقط بهذا الشكل الدقيق:
+{
+  "title": "إذاعة مدرسية عن ...",
+  "theme": "موضوع مختصر",
+  "segments": {
+    "intro": "...",
+    "quran": "...",
+    "hadith": "...",
+    "morningWord": "...",
+    "didYouKnow": "...",
+    "closing": "..."
+  }
+}`;
+
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.6,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: 'أنت معد إذاعات مدرسية للمرحلة المتوسطة باللغة العربية الفصحى السليمة. تلتزم بدقة الآيات والأحاديث وتعيد الإخراج بصيغة JSON فقط.',
+          },
+          { role: 'user', content: prompt },
+        ],
+      }),
+    });
+
+    const data = await groqRes.json().catch(() => ({}));
+    if (!groqRes.ok) {
+      return res.status(502).json({ error: data?.error?.message || 'تعذر الاتصال بخدمة Groq' });
+    }
+    const parsed = JSON.parse(data?.choices?.[0]?.message?.content || '{}');
+    res.json({
+      title: parsed.title || `إذاعة مدرسية عن ${topic}`,
+      theme: parsed.theme || topic,
+      segments: {
+        intro: parsed.segments?.intro || '',
+        quran: parsed.segments?.quran || '',
+        hadith: parsed.segments?.hadith || '',
+        morningWord: parsed.segments?.morningWord || '',
+        didYouKnow: parsed.segments?.didYouKnow || '',
+        closing: parsed.segments?.closing || '',
+      },
+    });
+  } catch {
+    res.status(500).json({ error: 'تعذر توليد الإذاعة حالياً' });
+  }
+});
+
 app.post('/api/broadcasts', requireAuth, async (req, res) => {
   try {
     await ensureReady();
