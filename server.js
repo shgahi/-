@@ -22,7 +22,34 @@ const DB_FILE = path.join(__dirname, 'activity-db.json');
 
 const MANAGEMENT_ROLES = ['president', 'vice_president', 'officer'];
 const ALLOWED_ROLES = ['president', 'vice_president', 'officer', 'member'];
+const ALL_PERMISSIONS = [
+  'manage_directory',
+  'manage_broadcasts',
+  'manage_activities',
+  'manage_discipline',
+  'review_submissions',
+  'issue_directives',
+];
+const DEFAULT_ROLE_PERMISSIONS = {
+  president: [...ALL_PERMISSIONS],
+  vice_president: [...ALL_PERMISSIONS],
+  officer: ['manage_activities', 'manage_discipline', 'manage_broadcasts', 'review_submissions', 'issue_directives'],
+  member: [],
+};
+
 const isMgmt = (role) => MANAGEMENT_ROLES.includes(role);
+const hasPerm = (user, perm) => {
+  if (!user) return false;
+  if (user.role === 'president') return true;
+  const perms = Array.isArray(user.permissions)
+    ? user.permissions
+    : DEFAULT_ROLE_PERMISSIONS[user.role] || [];
+  return perms.includes(perm);
+};
+const sanitizePermissions = (input) => {
+  if (!Array.isArray(input)) return undefined;
+  return input.filter((p) => ALL_PERMISSIONS.includes(p));
+};
 
 let pool = null;
 function getPool() {
@@ -65,6 +92,7 @@ function createInitialData() {
         gradeOrDept: 'الإدارة العليا',
         points: 100,
         isActive: true,
+        permissions: [...ALL_PERMISSIONS],
         createdAt: now,
       },
       {
@@ -80,6 +108,7 @@ function createInitialData() {
         gradeOrDept: 'الإدارة العليا',
         points: 96,
         isActive: true,
+        permissions: [...ALL_PERMISSIONS],
         createdAt: now,
       },
     ],
@@ -190,8 +219,10 @@ async function ensureReady() {
           grade_or_dept TEXT NOT NULL DEFAULT '',
           points INTEGER NOT NULL DEFAULT 0,
           is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          permissions JSONB,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB;
         CREATE TABLE IF NOT EXISTS activities (
           id SERIAL PRIMARY KEY,
           title TEXT NOT NULL,
@@ -284,9 +315,9 @@ async function ensureReady() {
         const seed = createInitialData();
         for (const u of seed.users) {
           await p.query(
-            `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, phone, grade_or_dept, points, is_active)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-            [u.memberCode, u.loginCode, u.username, u.fullName, u.passwordHash, u.role, u.unit, u.phone, u.gradeOrDept, u.points, u.isActive]
+            `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, phone, grade_or_dept, points, is_active, permissions)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)`,
+            [u.memberCode, u.loginCode, u.username, u.fullName, u.passwordHash, u.role, u.unit, u.phone, u.gradeOrDept, u.points, u.isActive, JSON.stringify(u.permissions)]
           );
         }
         for (const a of seed.activities) {
@@ -329,17 +360,29 @@ const mapUser = (r) => ({
   gradeOrDept: r.grade_or_dept,
   points: Number(r.points || 0),
   isActive: Boolean(r.is_active),
+  permissions: Array.isArray(r.permissions)
+    ? r.permissions
+    : DEFAULT_ROLE_PERMISSIONS[r.role] || [],
   createdAt: new Date(r.created_at).toISOString(),
 });
 
 const sanitizeUser = (u, viewer = null) => {
-  const { passwordHash: _, ...pub } = u;
+  const { passwordHash: _, ...rest } = u;
+  const pub = {
+    ...rest,
+    permissions:
+      u.role === 'president'
+        ? [...ALL_PERMISSIONS]
+        : Array.isArray(u.permissions)
+          ? u.permissions
+          : DEFAULT_ROLE_PERMISSIONS[u.role] || [],
+  };
   if (!viewer) return pub;
   const canSeeCode =
     u.id === viewer.id ||
     viewer.role === 'president' ||
     (viewer.role === 'vice_president' && u.role !== 'president') ||
-    (isMgmt(viewer.role) && u.role === 'member');
+    ((isMgmt(viewer.role) || hasPerm(viewer, 'manage_directory')) && u.role === 'member');
   return canSeeCode ? pub : { ...pub, loginCode: '' };
 };
 
@@ -369,8 +412,7 @@ async function requireAuth(req, res, next) {
     const payload = jwt.verify(auth.slice(7), JWT_SECRET);
     const u = await findUserById(payload.userId);
     if (!u || !u.isActive) return res.status(401).json({ error: 'الجلسة منتهية أو الحساب موقوف' });
-    const { passwordHash: _, ...pub } = u;
-    req.user = pub;
+    req.user = sanitizeUser(u);
     next();
   } catch {
     res.status(401).json({ error: 'رمز الجلسة غير صالح' });
@@ -425,33 +467,37 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
     const viewer = req.user;
     if (!isNeon) {
       const db = readLocal();
+      const canSeeDiscipline = isMgmt(viewer.role) || hasPerm(viewer, 'manage_discipline');
+      const canReviewSubs = isMgmt(viewer.role) || hasPerm(viewer, 'review_submissions');
       return res.json({
         users: db.users.map((u) => sanitizeUser(u, viewer)),
         activities: db.activities,
         broadcasts: db.broadcasts,
-        disciplineLogs: isMgmt(viewer.role) ? db.disciplineLogs : db.disciplineLogs.filter((d) => d.userId === viewer.id),
+        disciplineLogs: canSeeDiscipline ? db.disciplineLogs : db.disciplineLogs.filter((d) => d.userId === viewer.id),
         directives: db.directives,
-        submissions: isMgmt(viewer.role) ? db.submissions : db.submissions.filter((s) => s.studentId === viewer.id),
-        complaints: isMgmt(viewer.role) ? db.complaints : db.complaints.filter((c) => c.reporterId === viewer.id),
-        suggestions: isMgmt(viewer.role) ? db.suggestions : db.suggestions.filter((s) => s.studentId === viewer.id),
+        submissions: canReviewSubs ? db.submissions : db.submissions.filter((s) => s.studentId === viewer.id),
+        complaints: canReviewSubs ? db.complaints : db.complaints.filter((c) => c.reporterId === viewer.id),
+        suggestions: canReviewSubs ? db.suggestions : db.suggestions.filter((s) => s.studentId === viewer.id),
       });
     }
     const p = getPool();
+    const canSeeDiscipline = isMgmt(viewer.role) || hasPerm(viewer, 'manage_discipline');
+    const canReviewSubs = isMgmt(viewer.role) || hasPerm(viewer, 'review_submissions');
     const [uR, aR, bR, disR, dirR, subR, cmpR, sugR] = await Promise.all([
       p.query('SELECT * FROM users ORDER BY id ASC'),
       p.query('SELECT * FROM activities ORDER BY id DESC'),
       p.query('SELECT * FROM broadcasts ORDER BY id DESC'),
-      isMgmt(viewer.role)
+      canSeeDiscipline
         ? p.query('SELECT * FROM discipline_logs ORDER BY id DESC')
         : p.query('SELECT * FROM discipline_logs WHERE user_id=$1 ORDER BY id DESC', [viewer.id]),
       p.query('SELECT * FROM directives ORDER BY id DESC'),
-      isMgmt(viewer.role)
+      canReviewSubs
         ? p.query('SELECT * FROM submissions ORDER BY id DESC')
         : p.query('SELECT * FROM submissions WHERE student_id=$1 ORDER BY id DESC', [viewer.id]),
-      isMgmt(viewer.role)
+      canReviewSubs
         ? p.query('SELECT * FROM complaints ORDER BY id DESC')
         : p.query('SELECT * FROM complaints WHERE reporter_id=$1 ORDER BY id DESC', [viewer.id]),
-      isMgmt(viewer.role)
+      canReviewSubs
         ? p.query('SELECT * FROM suggestions ORDER BY id DESC')
         : p.query('SELECT * FROM suggestions WHERE student_id=$1 ORDER BY id DESC', [viewer.id]),
     ]);
@@ -497,11 +543,14 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/users', requireAuth, requireMgmt, async (req, res) => {
+app.post('/api/users', requireAuth, async (req, res) => {
   try {
     await ensureReady();
     const actor = req.user;
-    const { fullName, loginCode, role, unit, phone, gradeOrDept } = req.body || {};
+    if (!isMgmt(actor.role) && !hasPerm(actor, 'manage_directory')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية إضافة أفراد' });
+    }
+    const { fullName, loginCode, role, unit, phone, gradeOrDept, permissions } = req.body || {};
     const targetRole = ALLOWED_ROLES.includes(role) ? role : 'member';
 
     if (actor.role !== 'president' && actor.role !== 'vice_president' && targetRole !== 'member') {
@@ -520,6 +569,7 @@ app.post('/api/users', requireAuth, requireMgmt, async (req, res) => {
     const username = `user_${cleanCode}`.toLowerCase();
     const hash = bcrypt.hashSync(cleanCode, 10);
     const targetUnit = unit || 'activity_1';
+    const parsedPerms = sanitizePermissions(permissions) || DEFAULT_ROLE_PERMISSIONS[targetRole];
 
     if (!isNeon) {
       const db = readLocal();
@@ -540,6 +590,7 @@ app.post('/api/users', requireAuth, requireMgmt, async (req, res) => {
         gradeOrDept: String(gradeOrDept || '').trim(),
         points: targetRole === 'member' ? 0 : 90,
         isActive: true,
+        permissions: parsedPerms,
         createdAt: new Date().toISOString(),
       };
       db.users.push(created);
@@ -551,9 +602,13 @@ app.post('/api/users', requireAuth, requireMgmt, async (req, res) => {
     if (exists.rowCount > 0) return res.status(400).json({ error: 'رمز الدخول مستخدم مسبقاً' });
 
     const r = await getPool().query(
-      `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, phone, grade_or_dept, points, is_active)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE) RETURNING *`,
-      [memberCode, cleanCode, username, fullName.trim(), hash, targetRole, targetUnit, phone.trim(), String(gradeOrDept || '').trim(), targetRole === 'member' ? 0 : 90]
+      `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, phone, grade_or_dept, points, is_active, permissions)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11::jsonb) RETURNING *`,
+      [
+        memberCode, cleanCode, username, fullName.trim(), hash, targetRole, targetUnit,
+        phone.trim(), String(gradeOrDept || '').trim(), targetRole === 'member' ? 0 : 90,
+        JSON.stringify(parsedPerms),
+      ]
     );
     res.status(201).json({ user: sanitizeUser(mapUser(r.rows[0])) });
   } catch (e) {
@@ -563,19 +618,37 @@ app.post('/api/users', requireAuth, requireMgmt, async (req, res) => {
 
 app.patch('/api/users/:id', requireAuth, async (req, res) => {
   try {
+    await ensureReady();
     const actor = req.user;
-    if (actor.role !== 'president' && actor.role !== 'vice_president') {
-      return res.status(403).json({ error: 'صلاحية للرئيس والنائب فقط' });
+    const canEdit =
+      actor.role === 'president' ||
+      actor.role === 'vice_president' ||
+      hasPerm(actor, 'manage_directory');
+    if (!canEdit) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية تعديل الأفراد والصلاحيات' });
     }
+
     const id = Number(req.params.id);
     const target = await findUserById(id);
     if (!target) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    const { role, isActive } = req.body || {};
+    const { fullName, loginCode, role, unit, phone, gradeOrDept, points, isActive, permissions } = req.body || {};
     const isTargetPresident = target.role === 'president' || target.username === 'president';
     if (isTargetPresident) {
-      return res.status(403).json({ error: 'رتبة وحساب رئيس النشاط محميان ولا يمكن تعديلهما' });
+      if (actor.id !== target.id) {
+        return res.status(403).json({ error: 'رتبة وحساب رئيس النشاط محميان ولا يمكن تعديلهما' });
+      }
+      if ((role !== undefined && role !== 'president') || (unit !== undefined && unit !== target.unit) || isActive === false) {
+        return res.status(403).json({ error: 'رتبة رئيس النشاط ثابتة ولا يمكن تغييرها أو إيقافها' });
+      }
     }
+
+    if (actor.role !== 'president' && actor.role !== 'vice_president') {
+      if (target.role !== 'member' || (role !== undefined && role !== 'member') || permissions !== undefined) {
+        return res.status(403).json({ error: 'تعديل الرتب والصلاحيات مخصص للرئيس والنائب فقط' });
+      }
+    }
+
     if (role === 'president' && actor.role !== 'president') {
       return res.status(403).json({ error: 'لا يمكن منح رتبة رئيس النشاط' });
     }
@@ -583,18 +656,70 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'رتبة غير صالحة' });
     }
 
+    let cleanCode;
+    if (loginCode !== undefined) {
+      cleanCode = String(loginCode).trim();
+      if (!cleanCode) return res.status(400).json({ error: 'رمز الدخول لا يمكن أن يكون فارغاً' });
+      const existingCode = await findUserByLoginCode(cleanCode);
+      if (existingCode && existingCode.id !== id) {
+        return res.status(400).json({ error: 'رمز الدخول مستخدم لحساب آخر بالفعل' });
+      }
+    }
+    if (phone !== undefined && !String(phone).trim()) {
+      return res.status(400).json({ error: 'رقم الجوال مطلوب' });
+    }
+
+    const parsedPerms = isTargetPresident ? [...ALL_PERMISSIONS] : sanitizePermissions(permissions);
+    const safePoints = points !== undefined && Number.isFinite(Number(points))
+      ? Math.max(0, Math.round(Number(points)))
+      : undefined;
+
     if (!isNeon) {
       const db = readLocal();
       const idx = db.users.findIndex((u) => u.id === id);
-      if (role !== undefined) db.users[idx].role = role;
-      if (isActive !== undefined) db.users[idx].isActive = Boolean(isActive);
+      if (idx === -1) return res.status(404).json({ error: 'المستخدم غير موجود' });
+      const u = db.users[idx];
+      if (fullName !== undefined && String(fullName).trim()) u.fullName = String(fullName).trim();
+      if (cleanCode !== undefined) u.loginCode = cleanCode;
+      if (phone !== undefined) u.phone = String(phone).trim();
+      if (gradeOrDept !== undefined) u.gradeOrDept = String(gradeOrDept).trim();
+      if (safePoints !== undefined) u.points = safePoints;
+      if (!isTargetPresident) {
+        if (role !== undefined) u.role = role;
+        if (unit !== undefined) u.unit = unit;
+        if (isActive !== undefined) u.isActive = Boolean(isActive);
+        if (parsedPerms !== undefined) u.permissions = parsedPerms;
+      } else {
+        u.permissions = [...ALL_PERMISSIONS];
+      }
       writeLocal(db);
-      return res.json({ user: sanitizeUser(db.users[idx]) });
+      return res.json({ user: sanitizeUser(u) });
     }
 
     const r = await getPool().query(
-      'UPDATE users SET role=COALESCE($1,role), is_active=COALESCE($2,is_active) WHERE id=$3 RETURNING *',
-      [role ?? null, isActive ?? null, id]
+      `UPDATE users SET
+        full_name = COALESCE($1, full_name),
+        login_code = COALESCE($2, login_code),
+        role = COALESCE($3, role),
+        unit = COALESCE($4, unit),
+        phone = COALESCE($5, phone),
+        grade_or_dept = COALESCE($6, grade_or_dept),
+        points = COALESCE($7, points),
+        is_active = COALESCE($8, is_active),
+        permissions = COALESCE($9::jsonb, permissions)
+       WHERE id = $10 RETURNING *`,
+      [
+        fullName !== undefined && String(fullName).trim() ? String(fullName).trim() : null,
+        cleanCode ?? null,
+        !isTargetPresident && role !== undefined ? role : null,
+        !isTargetPresident && unit !== undefined ? unit : null,
+        phone !== undefined ? String(phone).trim() : null,
+        gradeOrDept !== undefined ? String(gradeOrDept).trim() : null,
+        safePoints ?? null,
+        !isTargetPresident && isActive !== undefined ? Boolean(isActive) : null,
+        !isTargetPresident && parsedPerms !== undefined ? JSON.stringify(parsedPerms) : null,
+        id,
+      ]
     );
     res.json({ user: sanitizeUser(mapUser(r.rows[0])) });
   } catch {
@@ -606,6 +731,7 @@ app.delete('/api/users/:id', requireAuth, async (req, res) => {
   try {
     if (req.user.role !== 'president') return res.status(403).json({ error: 'الحذف مخصص لرئيس النشاط فقط' });
     const id = Number(req.params.id);
+    if (id === req.user.id) return res.status(400).json({ error: 'لا يمكن حذف الحساب المسجل حالياً' });
     const target = await findUserById(id);
     if (!target) return res.status(404).json({ error: 'الحساب غير موجود' });
     if (target.role === 'president' || target.username === 'president') {
@@ -663,8 +789,11 @@ app.post('/api/submissions', requireAuth, async (req, res) => {
   }
 });
 
-app.patch('/api/submissions/:id', requireAuth, requireMgmt, async (req, res) => {
+app.patch('/api/submissions/:id', requireAuth, async (req, res) => {
   try {
+    if (!hasPerm(req.user, 'review_submissions')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية اعتماد الإنجازات' });
+    }
     await ensureReady();
     const id = Number(req.params.id);
     const { decision, awardedPoints, adminNote } = req.body || {};
@@ -746,8 +875,11 @@ app.post('/api/complaints', requireAuth, async (req, res) => {
   }
 });
 
-app.patch('/api/complaints/:id', requireAuth, requireMgmt, async (req, res) => {
+app.patch('/api/complaints/:id', requireAuth, async (req, res) => {
   try {
+    if (!hasPerm(req.user, 'review_submissions')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية مراجعة الشكاوى' });
+    }
     await ensureReady();
     const id = Number(req.params.id);
     const { status, adminResponse } = req.body || {};
@@ -797,8 +929,11 @@ app.post('/api/suggestions', requireAuth, async (req, res) => {
   }
 });
 
-app.patch('/api/suggestions/:id', requireAuth, requireMgmt, async (req, res) => {
+app.patch('/api/suggestions/:id', requireAuth, async (req, res) => {
   try {
+    if (!hasPerm(req.user, 'review_submissions')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية مراجعة الاقتراحات' });
+    }
     await ensureReady();
     const id = Number(req.params.id);
     const { status, adminResponse } = req.body || {};
@@ -980,28 +1115,93 @@ app.post('/api/broadcasts', requireAuth, async (req, res) => {
   }
 });
 
-app.patch('/api/broadcasts/:id', requireAuth, requireMgmt, async (req, res) => {
+app.patch('/api/broadcasts/:id', requireAuth, async (req, res) => {
   try {
     await ensureReady();
+    const user = req.user;
+    if (!isMgmt(user.role) && !hasPerm(user, 'manage_broadcasts')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية تعديل الإذاعة' });
+    }
     const id = Number(req.params.id);
-    const { status } = req.body || {};
+    const { title, airDate, airTime, theme, presenters, status, officerChecked, segments } = req.body || {};
+
     if (!isNeon) {
       const db = readLocal();
       const item = db.broadcasts.find((b) => b.id === id);
       if (!item) return res.status(404).json({ error: 'الإذاعة غير موجودة' });
-      if (status) item.status = status;
+      if (title !== undefined) item.title = String(title).trim();
+      if (airDate !== undefined) item.airDate = airDate;
+      if (airTime !== undefined) item.airTime = airTime;
+      if (theme !== undefined) item.theme = String(theme).trim();
+      if (presenters !== undefined) item.presenters = String(presenters).trim();
+      if (status !== undefined) item.status = status;
+      if (officerChecked !== undefined) item.officerChecked = Boolean(officerChecked);
+      if (segments && typeof segments === 'object') {
+        item.segments = { ...(item.segments || {}), ...segments };
+      }
       writeLocal(db);
       return res.json({ broadcast: item });
     }
-    const r = await getPool().query('UPDATE broadcasts SET status=COALESCE($1,status) WHERE id=$2 RETURNING *', [status ?? null, id]);
+    const prevR = await getPool().query('SELECT segments FROM broadcasts WHERE id=$1', [id]);
+    if (prevR.rowCount === 0) return res.status(404).json({ error: 'الإذاعة غير موجودة' });
+    const mergedSegs = segments && typeof segments === 'object'
+      ? { ...(prevR.rows[0].segments || {}), ...segments }
+      : null;
+
+    const r = await getPool().query(
+      `UPDATE broadcasts SET
+        title = COALESCE($1, title),
+        air_date = COALESCE($2, air_date),
+        air_time = COALESCE($3, air_time),
+        theme = COALESCE($4, theme),
+        presenters = COALESCE($5, presenters),
+        status = COALESCE($6, status),
+        officer_checked = COALESCE($7, officer_checked),
+        segments = COALESCE($8::jsonb, segments)
+       WHERE id=$9 RETURNING *`,
+      [
+        title !== undefined ? String(title).trim() : null,
+        airDate ?? null,
+        airTime ?? null,
+        theme !== undefined ? String(theme).trim() : null,
+        presenters !== undefined ? String(presenters).trim() : null,
+        status ?? null,
+        officerChecked !== undefined ? Boolean(officerChecked) : null,
+        mergedSegs ? JSON.stringify(mergedSegs) : null,
+        id,
+      ]
+    );
     res.json({ broadcast: r.rows[0] });
   } catch {
     res.status(500).json({ error: 'تعذر تحديث الإذاعة' });
   }
 });
 
-app.post('/api/activities', requireAuth, requireMgmt, async (req, res) => {
+app.delete('/api/broadcasts/:id', requireAuth, async (req, res) => {
   try {
+    if (req.user.role !== 'president' && req.user.role !== 'vice_president' && !hasPerm(req.user, 'manage_broadcasts')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية حذف الإذاعة' });
+    }
+    await ensureReady();
+    const id = Number(req.params.id);
+    if (!isNeon) {
+      const db = readLocal();
+      db.broadcasts = db.broadcasts.filter((b) => b.id !== id);
+      writeLocal(db);
+      return res.json({ ok: true });
+    }
+    await getPool().query('DELETE FROM broadcasts WHERE id=$1', [id]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'تعذر حذف الإذاعة' });
+  }
+});
+
+app.post('/api/activities', requireAuth, async (req, res) => {
+  try {
+    if (!hasPerm(req.user, 'manage_activities')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية إضافة البرامج والأنشطة' });
+    }
     await ensureReady();
     const { title, unit, category, description, eventDate, eventTime, location } = req.body || {};
     if (!title || !unit || !eventDate) return res.status(400).json({ error: 'يرجى إكمال بيانات البرنامج' });
@@ -1028,8 +1228,31 @@ app.post('/api/activities', requireAuth, requireMgmt, async (req, res) => {
   }
 });
 
-app.post('/api/discipline', requireAuth, requireMgmt, async (req, res) => {
+app.delete('/api/activities/:id', requireAuth, async (req, res) => {
   try {
+    if (!hasPerm(req.user, 'manage_activities')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية حذف البرامج والأنشطة' });
+    }
+    await ensureReady();
+    const id = Number(req.params.id);
+    if (!isNeon) {
+      const db = readLocal();
+      db.activities = db.activities.filter((a) => a.id !== id);
+      writeLocal(db);
+      return res.json({ ok: true });
+    }
+    await getPool().query('DELETE FROM activities WHERE id=$1', [id]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'تعذر حذف البرنامج' });
+  }
+});
+
+app.post('/api/discipline', requireAuth, async (req, res) => {
+  try {
+    if (!hasPerm(req.user, 'manage_discipline')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية تسجيل الانضباط والنقاط' });
+    }
     await ensureReady();
     const { userId, category, pointsDelta, note } = req.body || {};
     const target = await findUserById(userId);
@@ -1064,8 +1287,39 @@ app.post('/api/discipline', requireAuth, requireMgmt, async (req, res) => {
   }
 });
 
-app.post('/api/directives', requireAuth, requireMgmt, async (req, res) => {
+app.delete('/api/discipline/:id', requireAuth, async (req, res) => {
   try {
+    if (!hasPerm(req.user, 'manage_discipline')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية حذف سجلات الانضباط' });
+    }
+    await ensureReady();
+    const id = Number(req.params.id);
+    if (!isNeon) {
+      const db = readLocal();
+      const target = db.disciplineLogs.find((l) => l.id === id);
+      if (!target) return res.status(404).json({ error: 'السجل غير موجود' });
+      const u = db.users.find((x) => x.id === target.userId);
+      if (u) u.points = Math.max(0, Number(u.points || 0) - Number(target.pointsDelta || 0));
+      db.disciplineLogs = db.disciplineLogs.filter((l) => l.id !== id);
+      writeLocal(db);
+      return res.json({ ok: true });
+    }
+    const p = getPool();
+    const prev = await p.query('SELECT user_id, points_delta FROM discipline_logs WHERE id=$1', [id]);
+    if (prev.rowCount === 0) return res.status(404).json({ error: 'السجل غير موجود' });
+    await p.query('DELETE FROM discipline_logs WHERE id=$1', [id]);
+    await p.query('UPDATE users SET points = GREATEST(0, points - $1) WHERE id=$2', [prev.rows[0].points_delta, prev.rows[0].user_id]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'تعذر حذف السجل' });
+  }
+});
+
+app.post('/api/directives', requireAuth, async (req, res) => {
+  try {
+    if (!hasPerm(req.user, 'issue_directives')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية إصدار التوجيهات' });
+    }
     await ensureReady();
     const { title, content, priority } = req.body || {};
     if (!title || !content) return res.status(400).json({ error: 'يرجى كتابة العنوان والنص' });
@@ -1088,6 +1342,26 @@ app.post('/api/directives', requireAuth, requireMgmt, async (req, res) => {
     res.status(201).json({ directive: r.rows[0] });
   } catch {
     res.status(500).json({ error: 'تعذر نشر التوجيه' });
+  }
+});
+
+app.delete('/api/directives/:id', requireAuth, async (req, res) => {
+  try {
+    if (!hasPerm(req.user, 'issue_directives')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية حذف التوجيهات' });
+    }
+    await ensureReady();
+    const id = Number(req.params.id);
+    if (!isNeon) {
+      const db = readLocal();
+      db.directives = db.directives.filter((d) => d.id !== id);
+      writeLocal(db);
+      return res.json({ ok: true });
+    }
+    await getPool().query('DELETE FROM directives WHERE id=$1', [id]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'تعذر حذف التوجيه' });
   }
 });
 

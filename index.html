@@ -9,14 +9,47 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: "IBM Plex Sans Arabic", "Cairo", sans-serif; }
+    body { font-family: "IBM Plex Sans Arabic", "Cairo", sans-serif; background-color: #f5f7fa; }
     h1, h2, h3, h4 { font-family: "Cairo", "IBM Plex Sans Arabic", sans-serif; }
     .tabular-nums { font-variant-numeric: tabular-nums; }
+    @keyframes sectionEnter {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes modalEnter {
+      from { opacity: 0; transform: scale(0.96) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes backdropEnter {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .animate-section-enter { animation: sectionEnter 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .animate-modal-enter { animation: modalEnter 240ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .animate-backdrop-enter { animation: backdropEnter 200ms ease-out both; }
+    .luxury-card {
+      background-color: #ffffff;
+      border: 1px solid rgba(203, 213, 225, 0.72);
+      border-radius: 1rem;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -8px rgba(15, 23, 42, 0.05);
+      transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1), border-color 220ms ease;
+    }
+    .luxury-card-interactive:hover {
+      transform: translateY(-2px);
+      border-color: rgba(15, 118, 110, 0.28);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05), 0 16px 32px -12px rgba(15, 118, 110, 0.10);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .animate-section-enter, .animate-modal-enter, .animate-backdrop-enter, .luxury-card {
+        animation: none !important; transition: none !important; transform: none !important;
+      }
+    }
     @media print { .no-print { display: none !important; } }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen">
+<body class="bg-[#f5f7fa] text-slate-900 min-h-screen antialiased">
   <div id="app"></div>
+  <div id="modal-root"></div>
 
   <script>
     const TOKEN_KEY = 'activity_sys_token';
@@ -27,6 +60,21 @@
     const SUG_STATUS = { new: ['جديد', 'text-amber-700'], reviewed: ['تمت المراجعة', 'text-sky-700'], adopted: ['معتمد للتنفيذ', 'text-emerald-700'] };
     const BRC_STATUS = { pending_approval: ['بانتظار الاعتماد', 'text-amber-700'], approved: ['معتمدة للبث', 'text-emerald-700'], aired: ['تم البث', 'text-teal-700'], returned: ['معادة', 'text-red-700'] };
 
+    const ALL_PERMS = [
+      { key: 'manage_directory', label: 'إدارة الأفراد والصلاحيات', desc: 'إضافة وتعديل بيانات الطلاب ورموز الدخول' },
+      { key: 'manage_broadcasts', label: 'إدارة الإذاعة المدرسية', desc: 'إعداد وتعديل وتوليد جدول ونصوص الإذاعة' },
+      { key: 'manage_activities', label: 'إدارة الأنشطة والمهام', desc: 'إضافة البرامج وإسناد المهام للطلاب' },
+      { key: 'manage_discipline', label: 'سجل الانضباط والنقاط', desc: 'تسجيل الحضور والتميز والمخالفات' },
+      { key: 'review_submissions', label: 'مراجعة تقديمات الطلاب', desc: 'قبول الإنجازات والشكاوى والاقتراحات' },
+      { key: 'issue_directives', label: 'إصدار التوجيهات والتنبيهات', desc: 'نشر وحذف التوجيهات الرسمية' },
+    ];
+    const DEFAULT_ROLE_PERMS = {
+      president: ALL_PERMS.map((p) => p.key),
+      vice_president: ALL_PERMS.map((p) => p.key),
+      officer: ['manage_activities', 'manage_discipline', 'manage_broadcasts', 'review_submissions', 'issue_directives'],
+      member: [],
+    };
+
     let state = {
       user: null,
       portalType: 'management',
@@ -35,15 +83,36 @@
       subTab: 'achievements',
       data: { users: [], activities: [], broadcasts: [], disciplineLogs: [], directives: [], submissions: [], complaints: [], suggestions: [] },
       selectedBroadcastId: null,
+      editingUserId: null,
+      editingBroadcastId: null,
+      confirmOpts: null,
       error: '',
       okMsg: '',
       loading: false,
     };
 
+    let confirmResolver = null;
     const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const isMgmt = (r) => ['president', 'vice_president', 'officer'].includes(r);
+    const effectivePerms = (u) => u?.role === 'president' ? ALL_PERMS.map((p) => p.key) : (Array.isArray(u?.permissions) ? u.permissions : (DEFAULT_ROLE_PERMS[u?.role] || []));
+    const hasPerm = (u, perm) => effectivePerms(u).includes(perm);
     const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
     const setToken = (t) => t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
+
+    function openConfirm(opts) {
+      return new Promise((resolve) => {
+        confirmResolver = resolve;
+        state.confirmOpts = opts;
+        renderModalRoot();
+      });
+    }
+    window.resolveConfirm = (accepted) => {
+      const r = confirmResolver;
+      confirmResolver = null;
+      state.confirmOpts = null;
+      renderModalRoot();
+      if (r) r(Boolean(accepted));
+    };
 
     async function api(path, opts = {}) {
       const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
@@ -90,26 +159,26 @@
 
     function renderLogin() {
       return `
-        <div class="min-h-screen flex items-center justify-center p-4 bg-slate-950">
-          <div class="w-full max-w-md bg-white rounded-2xl border border-slate-200 p-8 space-y-6">
+        <div class="min-h-screen flex items-center justify-center p-4 bg-[#0b1618] relative overflow-hidden">
+          <div class="w-full max-w-md luxury-card p-8 space-y-6 animate-section-enter relative z-10">
             <div>
-              <p class="text-xs font-semibold text-teal-700">بوابة النشاط الطلابي</p>
+              <p class="text-xs font-bold text-teal-800">بوابة النشاط الطلابي</p>
               <h1 class="text-2xl font-bold text-slate-900 mt-1">تسجيل الدخول بالرمز</h1>
               <p class="text-sm text-slate-500 mt-1">اختر بوابة الدخول ثم أدخل الرمز السري المخصص لك</p>
             </div>
             <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
-              <button onclick="setPortal('management')" class="py-2 rounded-lg text-xs font-bold ${state.portalType === 'management' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}">دخول الإدارة</button>
-              <button onclick="setPortal('member')" class="py-2 rounded-lg text-xs font-bold ${state.portalType === 'member' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}">دخول الأفراد (الطلاب)</button>
+              <button onclick="setPortal('management')" class="py-2 rounded-lg text-xs font-bold transition-all ${state.portalType === 'management' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}">دخول الإدارة</button>
+              <button onclick="setPortal('member')" class="py-2 rounded-lg text-xs font-bold transition-all ${state.portalType === 'member' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}">دخول الأفراد (الطلاب)</button>
             </div>
-            ${state.error ? `<div class="p-3 rounded-lg bg-red-50 border border-red-200 text-xs font-semibold text-red-700">${esc(state.error)}</div>` : ''}
+            ${state.error ? `<div class="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700">${esc(state.error)}</div>` : ''}
             <form onsubmit="submitLogin(event)" class="space-y-4">
               <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">رمز الدخول</label>
-                <input id="loginCodeInput" type="password" inputmode="numeric" required placeholder="أدخل الرمز المكون من 6 أرقام" class="w-full h-11 px-4 rounded-xl border border-slate-300 text-center font-mono text-base tracking-widest focus:outline-none focus:border-teal-700" />
+                <input id="loginCodeInput" type="password" inputmode="numeric" required placeholder="أدخل الرمز المكون من 6 أرقام" class="w-full h-11 px-4 rounded-xl border border-slate-300 text-center font-mono text-base tracking-widest focus:outline-none focus:border-teal-800" />
               </div>
-              <button type="submit" class="w-full h-11 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-sm font-bold">دخول للمنظومة</button>
+              <button type="submit" class="w-full h-11 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-sm font-bold shadow-xs transition-colors">دخول للمنظومة</button>
             </form>
-            <p class="text-xs text-slate-500 border-t border-slate-200 pt-4">يتم إضافة حسابات الطلاب وإصدار رموزهم من قِبل الإدارة فقط.</p>
+            <p class="text-xs text-slate-500 border-t border-slate-200/80 pt-4">يتم إضافة حسابات الطلاب وإصدار رموزهم من قِبل الإدارة فقط.</p>
           </div>
         </div>
       `;
@@ -146,36 +215,39 @@
             <p class="text-sm text-slate-500">${esc(ROLE_LABELS[state.user.role])} · ${esc(UNIT_LABELS[state.user.unit] || '')}</p>
           </div>
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <button onclick="setTab('directory')" class="text-right bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300">
+            <button onclick="setTab('directory')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
               <div class="text-xs text-slate-500">الطلاب المسجلون</div>
               <div class="text-2xl font-bold font-mono tabular-nums mt-2">${students.length}</div>
             </button>
-            <button onclick="setTab('submissions')" class="text-right bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300">
+            <button onclick="setTab('submissions')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
               <div class="text-xs text-slate-500">إنجازات بانتظار المراجعة</div>
               <div class="text-2xl font-bold text-amber-700 font-mono tabular-nums mt-2">${pendingSub}</div>
             </button>
-            <button onclick="setTab('submissions')" class="text-right bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300">
+            <button onclick="setTab('submissions')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
               <div class="text-xs text-slate-500">شكاوى واقتراحات</div>
               <div class="text-2xl font-bold font-mono tabular-nums mt-2">${openCmp + newSug}</div>
             </button>
-            <button onclick="setTab('broadcasts')" class="text-right bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300">
+            <button onclick="setTab('broadcasts')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
               <div class="text-xs text-slate-500">الإذاعات المدرسية</div>
               <div class="text-2xl font-bold font-mono tabular-nums mt-2">${state.data.broadcasts.length}</div>
             </button>
           </div>
-          <section class="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+          <section class="luxury-card p-6 space-y-4">
             <h3 class="text-base font-bold">التوجيهات والتنبيهات</h3>
             <form onsubmit="createDirective(event)" class="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <input id="dirTitle" required placeholder="عنوان التنبيه" class="h-10 px-3 rounded-lg border border-slate-300 text-sm" />
-              <input id="dirContent" required placeholder="نص التنبيه للطلاب..." class="h-10 px-3 rounded-lg border border-slate-300 text-sm" />
-              <button type="submit" class="h-10 px-4 rounded-lg bg-teal-700 text-white text-xs font-bold">نشر التنبيه</button>
+              <input id="dirTitle" required placeholder="عنوان التنبيه" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+              <input id="dirContent" required placeholder="نص التنبيه للطلاب..." class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+              <button type="submit" class="h-10 px-4 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">نشر التنبيه</button>
             </form>
-            <div class="divide-y divide-slate-200">
+            <div class="divide-y divide-slate-200/70">
               ${state.data.directives.map((d) => `
-                <div class="py-3">
-                  <div class="font-bold text-sm">${esc(d.title)}</div>
-                  <div class="text-xs text-slate-500">${esc(d.issuedByName)}</div>
-                  <p class="text-sm text-slate-700 mt-1">${esc(d.content)}</p>
+                <div class="py-3.5 flex items-start justify-between gap-3">
+                  <div>
+                    <div class="font-bold text-sm">${esc(d.title)}</div>
+                    <div class="text-xs text-slate-500 mt-0.5">${esc(d.issuedByName)}</div>
+                    <p class="text-sm text-slate-700 mt-1">${esc(d.content)}</p>
+                  </div>
+                  <button onclick="deleteDirective(${d.id}, '${esc(d.title)}')" class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-red-700 hover:bg-red-50 shrink-0 cursor-pointer">حذف</button>
                 </div>
               `).join('')}
             </div>
@@ -193,30 +265,30 @@
               <h2 class="text-xl font-bold">التقارير والمتابعة</h2>
               <p class="text-sm text-slate-500">أداء الطلاب مع الإرسال المباشر عبر واتساب، والنشاط الأول والثاني والانضباط</p>
             </div>
-            <div class="flex gap-1 p-1 bg-slate-200/70 rounded-lg text-xs font-semibold">
-              <button onclick="setReportTab('students')" class="px-3 py-1.5 rounded-md ${state.reportTab === 'students' ? 'bg-white text-slate-900' : 'text-slate-600'}">أداء الطلاب (${students.length})</button>
-              <button onclick="setReportTab('activity_1')" class="px-3 py-1.5 rounded-md ${state.reportTab === 'activity_1' ? 'bg-white text-slate-900' : 'text-slate-600'}">النشاط الأول</button>
-              <button onclick="setReportTab('activity_2')" class="px-3 py-1.5 rounded-md ${state.reportTab === 'activity_2' ? 'bg-white text-slate-900' : 'text-slate-600'}">النشاط الثاني</button>
-              <button onclick="setReportTab('discipline')" class="px-3 py-1.5 rounded-md ${state.reportTab === 'discipline' ? 'bg-white text-slate-900' : 'text-slate-600'}">الضباط والانضباط</button>
+            <div class="flex gap-1 p-1 bg-slate-200/75 rounded-xl text-xs font-semibold">
+              <button onclick="setReportTab('students')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'students' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">أداء الطلاب (${students.length})</button>
+              <button onclick="setReportTab('activity_1')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'activity_1' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">النشاط الأول</button>
+              <button onclick="setReportTab('activity_2')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'activity_2' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">النشاط الثاني</button>
+              <button onclick="setReportTab('discipline')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'discipline' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">الضباط والانضباط</button>
             </div>
           </div>
 
           ${state.reportTab === 'students' ? `
-            <section class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <section class="luxury-card overflow-hidden">
               ${students.length === 0 ? `<div class="p-10 text-center text-sm text-slate-500">لا يوجد طلاب مسجلون بعد. أضف الطلاب من قسم الأفراد والصلاحيات.</div>` : `
                 <div class="overflow-x-auto">
                   <table class="w-full text-right text-sm">
-                    <thead class="bg-slate-50 text-xs text-slate-500 border-b border-slate-200">
+                    <thead class="bg-slate-50/80 text-xs text-slate-500 border-b border-slate-200/80">
                       <tr><th class="py-3 px-4">الطالب</th><th class="py-3 px-4">القسم</th><th class="py-3 px-4">الصف</th><th class="py-3 px-4">الجوال</th><th class="py-3 px-4">النقاط</th><th class="py-3 px-4">واتساب</th></tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-200">
+                    <tbody class="divide-y divide-slate-200/70">
                       ${students.map((st) => `
-                        <tr>
+                        <tr class="hover:bg-slate-50/70">
                           <td class="py-3 px-4 font-semibold">${esc(st.fullName)}</td>
                           <td class="py-3 px-4 text-xs text-slate-600">${esc(UNIT_LABELS[st.unit] || st.unit)}</td>
                           <td class="py-3 px-4 text-xs text-slate-600">${esc(st.gradeOrDept || '—')}</td>
                           <td class="py-3 px-4 text-xs font-mono tabular-nums">${esc(st.phone)}</td>
-                          <td class="py-3 px-4 font-mono tabular-nums font-bold text-teal-700">${st.points}</td>
+                          <td class="py-3 px-4 font-mono tabular-nums font-bold text-teal-800">${st.points}</td>
                           <td class="py-3 px-4">
                             <a href="${waUrl(st)}" target="_blank" rel="noopener noreferrer" class="inline-block px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold">إرسال الأداء واتساب</a>
                           </td>
@@ -230,22 +302,25 @@
           ` : ''}
 
           ${(state.reportTab === 'activity_1' || state.reportTab === 'activity_2') ? `
-            <section class="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+            <section class="luxury-card p-6 space-y-4">
               <h3 class="font-bold text-base">${state.reportTab === 'activity_1' ? 'برامج النشاط الأول' : 'برامج النشاط الثاني'}</h3>
               <form onsubmit="createActivity(event, '${state.reportTab}')" class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <input id="actTitle" required placeholder="عنوان البرنامج" class="h-10 px-3 rounded-lg border border-slate-300 text-sm" />
-                <input id="actCat" placeholder="المجال (ثقافي/رياضي)" class="h-10 px-3 rounded-lg border border-slate-300 text-sm" />
-                <input id="actDate" type="date" required value="2026-11-25" class="h-10 px-3 rounded-lg border border-slate-300 text-sm font-mono" />
-                <button type="submit" class="h-10 px-4 rounded-lg bg-teal-700 text-white text-xs font-bold">إضافة برنامج</button>
+                <input id="actTitle" required placeholder="عنوان البرنامج" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+                <input id="actCat" placeholder="المجال (ثقافي/رياضي)" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+                <input id="actDate" type="date" required value="2026-11-25" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
+                <button type="submit" class="h-10 px-4 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">إضافة برنامج</button>
               </form>
-              <div class="divide-y divide-slate-200">
+              <div class="divide-y divide-slate-200/70">
                 ${state.data.activities.filter((a) => a.unit === state.reportTab).map((a) => `
-                  <div class="py-3 flex justify-between items-center">
+                  <div class="py-3 flex justify-between items-center gap-3">
                     <div>
                       <div class="font-bold text-sm">${esc(a.title)}</div>
                       <div class="text-xs text-slate-500">${esc(a.category)} · ${esc(a.eventDate)} · ${esc(a.location)}</div>
                     </div>
-                    <span class="text-xs font-semibold text-emerald-700">معتمد</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <span class="text-xs font-semibold text-emerald-700">معتمد</span>
+                      <button onclick="deleteActivity(${a.id}, '${esc(a.title)}')" class="px-2 py-1 rounded-lg border border-slate-200 text-xs text-red-700 hover:bg-red-50 cursor-pointer">حذف</button>
+                    </div>
                   </div>
                 `).join('')}
               </div>
@@ -253,23 +328,26 @@
           ` : ''}
 
           ${state.reportTab === 'discipline' ? `
-            <section class="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+            <section class="luxury-card p-6 space-y-4">
               <h3 class="font-bold text-base">سجل الضباط والانضباط والنقاط</h3>
               ${students.length === 0 ? `<p class="text-sm text-slate-500">أضف طلاباً أولاً لتسجيل ملاحظات الانضباط.</p>` : `
                 <form onsubmit="createDiscipline(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                  <select id="disUser" required class="h-10 px-3 rounded-lg border border-slate-300 text-sm bg-white">
+                  <select id="disUser" required class="h-10 px-3 rounded-xl border border-slate-300 text-sm bg-white">
                     ${students.map((s) => `<option value="${s.id}">${esc(s.fullName)}</option>`).join('')}
                   </select>
-                  <input id="disDelta" type="number" required value="5" class="h-10 px-3 rounded-lg border border-slate-300 text-sm font-mono" placeholder="النقاط (+/-)" />
-                  <input id="disNote" required placeholder="سبب التقييم أو المخالفة" class="h-10 px-3 rounded-lg border border-slate-300 text-sm" />
-                  <button type="submit" class="h-10 px-4 rounded-lg bg-slate-900 text-white text-xs font-bold">حفظ السجل</button>
+                  <input id="disDelta" type="number" required value="5" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" placeholder="النقاط (+/-)" />
+                  <input id="disNote" required placeholder="سبب التقييم أو المخالفة" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+                  <button type="submit" class="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer">حفظ السجل</button>
                 </form>
               `}
-              <div class="divide-y divide-slate-200">
+              <div class="divide-y divide-slate-200/70">
                 ${state.data.disciplineLogs.map((l) => `
-                  <div class="py-3 flex justify-between text-sm">
+                  <div class="py-3 flex justify-between items-center gap-3 text-sm">
                     <div><span class="font-bold">${esc(l.userName)}</span> — ${esc(l.note)}</div>
-                    <span class="font-mono font-bold ${l.pointsDelta >= 0 ? 'text-emerald-700' : 'text-red-700'}">${l.pointsDelta >= 0 ? '+' + l.pointsDelta : l.pointsDelta}</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <span class="font-mono font-bold ${l.pointsDelta >= 0 ? 'text-emerald-700' : 'text-red-700'}">${l.pointsDelta >= 0 ? '+' + l.pointsDelta : l.pointsDelta}</span>
+                      <button onclick="deleteDiscipline(${l.id}, '${esc(l.userName)}')" class="px-2 py-1 rounded-lg border border-slate-200 text-xs text-red-700 hover:bg-red-50 cursor-pointer">حذف</button>
+                    </div>
                   </div>
                 `).join('')}
               </div>
@@ -281,62 +359,67 @@
 
     function renderBroadcasts() {
       const sel = state.data.broadcasts.find((b) => b.id === state.selectedBroadcastId) || state.data.broadcasts[0];
-      const canAdd = isMgmt(state.user.role) || state.user.unit === 'broadcast';
+      const canAdd = isMgmt(state.user.role) || hasPerm(state.user, 'manage_broadcasts') || state.user.unit === 'broadcast';
+      const canEditBrc = state.user.role === 'president' || state.user.role === 'vice_president' || hasPerm(state.user, 'manage_broadcasts');
       return `
         <div class="space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3 no-print">
             <div>
               <h2 class="text-xl font-bold">الإذاعة المدرسية</h2>
-              <p class="text-sm text-slate-500">جدول الإذاعات الصباحية والفقرات</p>
+              <p class="text-sm text-slate-500">جدول الإذاعات الصباحية والتعديل الكامل على الفقرات</p>
             </div>
-            ${sel ? `<button onclick="window.print()" class="px-4 py-2 rounded-lg border border-slate-300 bg-white text-xs font-bold">طباعة النص</button>` : ''}
+            ${sel ? `<button onclick="window.print()" class="px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold cursor-pointer">طباعة النص</button>` : ''}
           </div>
           ${canAdd ? `
-            <div class="bg-white border border-slate-200 rounded-xl p-5 space-y-3 no-print">
+            <div class="luxury-card p-5 space-y-3 no-print">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div>
                   <div class="text-sm font-bold">توليد إذاعة كاملة تلقائياً بالعنوان</div>
                   <div class="text-xs text-slate-500">اكتب العنوان مثل «مرض السكري» واضغط توليد ليتم إعداد الفقرات الستة وحفظها</div>
                 </div>
                 <div class="flex gap-2 flex-1 sm:max-w-md">
-                  <input id="aiTopic" placeholder="مثال: مرض السكري" class="flex-1 h-10 px-3 rounded-lg border border-slate-300 text-sm" />
-                  <button type="button" onclick="generateBroadcast()" class="h-10 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold whitespace-nowrap">توليد بالذكاء الاصطناعي</button>
+                  <input id="aiTopic" placeholder="مثال: مرض السكري" class="flex-1 h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+                  <button type="button" onclick="generateBroadcast()" class="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold whitespace-nowrap cursor-pointer">توليد بالذكاء الاصطناعي</button>
                 </div>
               </div>
               <form onsubmit="createBroadcast(event)" class="grid grid-cols-1 sm:grid-cols-5 gap-2">
-                <input id="brcTitle" required placeholder="عنوان الإذاعة" class="h-10 px-3 rounded-lg border border-slate-300 text-sm" />
-                <input id="brcDate" type="date" required value="2026-11-23" class="h-10 px-3 rounded-lg border border-slate-300 text-sm font-mono" />
-                <input id="brcTime" type="time" required value="07:15" class="h-10 px-3 rounded-lg border border-slate-300 text-sm font-mono" />
-                <input id="brcWord" placeholder="كلمة الصباح" class="h-10 px-3 rounded-lg border border-slate-300 text-sm" />
-                <button type="submit" class="h-10 px-4 rounded-lg bg-teal-700 text-white text-xs font-bold">إضافة إذاعة</button>
+                <input id="brcTitle" required placeholder="عنوان الإذاعة" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+                <input id="brcDate" type="date" required value="2026-11-23" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
+                <input id="brcTime" type="time" required value="07:15" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
+                <input id="brcWord" placeholder="كلمة الصباح" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+                <button type="submit" class="h-10 px-4 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">إضافة إذاعة</button>
               </form>
             </div>
           ` : ''}
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div class="lg:col-span-4 bg-white border border-slate-200 rounded-xl divide-y divide-slate-200 no-print">
+            <div class="lg:col-span-4 luxury-card divide-y divide-slate-200/70 overflow-hidden no-print">
               ${state.data.broadcasts.map((b) => `
-                <button onclick="selectBroadcast(${b.id})" class="w-full text-right p-4 ${sel && sel.id === b.id ? 'bg-teal-50' : 'hover:bg-slate-50'}">
+                <button onclick="selectBroadcast(${b.id})" class="w-full text-right p-4 transition-colors cursor-pointer ${sel && sel.id === b.id ? 'bg-teal-50/75' : 'hover:bg-slate-50'}">
                   <div class="font-bold text-sm">${esc(b.title)}</div>
                   <div class="text-xs text-slate-500 mt-1 font-mono">${esc(b.airDate)} · ${esc(b.airTime)} · <span class="${(BRC_STATUS[b.status] || BRC_STATUS.approved)[1]}">${(BRC_STATUS[b.status] || BRC_STATUS.approved)[0]}</span></div>
                 </button>
               `).join('')}
             </div>
-            <div class="lg:col-span-8 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+            <div class="lg:col-span-8 luxury-card p-6 space-y-4">
               ${sel ? `
-                <div class="flex justify-between items-center border-b border-slate-200 pb-3">
+                <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200/80 pb-3">
                   <div>
                     <h3 class="text-lg font-bold">${esc(sel.title)}</h3>
                     <div class="text-xs text-slate-500 font-mono">${esc(sel.airDate)} · ${esc(sel.airTime)}</div>
                   </div>
-                  ${isMgmt(state.user.role) && sel.status === 'pending_approval' ? `<button onclick="approveBroadcast(${sel.id})" class="px-3 py-1.5 rounded-lg bg-teal-700 text-white text-xs font-bold no-print">اعتماد البث</button>` : ''}
+                  <div class="flex flex-wrap items-center gap-2 no-print">
+                    ${canEditBrc ? `<button onclick="openEditBroadcast(${sel.id})" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold cursor-pointer">تعديل الفقرات</button>` : ''}
+                    ${(state.user.role === 'president' || state.user.role === 'vice_president') && sel.status === 'pending_approval' ? `<button onclick="approveBroadcast(${sel.id}, '${esc(sel.title)}')" class="px-3 py-1.5 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">اعتماد البث</button>` : ''}
+                    ${(state.user.role === 'president' || state.user.role === 'vice_president') ? `<button onclick="deleteBroadcast(${sel.id}, '${esc(sel.title)}')" class="px-3 py-1.5 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold cursor-pointer">حذف</button>` : ''}
+                  </div>
                 </div>
                 <div class="space-y-3 text-sm">
-                  <div><div class="text-xs font-bold text-teal-800">1. المقدمة</div><p>${esc(sel.segments?.intro)}</p></div>
-                  <div><div class="text-xs font-bold text-teal-800">2. القرآن الكريم</div><p>${esc(sel.segments?.quran)}</p></div>
-                  <div><div class="text-xs font-bold text-teal-800">3. الحديث الشريف</div><p>${esc(sel.segments?.hadith)}</p></div>
-                  <div><div class="text-xs font-bold text-teal-800">4. كلمة الصباح</div><p>${esc(sel.segments?.morningWord)}</p></div>
-                  <div><div class="text-xs font-bold text-teal-800">5. هل تعلم</div><p>${esc(sel.segments?.didYouKnow)}</p></div>
-                  <div><div class="text-xs font-bold text-teal-800">6. الخاتمة</div><p>${esc(sel.segments?.closing)}</p></div>
+                  <div><div class="text-xs font-bold text-teal-800">1. المقدمة</div><p class="whitespace-pre-line">${esc(sel.segments?.intro)}</p></div>
+                  <div><div class="text-xs font-bold text-teal-800">2. القرآن الكريم</div><p class="whitespace-pre-line">${esc(sel.segments?.quran)}</p></div>
+                  <div><div class="text-xs font-bold text-teal-800">3. الحديث الشريف</div><p class="whitespace-pre-line">${esc(sel.segments?.hadith)}</p></div>
+                  <div><div class="text-xs font-bold text-teal-800">4. كلمة الصباح</div><p class="whitespace-pre-line">${esc(sel.segments?.morningWord)}</p></div>
+                  <div><div class="text-xs font-bold text-teal-800">5. هل تعلم</div><p class="whitespace-pre-line">${esc(sel.segments?.didYouKnow)}</p></div>
+                  <div><div class="text-xs font-bold text-teal-800">6. الخاتمة</div><p class="whitespace-pre-line">${esc(sel.segments?.closing)}</p></div>
                 </div>
               ` : `<p class="text-sm text-slate-500">لا توجد إذاعات</p>`}
             </div>
@@ -348,23 +431,24 @@
     function renderDirectory() {
       const isTop = state.user.role === 'president' || state.user.role === 'vice_president';
       const isPres = state.user.role === 'president';
+      const canManageDir = isTop || hasPerm(state.user, 'manage_directory');
       const genCode = Math.floor(100000 + Math.random() * 900000);
       return `
         <div class="space-y-6">
           <div>
             <h2 class="text-xl font-bold">الأفراد والصلاحيات</h2>
-            <p class="text-sm text-slate-500">إضافة الطلاب (الجوال إجباري) — كل من خارج الإدارة يُسجَّل كفرد، ورتبة رئيس النشاط محمية</p>
+            <p class="text-sm text-slate-500">تعديل شامل لبيانات الأفراد، رموز الدخول، النقاط، الرتب، والصلاحيات التفصيلية لكل عضو</p>
           </div>
-          <form onsubmit="createUser(event)" class="bg-white border border-slate-200 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-            <input id="uName" required placeholder="الاسم الكامل" class="h-10 px-3 rounded-lg border border-slate-300 text-sm" />
-            <input id="uPhone" type="tel" required placeholder="الجوال (إجباري 05x)" class="h-10 px-3 rounded-lg border border-slate-300 text-sm font-mono" />
-            <input id="uCode" required value="${genCode}" placeholder="رمز الدخول" class="h-10 px-3 rounded-lg border border-slate-300 text-sm font-mono" />
-            <select id="uRole" ${!isTop ? 'disabled' : ''} class="h-10 px-3 rounded-lg border border-slate-300 bg-white text-sm">
+          <form onsubmit="createUser(event)" class="luxury-card p-5 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <input id="uName" required placeholder="الاسم الكامل" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+            <input id="uPhone" type="tel" required placeholder="الجوال (إجباري 05x)" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
+            <input id="uCode" required value="${genCode}" placeholder="رمز الدخول" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
+            <select id="uRole" ${!isTop ? 'disabled' : ''} class="h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm">
               <option value="member">فرد (طالب)</option>
               ${isTop ? `<option value="officer">ضابط نشاط (إدارة)</option><option value="vice_president">نائب الرئيس (إدارة)</option>` : ''}
               ${isPres ? `<option value="president">رئيس النشاط (إدارة)</option>` : ''}
             </select>
-            <select id="uUnit" class="h-10 px-3 rounded-lg border border-slate-300 bg-white text-sm">
+            <select id="uUnit" class="h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm">
               <option value="activity_1">النشاط الأول</option>
               <option value="activity_2">النشاط الثاني</option>
               <option value="broadcast">الإذاعة المدرسية</option>
@@ -372,38 +456,48 @@
               ${isTop ? `<option value="officers">لجنة الضباط</option>` : ''}
             </select>
             <div class="flex gap-2">
-              <input id="uGrade" placeholder="الصف (ثاني متوسط)" class="flex-1 min-w-0 h-10 px-3 rounded-lg border border-slate-300 text-sm" />
-              <button type="submit" class="h-10 px-4 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold shrink-0">إضافة</button>
+              <input id="uGrade" placeholder="الصف (ثاني متوسط)" class="flex-1 min-w-0 h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+              <button type="submit" class="h-10 px-4 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold shrink-0 cursor-pointer">إضافة</button>
             </div>
           </form>
 
-          <section class="bg-white border border-slate-200 rounded-xl overflow-x-auto">
+          <section class="luxury-card overflow-x-auto">
             <table class="w-full text-right text-sm">
-              <thead class="bg-slate-50 text-xs text-slate-500 border-b border-slate-200">
-                <tr><th class="py-3 px-4">الاسم</th><th class="py-3 px-4">الصفة</th><th class="py-3 px-4">القسم</th><th class="py-3 px-4">الجوال</th><th class="py-3 px-4">رمز الدخول</th><th class="py-3 px-4">النقاط</th><th class="py-3 px-4">واتساب</th>${isTop ? '<th class="py-3 px-4">إدارة</th>' : ''}</tr>
+              <thead class="bg-slate-50/80 text-xs text-slate-500 border-b border-slate-200/80">
+                <tr><th class="py-3 px-4">الاسم</th><th class="py-3 px-4">الصفة</th><th class="py-3 px-4">القسم</th><th class="py-3 px-4">الجوال</th><th class="py-3 px-4">رمز الدخول</th><th class="py-3 px-4">النقاط</th><th class="py-3 px-4">واتساب</th>${canManageDir ? '<th class="py-3 px-4">تعديل وإدارة</th>' : ''}</tr>
               </thead>
-              <tbody class="divide-y divide-slate-200">
+              <tbody class="divide-y divide-slate-200/70">
                 ${state.data.users.map((u) => {
                   const lockedPres = u.role === 'president' || u.username === 'president';
+                  const rowEditable = lockedPres ? (u.id === state.user.id) : (isTop || (canManageDir && u.role === 'member'));
+                  const permCnt = effectivePerms(u).length;
                   return `
-                    <tr>
-                      <td class="py-3 px-4"><div class="font-semibold">${esc(u.fullName)}</div><div class="text-xs text-slate-500">${esc(u.gradeOrDept || u.memberCode)}</div></td>
+                    <tr class="hover:bg-slate-50/70">
+                      <td class="py-3 px-4">
+                        <div class="font-semibold">${esc(u.fullName)}${!u.isActive ? ' <span class="text-xs text-red-700">· موقوف</span>' : ''}</div>
+                        <div class="text-xs text-slate-500">${esc(u.gradeOrDept || u.memberCode)}${permCnt > 0 ? ` · <span class="text-teal-800">${permCnt} صلاحيات</span>` : ''}</div>
+                      </td>
                       <td class="py-3 px-4">
                         ${(isTop && u.id !== state.user.id && !lockedPres) ? `
-                          <select onchange="changeUserRole(${u.id}, this.value)" class="h-8 px-2 rounded border border-slate-200 text-xs bg-white">
+                          <select onchange="changeUserRole(${u.id}, '${esc(u.fullName)}', this.value)" class="h-8 px-2 rounded-lg border border-slate-200 text-xs bg-white">
                             <option value="member" ${u.role === 'member' ? 'selected' : ''}>فرد (طالب)</option>
                             <option value="officer" ${u.role === 'officer' ? 'selected' : ''}>ضابط نشاط</option>
                             <option value="vice_president" ${u.role === 'vice_president' ? 'selected' : ''}>نائب الرئيس</option>
                             ${isPres ? `<option value="president" ${u.role === 'president' ? 'selected' : ''}>رئيس النشاط</option>` : ''}
                           </select>
-                        ` : `<span class="text-xs font-semibold">${esc(ROLE_LABELS[u.role])}${lockedPres ? ' · <span class="text-teal-700">رتبة ثابتة</span>' : ''}</span>`}
+                        ` : `<span class="text-xs font-semibold">${esc(ROLE_LABELS[u.role])}${lockedPres ? ' · <span class="text-teal-800">رتبة ثابتة</span>' : ''}</span>`}
                       </td>
                       <td class="py-3 px-4 text-xs text-slate-600">${esc(UNIT_LABELS[u.unit] || u.unit)}</td>
                       <td class="py-3 px-4 text-xs font-mono tabular-nums">${esc(u.phone || '—')}</td>
                       <td class="py-3 px-4 text-xs font-mono tabular-nums font-bold">${esc(u.loginCode || '—')}</td>
-                      <td class="py-3 px-4 font-mono tabular-nums font-bold text-teal-700">${u.points}</td>
-                      <td class="py-3 px-4">${u.phone ? `<a href="${waUrl(u)}" target="_blank" rel="noopener noreferrer" class="inline-block px-2.5 py-1 rounded bg-emerald-600 text-white text-xs font-semibold">إرسال الأداء</a>` : '—'}</td>
-                      ${isTop ? `<td class="py-3 px-4">${(!lockedPres && u.id !== state.user.id) ? `<button onclick="toggleActive(${u.id}, ${!u.isActive})" class="px-2 py-1 rounded border text-xs">${u.isActive ? 'إيقاف' : 'تفعيل'}</button>${isPres ? ` <button onclick="deleteUser(${u.id})" class="px-2 py-1 rounded border text-xs text-red-700">حذف</button>` : ''}` : '—'}</td>` : ''}
+                      <td class="py-3 px-4 font-mono tabular-nums font-bold text-teal-800">${u.points}</td>
+                      <td class="py-3 px-4">${u.phone ? `<a href="${waUrl(u)}" target="_blank" rel="noopener noreferrer" class="inline-block px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold">إرسال الأداء</a>` : '—'}</td>
+                      ${canManageDir ? `<td class="py-3 px-4 whitespace-nowrap">
+                        <div class="inline-flex items-center gap-1.5">
+                          ${rowEditable ? `<button onclick="openEditUser(${u.id})" class="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold cursor-pointer">تعديل شامل</button>` : ''}
+                          ${(isTop && !lockedPres && u.id !== state.user.id) ? `<button onclick="toggleActive(${u.id}, '${esc(u.fullName)}', ${!u.isActive})" class="px-2 py-1 rounded-lg border border-slate-200 text-xs cursor-pointer">${u.isActive ? 'إيقاف' : 'تفعيل'}</button>${isPres ? `<button onclick="deleteUser(${u.id}, '${esc(u.fullName)}')" class="px-2 py-1 rounded-lg border border-red-200 text-xs text-red-700 hover:bg-red-50 cursor-pointer">حذف</button>` : ''}` : (!rowEditable ? '—' : '')}
+                        </div>
+                      </td>` : ''}
                     </tr>
                   `;
                 }).join('')}
@@ -422,15 +516,15 @@
               <h2 class="text-xl font-bold">تقديم طلاب النشاط</h2>
               <p class="text-sm text-slate-500">قبول الإنجازات مع تحديد النقاط المضافة، ومتابعة الشكاوى والاقتراحات</p>
             </div>
-            <div class="flex gap-1 p-1 bg-slate-200/70 rounded-lg text-xs font-semibold">
-              <button onclick="setSubTab('achievements')" class="px-3 py-1.5 rounded-md ${state.subTab === 'achievements' ? 'bg-white text-slate-900' : 'text-slate-600'}">الإنجازات (${state.data.submissions.length})</button>
-              <button onclick="setSubTab('complaints')" class="px-3 py-1.5 rounded-md ${state.subTab === 'complaints' ? 'bg-white text-slate-900' : 'text-slate-600'}">الشكاوى (${state.data.complaints.length})</button>
-              <button onclick="setSubTab('suggestions')" class="px-3 py-1.5 rounded-md ${state.subTab === 'suggestions' ? 'bg-white text-slate-900' : 'text-slate-600'}">الاقتراحات (${state.data.suggestions.length})</button>
+            <div class="flex gap-1 p-1 bg-slate-200/75 rounded-xl text-xs font-semibold">
+              <button onclick="setSubTab('achievements')" class="px-3 py-1.5 rounded-lg ${state.subTab === 'achievements' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">الإنجازات (${state.data.submissions.length})</button>
+              <button onclick="setSubTab('complaints')" class="px-3 py-1.5 rounded-lg ${state.subTab === 'complaints' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">الشكاوى (${state.data.complaints.length})</button>
+              <button onclick="setSubTab('suggestions')" class="px-3 py-1.5 rounded-lg ${state.subTab === 'suggestions' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">الاقتراحات (${state.data.suggestions.length})</button>
             </div>
           </div>
 
           ${state.subTab === 'achievements' ? `
-            <div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-200">
+            <div class="luxury-card divide-y divide-slate-200/70">
               ${state.data.submissions.length === 0 ? `<div class="p-10 text-center text-sm text-slate-500">لا توجد إنجازات مرفوعة بعد</div>` : state.data.submissions.map((s) => `
                 <div class="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div>
@@ -443,8 +537,8 @@
                     <div class="flex flex-wrap items-center gap-2">
                       <input id="pts-${s.id}" type="number" min="0" value="10" class="w-20 h-9 px-2 rounded-lg border border-slate-300 text-xs font-mono" />
                       <input id="note-${s.id}" placeholder="ملاحظة (اختياري)" class="h-9 px-3 rounded-lg border border-slate-300 text-xs" />
-                      <button onclick="reviewSub(${s.id}, 'approved')" class="px-3 py-2 rounded-lg bg-teal-700 text-white text-xs font-bold">تم (إضافة النقاط)</button>
-                      <button onclick="reviewSub(${s.id}, 'rejected')" class="px-3 py-2 rounded-lg border border-red-200 text-red-700 text-xs font-bold">رفض</button>
+                      <button onclick="reviewSub(${s.id}, 'approved', '${esc(s.studentName)}', '${esc(s.title)}')" class="px-3 py-2 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">تم (إضافة النقاط)</button>
+                      <button onclick="reviewSub(${s.id}, 'rejected', '${esc(s.studentName)}', '${esc(s.title)}')" class="px-3 py-2 rounded-xl border border-red-200 text-red-700 text-xs font-bold cursor-pointer">رفض</button>
                     </div>
                   ` : ''}
                 </div>
@@ -453,7 +547,7 @@
           ` : ''}
 
           ${state.subTab === 'complaints' ? `
-            <div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-200">
+            <div class="luxury-card divide-y divide-slate-200/70">
               ${state.data.complaints.length === 0 ? `<div class="p-10 text-center text-sm text-slate-500">لا توجد شكاوى</div>` : state.data.complaints.map((c) => `
                 <div class="p-5 flex flex-col lg:flex-row justify-between gap-4">
                   <div>
@@ -463,7 +557,7 @@
                   </div>
                   <div class="flex items-center gap-2">
                     <input id="cmp-${c.id}" value="${esc(c.adminResponse || '')}" placeholder="رد الإدارة" class="h-9 px-3 rounded-lg border border-slate-300 text-xs" />
-                    <button onclick="replyComplaint(${c.id})" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold">تمت المعالجة</button>
+                    <button onclick="replyComplaint(${c.id}, '${esc(c.targetStudentName)}')" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold cursor-pointer">تمت المعالجة</button>
                   </div>
                 </div>
               `).join('')}
@@ -471,7 +565,7 @@
           ` : ''}
 
           ${state.subTab === 'suggestions' ? `
-            <div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-200">
+            <div class="luxury-card divide-y divide-slate-200/70">
               ${state.data.suggestions.length === 0 ? `<div class="p-10 text-center text-sm text-slate-500">لا توجد اقتراحات</div>` : state.data.suggestions.map((g) => `
                 <div class="p-5 flex flex-col lg:flex-row justify-between gap-4">
                   <div>
@@ -481,7 +575,7 @@
                   </div>
                   <div class="flex items-center gap-2">
                     <input id="sug-${g.id}" value="${esc(g.adminResponse || '')}" placeholder="رد الإدارة" class="h-9 px-3 rounded-lg border border-slate-300 text-xs" />
-                    <button onclick="replySuggestion(${g.id}, 'adopted')" class="px-3 py-2 rounded-lg bg-teal-700 text-white text-xs font-bold">اعتماد الاقتراح</button>
+                    <button onclick="replySuggestion(${g.id}, 'adopted', '${esc(g.title)}')" class="px-3 py-2 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">اعتماد الاقتراح</button>
                   </div>
                 </div>
               `).join('')}
@@ -501,11 +595,11 @@
           <div class="space-y-6">
             <div><h2 class="text-xl font-bold">إحصائياتي — أهلاً يا ${esc(state.user.fullName)}</h2><p class="text-sm text-slate-500">${esc(state.user.gradeOrDept || '')} · ${esc(UNIT_LABELS[state.user.unit] || '')}</p></div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="bg-white border border-slate-200 rounded-xl p-5"><div class="text-xs text-slate-500">مجموع نقاطي</div><div class="text-3xl font-bold text-teal-700 font-mono tabular-nums mt-2">${state.user.points}</div></div>
-              <div class="bg-white border border-slate-200 rounded-xl p-5"><div class="text-xs text-slate-500">إنجازات مقبولة</div><div class="text-3xl font-bold text-emerald-700 font-mono tabular-nums mt-2">${approvedCnt}</div></div>
-              <div class="bg-white border border-slate-200 rounded-xl p-5"><div class="text-xs text-slate-500">بانتظار الإدارة</div><div class="text-3xl font-bold text-amber-700 font-mono tabular-nums mt-2">${pendingCnt}</div></div>
+              <div class="luxury-card luxury-card-interactive p-5"><div class="text-xs text-slate-500">مجموع نقاطي</div><div class="text-3xl font-bold text-teal-800 font-mono tabular-nums mt-2">${state.user.points}</div></div>
+              <div class="luxury-card luxury-card-interactive p-5"><div class="text-xs text-slate-500">إنجازات مقبولة</div><div class="text-3xl font-bold text-emerald-700 font-mono tabular-nums mt-2">${approvedCnt}</div></div>
+              <div class="luxury-card luxury-card-interactive p-5"><div class="text-xs text-slate-500">بانتظار الإدارة</div><div class="text-3xl font-bold text-amber-700 font-mono tabular-nums mt-2">${pendingCnt}</div></div>
             </div>
-            <section class="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
+            <section class="luxury-card p-6 space-y-3">
               <h3 class="font-bold">تنبيهات الإدارة</h3>
               ${state.data.directives.map((d) => `<div class="border-t border-slate-100 pt-2"><div class="font-semibold text-sm">${esc(d.title)}</div><p class="text-sm text-slate-600">${esc(d.content)}</p></div>`).join('')}
             </section>
@@ -517,12 +611,12 @@
         return `
           <div class="space-y-6">
             <div><h2 class="text-xl font-bold">تقديم إنجاز</h2><p class="text-sm text-slate-500">اكتب الإنجاز الذي قمت به ليراجعه الرئيس أو النائب ويمنحك النقاط</p></div>
-            <form onsubmit="submitAchievement(event)" class="bg-white border border-slate-200 rounded-xl p-6 space-y-3 max-w-2xl">
-              <input id="achTitle" required placeholder="ماذا أنجزت؟ (مثال: المشاركة في تنظيم الطابور)" class="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm" />
-              <textarea id="achDetails" rows="3" placeholder="تفاصيل الإنجاز (اختياري)" class="w-full p-3 rounded-lg border border-slate-300 text-sm"></textarea>
-              <button type="submit" class="px-5 py-2.5 rounded-lg bg-teal-700 text-white text-xs font-bold">رفع الإنجاز للإدارة</button>
+            <form onsubmit="submitAchievement(event)" class="luxury-card p-6 space-y-3 max-w-2xl">
+              <input id="achTitle" required placeholder="ماذا أنجزت؟ (مثال: المشاركة في تنظيم الطابور)" class="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm" />
+              <textarea id="achDetails" rows="3" placeholder="تفاصيل الإنجاز (اختياري)" class="w-full p-3 rounded-xl border border-slate-300 text-sm"></textarea>
+              <button type="submit" class="px-5 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">رفع الإنجاز للإدارة</button>
             </form>
-            <div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-200">
+            <div class="luxury-card divide-y divide-slate-200/70">
               ${mySubs.length === 0 ? `<div class="p-8 text-center text-sm text-slate-500">لم ترفع إنجازات بعد</div>` : mySubs.map((s) => `
                 <div class="p-4 flex justify-between items-center">
                   <div><div class="font-bold text-sm">${esc(s.title)}</div>${s.adminNote ? `<div class="text-xs text-slate-500 mt-0.5">رد الإدارة: ${esc(s.adminNote)}</div>` : ''}</div>
@@ -538,16 +632,16 @@
         return `
           <div class="space-y-6">
             <div><h2 class="text-xl font-bold">تقديم شكوى</h2><p class="text-sm text-slate-500">تصل الشكوى للإدارة فقط بسرية تامة</p></div>
-            <form onsubmit="submitComplaint(event)" class="bg-white border border-slate-200 rounded-xl p-6 space-y-3 max-w-2xl">
-              <input id="cmpTarget" required placeholder="اسم الطالب المشكو عليه" class="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm" />
-              <input id="cmpReason" required placeholder="سبب الشكوى" class="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm" />
-              <textarea id="cmpDetails" rows="3" placeholder="تفاصيل إضافية" class="w-full p-3 rounded-lg border border-slate-300 text-sm"></textarea>
-              <button type="submit" class="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-bold">إرسال الشكوى للإدارة</button>
+            <form onsubmit="submitComplaint(event)" class="luxury-card p-6 space-y-3 max-w-2xl">
+              <input id="cmpTarget" required placeholder="اسم الطالب المشكو عليه" class="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm" />
+              <input id="cmpReason" required placeholder="سبب الشكوى" class="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm" />
+              <textarea id="cmpDetails" rows="3" placeholder="تفاصيل إضافية" class="w-full p-3 rounded-xl border border-slate-300 text-sm"></textarea>
+              <button type="submit" class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer">إرسال الشكوى للإدارة</button>
             </form>
-            <div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-200">
+            <div class="luxury-card divide-y divide-slate-200/70">
               ${state.data.complaints.map((c) => `
                 <div class="p-4 flex justify-between items-center">
-                  <div><div class="font-bold text-sm">على: ${esc(c.targetStudentName)} — ${esc(c.reason)}</div>${c.adminResponse ? `<div class="text-xs text-teal-700 mt-0.5">رد الإدارة: ${esc(c.adminResponse)}</div>` : ''}</div>
+                  <div><div class="font-bold text-sm">على: ${esc(c.targetStudentName)} — ${esc(c.reason)}</div>${c.adminResponse ? `<div class="text-xs text-teal-800 mt-0.5">رد الإدارة: ${esc(c.adminResponse)}</div>` : ''}</div>
                   <span class="text-xs font-bold ${(CMP_STATUS[c.status] || CMP_STATUS.new)[1]}">${(CMP_STATUS[c.status] || CMP_STATUS.new)[0]}</span>
                 </div>
               `).join('')}
@@ -559,15 +653,15 @@
       return `
         <div class="space-y-6">
           <div><h2 class="text-xl font-bold">الاقتراحات</h2><p class="text-sm text-slate-500">شاركنا أفكارك واقتراحاتك لتطوير الأنشطة</p></div>
-          <form onsubmit="submitSuggestion(event)" class="bg-white border border-slate-200 rounded-xl p-6 space-y-3 max-w-2xl">
-            <input id="sugTitle" required placeholder="فكرة الاقتراح" class="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm" />
-            <textarea id="sugDetails" rows="3" placeholder="شرح بسيط للفكرة" class="w-full p-3 rounded-lg border border-slate-300 text-sm"></textarea>
-            <button type="submit" class="px-5 py-2.5 rounded-lg bg-teal-700 text-white text-xs font-bold">إرسال الاقتراح</button>
+          <form onsubmit="submitSuggestion(event)" class="luxury-card p-6 space-y-3 max-w-2xl">
+            <input id="sugTitle" required placeholder="فكرة الاقتراح" class="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm" />
+            <textarea id="sugDetails" rows="3" placeholder="شرح بسيط للفكرة" class="w-full p-3 rounded-xl border border-slate-300 text-sm"></textarea>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">إرسال الاقتراح</button>
           </form>
-          <div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-200">
+          <div class="luxury-card divide-y divide-slate-200/70">
             ${state.data.suggestions.map((g) => `
               <div class="p-4 flex justify-between items-center">
-                <div><div class="font-bold text-sm">${esc(g.title)}</div>${g.adminResponse ? `<div class="text-xs text-teal-700 mt-0.5">رد الإدارة: ${esc(g.adminResponse)}</div>` : ''}</div>
+                <div><div class="font-bold text-sm">${esc(g.title)}</div>${g.adminResponse ? `<div class="text-xs text-teal-800 mt-0.5">رد الإدارة: ${esc(g.adminResponse)}</div>` : ''}</div>
                 <span class="text-xs font-bold ${(SUG_STATUS[g.status] || SUG_STATUS.new)[1]}">${(SUG_STATUS[g.status] || SUG_STATUS.new)[0]}</span>
               </div>
             `).join('')}
@@ -576,10 +670,155 @@
       `;
     }
 
+    function renderModalRoot() {
+      const mroot = document.getElementById('modal-root');
+      const modals = [];
+
+      if (state.editingUserId) {
+        const u = state.data.users.find((x) => x.id === state.editingUserId);
+        if (u) {
+          const isPresTarget = u.role === 'president' || u.username === 'president';
+          const isTop = state.user && (state.user.role === 'president' || state.user.role === 'vice_president');
+          const isPresActor = state.user && state.user.role === 'president';
+          const perms = effectivePerms(u);
+          modals.push(`
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 backdrop-blur-xs p-4 overflow-y-auto animate-backdrop-enter" onclick="closeEditUser()">
+              <div onclick="event.stopPropagation()" class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-6 space-y-4 my-8 shadow-2xl animate-modal-enter">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 class="text-lg font-bold">تعديل شامل: ${esc(u.fullName)}</h3>
+                    <p class="text-xs text-slate-500">${esc(u.memberCode)} · ${esc(ROLE_LABELS[u.role])}</p>
+                  </div>
+                  <button onclick="closeEditUser()" class="px-2.5 py-1 rounded-lg text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">إغلاق</button>
+                </div>
+                ${isPresTarget ? `<div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-medium text-amber-900">رتبة رئيس النشاط وصلاحياته الكاملة محمية وثابتة؛ يمكنك تعديل الاسم والجوال ورمز الدخول والنقاط.</div>` : ''}
+                <form onsubmit="saveUserEdits(event, ${u.id})" class="space-y-3.5">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">الاسم الكامل</label><input id="edUName" required value="${esc(u.fullName)}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">رقم الجوال</label><input id="edUPhone" type="tel" required value="${esc(u.phone)}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" /></div>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">رمز الدخول</label><input id="edUCode" value="${esc(u.loginCode || '')}" placeholder="اتركه كما هو أو عدله" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">الصف الدراسي</label><input id="edUGrade" value="${esc(u.gradeOrDept || '')}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">رصيد النقاط</label><input id="edUPoints" type="number" min="0" required value="${u.points}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" /></div>
+                  </div>
+                  ${(!isPresTarget && isTop) ? `
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div><label class="block text-xs font-semibold text-slate-700 mb-1">الصفة الإدارية</label>
+                        <select id="edURole" class="w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm">
+                          <option value="member" ${u.role === 'member' ? 'selected' : ''}>فرد (طالب)</option>
+                          <option value="officer" ${u.role === 'officer' ? 'selected' : ''}>ضابط نشاط</option>
+                          <option value="vice_president" ${u.role === 'vice_president' ? 'selected' : ''}>نائب الرئيس</option>
+                          ${isPresActor ? `<option value="president" ${u.role === 'president' ? 'selected' : ''}>رئيس النشاط</option>` : ''}
+                        </select>
+                      </div>
+                      <div><label class="block text-xs font-semibold text-slate-700 mb-1">القسم</label>
+                        <select id="edUUnit" class="w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm">
+                          <option value="activity_1" ${u.unit === 'activity_1' ? 'selected' : ''}>النشاط الأول</option>
+                          <option value="activity_2" ${u.unit === 'activity_2' ? 'selected' : ''}>النشاط الثاني</option>
+                          <option value="broadcast" ${u.unit === 'broadcast' ? 'selected' : ''}>الإذاعة المدرسية</option>
+                          <option value="general" ${u.unit === 'general' ? 'selected' : ''}>النشاط العام</option>
+                          <option value="officers" ${u.unit === 'officers' ? 'selected' : ''}>لجنة الضباط</option>
+                          <option value="command" ${u.unit === 'command' ? 'selected' : ''}>القيادة العليا</option>
+                        </select>
+                      </div>
+                      <div><label class="block text-xs font-semibold text-slate-700 mb-1">حالة الحساب</label>
+                        <select id="edUActive" class="w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm">
+                          <option value="1" ${u.isActive ? 'selected' : ''}>نشط ومفعل</option>
+                          <option value="0" ${!u.isActive ? 'selected' : ''}>موقوف</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="pt-2 border-t border-slate-100 space-y-2">
+                      <div class="text-xs font-bold text-slate-800">التحكم الكامل بالصلاحيات التفصيلية</div>
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        ${ALL_PERMS.map((p) => `
+                          <label class="flex items-start gap-2 p-2.5 rounded-xl border border-slate-200 text-xs cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" class="edPermCheck mt-0.5 accent-teal-800" value="${p.key}" ${perms.includes(p.key) ? 'checked' : ''} />
+                            <div><div class="font-semibold">${esc(p.label)}</div><div class="text-[11px] text-slate-500">${esc(p.desc)}</div></div>
+                          </label>
+                        `).join('')}
+                      </div>
+                    </div>
+                  ` : ''}
+                  <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeEditUser()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold cursor-pointer">إلغاء</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">حفظ كافة التعديلات</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          `);
+        }
+      }
+
+      if (state.editingBroadcastId) {
+        const b = state.data.broadcasts.find((x) => x.id === state.editingBroadcastId);
+        if (b) {
+          modals.push(`
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 backdrop-blur-xs p-4 overflow-y-auto animate-backdrop-enter" onclick="closeEditBroadcast()">
+              <div onclick="event.stopPropagation()" class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-6 space-y-4 my-8 shadow-2xl animate-modal-enter">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h3 class="text-lg font-bold">تعديل نص وبيانات الإذاعة</h3>
+                  <button onclick="closeEditBroadcast()" class="px-2.5 py-1 rounded-lg text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">إغلاق</button>
+                </div>
+                <form onsubmit="saveBroadcastEdits(event, ${b.id})" class="space-y-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">العنوان</label><input id="edBTitle" required value="${esc(b.title)}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">الموضوع</label><input id="edBTheme" required value="${esc(b.theme)}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">التاريخ</label><input id="edBDate" type="date" required value="${esc(b.airDate)}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">الوقت</label><input id="edBTime" type="time" required value="${esc(b.airTime)}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">المذيعون</label><input id="edBPres" required value="${esc(b.presenters)}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">المقدمة</label><textarea id="edBIntro" rows="2" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(b.segments?.intro)}</textarea></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">القرآن الكريم</label><textarea id="edBQuran" rows="2" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(b.segments?.quran)}</textarea></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">الحديث الشريف</label><textarea id="edBHadith" rows="2" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(b.segments?.hadith)}</textarea></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">كلمة الصباح</label><textarea id="edBWord" rows="2" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(b.segments?.morningWord)}</textarea></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">هل تعلم</label><textarea id="edBDyk" rows="2" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(b.segments?.didYouKnow)}</textarea></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">الخاتمة</label><textarea id="edBClose" rows="2" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(b.segments?.closing)}</textarea></div>
+                  </div>
+                  <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeEditBroadcast()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold cursor-pointer">إلغاء</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">حفظ التعديلات</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          `);
+        }
+      }
+
+      if (state.confirmOpts) {
+        const c = state.confirmOpts;
+        const toneBtn = c.tone === 'danger' ? 'bg-red-700 hover:bg-red-800' : (c.tone === 'amber' ? 'bg-amber-700 hover:bg-amber-800' : 'bg-teal-800 hover:bg-teal-900');
+        modals.push(`
+          <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/55 backdrop-blur-xs animate-backdrop-enter" onclick="resolveConfirm(false)">
+            <div onclick="event.stopPropagation()" role="alertdialog" aria-modal="true" class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-modal-enter">
+              <div class="p-6 space-y-3">
+                <h3 class="text-base font-bold text-slate-900">${esc(c.title)}</h3>
+                <p class="text-sm text-slate-600 leading-relaxed">${esc(c.message)}</p>
+                ${c.detail ? `<div class="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-700">${esc(c.detail)}</div>` : ''}
+              </div>
+              <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
+                <button type="button" onclick="resolveConfirm(false)" class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 cursor-pointer">${esc(c.cancelLabel || 'إلغاء وتراجع')}</button>
+                <button type="button" onclick="resolveConfirm(true)" class="px-5 py-2 rounded-xl text-xs font-semibold text-white cursor-pointer ${toneBtn}">${esc(c.confirmLabel || 'نعم، تأكيد')}</button>
+              </div>
+            </div>
+          </div>
+        `);
+      }
+
+      mroot.innerHTML = modals.join('');
+    }
+
     function render() {
       const root = document.getElementById('app');
       if (!state.user) {
         root.innerHTML = renderLogin();
+        renderModalRoot();
         return;
       }
       const nav = navItemsFor(state.user);
@@ -592,41 +831,42 @@
       else body = renderStudentPortal();
 
       root.innerHTML = `
-        <div class="min-h-screen flex">
-          <aside class="hidden lg:flex w-64 shrink-0 bg-slate-950 text-white flex-col no-print">
-            <div class="p-5 border-b border-slate-800">
-              <div class="text-xs text-teal-400 font-bold">منظومة النشاط الطلابي</div>
+        <div class="min-h-screen flex bg-[#f5f7fa]">
+          <aside class="hidden lg:flex w-64 shrink-0 bg-[#0b1618] text-white flex-col border-l border-white/10 no-print">
+            <div class="p-5 border-b border-white/10">
+              <div class="text-xs text-amber-200/80 font-bold">منظومة النشاط الطلابي</div>
               <div class="font-bold text-sm mt-1">${esc(state.user.fullName)}</div>
               <div class="text-xs text-slate-400">${esc(ROLE_LABELS[state.user.role])}</div>
             </div>
-            <nav class="flex-1 p-3 space-y-1">
+            <nav class="flex-1 p-3 space-y-1.5">
               ${nav.map((n) => `
-                <button onclick="setTab('${n.id}')" class="w-full text-right px-3 py-2.5 rounded-lg text-sm font-semibold ${state.tab === n.id ? 'bg-teal-700 text-white' : 'text-slate-300 hover:bg-slate-900'}">${esc(n.label)}</button>
+                <button onclick="setTab('${n.id}')" class="w-full text-right px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${state.tab === n.id ? 'bg-gradient-to-l from-teal-700 to-teal-800 text-white shadow-sm' : 'text-slate-300 hover:bg-white/[0.06]'}">${esc(n.label)}</button>
               `).join('')}
             </nav>
-            <div class="p-4 border-t border-slate-800">
-              <button onclick="logout()" class="w-full py-2 rounded-lg border border-slate-700 text-xs font-bold text-slate-300 hover:bg-slate-900">تسجيل الخروج</button>
+            <div class="p-4 border-t border-white/10">
+              <button onclick="logout()" class="w-full py-2.5 rounded-xl border border-white/15 bg-white/[0.03] hover:bg-red-950/50 text-xs font-bold text-slate-200 cursor-pointer transition-colors">تسجيل الخروج</button>
             </div>
           </aside>
           <div class="flex-1 min-w-0 flex flex-col">
-            <header class="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-2 no-print">
+            <header class="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 flex items-center justify-between gap-2 no-print">
               <div class="flex lg:hidden gap-1 overflow-x-auto">
-                ${nav.map((n) => `<button onclick="setTab('${n.id}')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${state.tab === n.id ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-700'}">${esc(n.label)}</button>`).join('')}
+                ${nav.map((n) => `<button onclick="setTab('${n.id}')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${state.tab === n.id ? 'bg-teal-800 text-white' : 'bg-slate-100 text-slate-700'}">${esc(n.label)}</button>`).join('')}
               </div>
-              <div class="hidden lg:block text-sm font-bold text-slate-700">${esc((nav.find((n) => n.id === state.tab) || {}).label || '')}</div>
+              <div class="hidden lg:block text-sm font-bold text-slate-800">${esc((nav.find((n) => n.id === state.tab) || {}).label || '')}</div>
               <div class="flex items-center gap-2 shrink-0">
-                <button onclick="refreshWorkspace()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold">تحديث</button>
-                <button onclick="logout()" class="lg:hidden px-3 py-1.5 rounded-lg border border-red-200 text-red-700 text-xs font-semibold">خروج</button>
+                <button onclick="refreshWorkspace()" class="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold cursor-pointer">تحديث</button>
+                <button onclick="logout()" class="lg:hidden px-3 py-1.5 rounded-xl border border-red-200 text-xs font-bold text-red-700 cursor-pointer">خروج</button>
               </div>
             </header>
-            <main class="flex-1 p-4 sm:p-6 max-w-6xl w-full mx-auto space-y-4">
-              ${state.error ? `<div class="p-3 rounded-lg bg-red-50 border border-red-200 text-xs font-bold text-red-700">${esc(state.error)}</div>` : ''}
-              ${state.okMsg ? `<div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700">${esc(state.okMsg)}</div>` : ''}
-              ${body}
+            <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-4">
+              ${state.error ? `<div class="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-red-700">${esc(state.error)}</div>` : ''}
+              ${state.okMsg ? `<div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700">${esc(state.okMsg)}</div>` : ''}
+              <div class="animate-section-enter">${body}</div>
             </main>
           </div>
         </div>
       `;
+      renderModalRoot();
     }
 
     window.setPortal = (p) => { state.portalType = p; state.error = ''; render(); };
@@ -634,7 +874,27 @@
     window.setReportTab = (t) => { state.reportTab = t; render(); };
     window.setSubTab = (t) => { state.subTab = t; render(); };
     window.selectBroadcast = (id) => { state.selectedBroadcastId = id; render(); };
-    window.logout = () => { setToken(''); state.user = null; state.error = ''; state.okMsg = ''; render(); };
+    window.openEditUser = (id) => { state.editingUserId = id; renderModalRoot(); };
+    window.closeEditUser = () => { state.editingUserId = null; renderModalRoot(); };
+    window.openEditBroadcast = (id) => { state.editingBroadcastId = id; renderModalRoot(); };
+    window.closeEditBroadcast = () => { state.editingBroadcastId = null; renderModalRoot(); };
+
+    window.logout = async () => {
+      const ok = await openConfirm({
+        title: 'تأكيد تسجيل الخروج',
+        message: 'هل أنت متأكد من تسجيل الخروج من منظومة النشاط الطلابي؟',
+        detail: state.user ? `${state.user.fullName} · ${ROLE_LABELS[state.user.role]}` : '',
+        confirmLabel: 'نعم، تسجيل الخروج',
+        cancelLabel: 'البقاء في المنظومة',
+        tone: 'danger',
+      });
+      if (!ok) return;
+      setToken('');
+      state.user = null;
+      state.error = '';
+      state.okMsg = '';
+      render();
+    };
 
     window.submitLogin = async (e) => {
       e.preventDefault();
@@ -665,7 +925,7 @@
       }
     }
 
-    window.createUser = (e) => {
+    window.createUser = async (e) => {
       e.preventDefault();
       const body = {
         fullName: document.getElementById('uName').value,
@@ -675,23 +935,154 @@
         unit: document.getElementById('uUnit').value,
         gradeOrDept: document.getElementById('uGrade').value,
       };
+      const ok = await openConfirm({
+        title: 'تأكيد إضافة الحساب',
+        message: 'هل أنت متأكد من إضافة هذا الفرد وإصدار رمز الدخول الخاص به؟',
+        detail: `${body.fullName} · ${ROLE_LABELS[body.role]} · ${UNIT_LABELS[body.unit]}`,
+        confirmLabel: 'نعم، إضافة الحساب',
+      });
+      if (!ok) return;
       runAction(() => api('/api/users', { method: 'POST', body: JSON.stringify(body) }), 'تمت إضافة الحساب بنجاح');
     };
-    window.changeUserRole = (id, role) => runAction(() => api('/api/users/' + id, { method: 'PATCH', body: JSON.stringify({ role }) }), 'تم تحديث الصفة');
-    window.toggleActive = (id, isActive) => runAction(() => api('/api/users/' + id, { method: 'PATCH', body: JSON.stringify({ isActive }) }));
-    window.deleteUser = (id) => runAction(() => api('/api/users/' + id, { method: 'DELETE' }), 'تم الحذف');
-    window.createDirective = (e) => {
+
+    window.saveUserEdits = async (e, id) => {
       e.preventDefault();
-      runAction(() => api('/api/directives', { method: 'POST', body: JSON.stringify({ title: document.getElementById('dirTitle').value, content: document.getElementById('dirContent').value }) }), 'تم نشر التنبيه');
+      const u = state.data.users.find((x) => x.id === id);
+      const isPresTarget = u && (u.role === 'president' || u.username === 'president');
+      const isTop = state.user.role === 'president' || state.user.role === 'vice_president';
+      const body = {
+        fullName: document.getElementById('edUName').value,
+        phone: document.getElementById('edUPhone').value,
+        gradeOrDept: document.getElementById('edUGrade').value,
+        points: Number(document.getElementById('edUPoints').value || 0),
+      };
+      const codeVal = document.getElementById('edUCode').value.trim();
+      if (codeVal) body.loginCode = codeVal;
+      if (!isPresTarget && isTop) {
+        body.role = document.getElementById('edURole').value;
+        body.unit = document.getElementById('edUUnit').value;
+        body.isActive = document.getElementById('edUActive').value === '1';
+        body.permissions = Array.from(document.querySelectorAll('.edPermCheck:checked')).map((el) => el.value);
+      }
+      const ok = await openConfirm({
+        title: 'تأكيد حفظ التعديلات',
+        message: `هل أنت متأكد من حفظ التعديلات على بيانات وصلاحيات «${body.fullName}»؟`,
+        confirmLabel: 'اعتماد وحفظ التعديلات',
+      });
+      if (!ok) return;
+      state.editingUserId = null;
+      runAction(() => api('/api/users/' + id, { method: 'PATCH', body: JSON.stringify(body) }), 'تم حفظ التعديلات بنجاح');
     };
-    window.createActivity = (e, unit) => {
+
+    window.changeUserRole = async (id, name, role) => {
+      const ok = await openConfirm({
+        title: 'تأكيد تغيير الرتبة',
+        message: `هل أنت متأكد من تغيير رتبة «${name}» إلى «${ROLE_LABELS[role]}»؟`,
+        confirmLabel: 'تأكيد التغيير',
+        tone: 'amber',
+      });
+      if (!ok) { render(); return; }
+      runAction(() => api('/api/users/' + id, { method: 'PATCH', body: JSON.stringify({ role, permissions: DEFAULT_ROLE_PERMS[role] }) }), 'تم تحديث الصفة');
+    };
+
+    window.toggleActive = async (id, name, isActive) => {
+      const ok = await openConfirm({
+        title: isActive ? 'تأكيد تفعيل الحساب' : 'تأكيد إيقاف الحساب',
+        message: isActive ? `هل تريد تفعيل حساب «${name}»؟` : `هل أنت متأكد من إيقاف حساب «${name}» ومنعه من الدخول؟`,
+        confirmLabel: isActive ? 'نعم، تفعيل' : 'نعم، إيقاف',
+        tone: isActive ? 'primary' : 'amber',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/users/' + id, { method: 'PATCH', body: JSON.stringify({ isActive }) }), 'تم تحديث حالة الحساب');
+    };
+
+    window.deleteUser = async (id, name) => {
+      const ok = await openConfirm({
+        title: 'تحذير: حذف الحساب نهائياً',
+        message: `هل أنت متأكد تماماً من حذف حساب «${name}»؟ لا يمكن التراجع عن الحذف.`,
+        confirmLabel: 'نعم، حذف الحساب',
+        tone: 'danger',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/users/' + id, { method: 'DELETE' }), 'تم الحذف');
+    };
+
+    window.createDirective = async (e) => {
       e.preventDefault();
-      runAction(() => api('/api/activities', { method: 'POST', body: JSON.stringify({ title: document.getElementById('actTitle').value, category: document.getElementById('actCat').value, eventDate: document.getElementById('actDate').value, unit }) }), 'تمت إضافة البرنامج');
+      const title = document.getElementById('dirTitle').value;
+      const content = document.getElementById('dirContent').value;
+      const ok = await openConfirm({
+        title: 'تأكيد نشر التنبيه الرسمي',
+        message: `هل تريد نشر تنبيه «${title}» لجميع الطلاب والأقسام؟`,
+        confirmLabel: 'نعم، نشر التنبيه',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/directives', { method: 'POST', body: JSON.stringify({ title, content }) }), 'تم نشر التنبيه');
     };
-    window.createDiscipline = (e) => {
+
+    window.deleteDirective = async (id, title) => {
+      const ok = await openConfirm({
+        title: 'تأكيد حذف التوجيه',
+        message: `هل أنت متأكد من حذف توجيه «${title}»؟`,
+        confirmLabel: 'نعم، حذف',
+        tone: 'danger',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/directives/' + id, { method: 'DELETE' }), 'تم حذف التوجيه');
+    };
+
+    window.createActivity = async (e, unit) => {
       e.preventDefault();
-      runAction(() => api('/api/discipline', { method: 'POST', body: JSON.stringify({ userId: Number(document.getElementById('disUser').value), pointsDelta: Number(document.getElementById('disDelta').value), note: document.getElementById('disNote').value }) }), 'تم تسجيل الملاحظة');
+      const title = document.getElementById('actTitle').value;
+      const category = document.getElementById('actCat').value;
+      const eventDate = document.getElementById('actDate').value;
+      const ok = await openConfirm({
+        title: 'تأكيد إضافة البرنامج',
+        message: `هل تريد إضافة برنامج «${title}»؟`,
+        confirmLabel: 'نعم، إضافة البرنامج',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/activities', { method: 'POST', body: JSON.stringify({ title, category, eventDate, unit }) }), 'تمت إضافة البرنامج');
     };
+
+    window.deleteActivity = async (id, title) => {
+      const ok = await openConfirm({
+        title: 'تأكيد حذف البرنامج',
+        message: `هل أنت متأكد من حذف برنامج «${title}»؟`,
+        confirmLabel: 'نعم، حذف',
+        tone: 'danger',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/activities/' + id, { method: 'DELETE' }), 'تم حذف البرنامج');
+    };
+
+    window.createDiscipline = async (e) => {
+      e.preventDefault();
+      const userId = Number(document.getElementById('disUser').value);
+      const pointsDelta = Number(document.getElementById('disDelta').value);
+      const note = document.getElementById('disNote').value;
+      const ok = await openConfirm({
+        title: 'تأكيد تسجيل ملاحظة الانضباط',
+        message: `هل تريد اعتماد تسجيل (${pointsDelta >= 0 ? '+' + pointsDelta : pointsDelta} نقطة) على سجل الطالب؟`,
+        detail: note,
+        confirmLabel: 'نعم، اعتماد السجل',
+        tone: pointsDelta < 0 ? 'amber' : 'primary',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/discipline', { method: 'POST', body: JSON.stringify({ userId, pointsDelta, note }) }), 'تم تسجيل الملاحظة');
+    };
+
+    window.deleteDiscipline = async (id, name) => {
+      const ok = await openConfirm({
+        title: 'تأكيد حذف سجل الانضباط',
+        message: `هل أنت متأكد من حذف هذا السجل الخاص بـ «${name}»؟`,
+        confirmLabel: 'نعم، حذف السجل',
+        tone: 'danger',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/discipline/' + id, { method: 'DELETE' }), 'تم حذف السجل');
+    };
+
     window.generateBroadcast = async () => {
       const topic = document.getElementById('aiTopic').value.trim();
       if (!topic) { state.error = 'يرجى كتابة موضوع الإذاعة أولاً'; render(); return; }
@@ -719,30 +1110,154 @@
         render();
       }
     };
-    window.createBroadcast = (e) => {
+
+    window.createBroadcast = async (e) => {
       e.preventDefault();
-      runAction(() => api('/api/broadcasts', { method: 'POST', body: JSON.stringify({ title: document.getElementById('brcTitle').value, airDate: document.getElementById('brcDate').value, airTime: document.getElementById('brcTime').value, segments: { morningWord: document.getElementById('brcWord').value } }) }), 'تم حفظ الإذاعة');
+      const title = document.getElementById('brcTitle').value;
+      const airDate = document.getElementById('brcDate').value;
+      const airTime = document.getElementById('brcTime').value;
+      const morningWord = document.getElementById('brcWord').value;
+      const ok = await openConfirm({
+        title: 'تأكيد إضافة الإذاعة',
+        message: `هل تريد حفظ إذاعة «${title}» بتاريخ ${airDate}؟`,
+        confirmLabel: 'نعم، حفظ الإذاعة',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/broadcasts', { method: 'POST', body: JSON.stringify({ title, airDate, airTime, segments: { morningWord } }) }), 'تم حفظ الإذاعة');
     };
-    window.approveBroadcast = (id) => runAction(() => api('/api/broadcasts/' + id, { method: 'PATCH', body: JSON.stringify({ status: 'approved' }) }), 'تم اعتماد البث');
-    window.reviewSub = (id, decision) => {
+
+    window.saveBroadcastEdits = async (e, id) => {
+      e.preventDefault();
+      const body = {
+        title: document.getElementById('edBTitle').value,
+        theme: document.getElementById('edBTheme').value,
+        airDate: document.getElementById('edBDate').value,
+        airTime: document.getElementById('edBTime').value,
+        presenters: document.getElementById('edBPres').value,
+        segments: {
+          intro: document.getElementById('edBIntro').value,
+          quran: document.getElementById('edBQuran').value,
+          hadith: document.getElementById('edBHadith').value,
+          morningWord: document.getElementById('edBWord').value,
+          didYouKnow: document.getElementById('edBDyk').value,
+          closing: document.getElementById('edBClose').value,
+        },
+      };
+      const ok = await openConfirm({
+        title: 'تأكيد حفظ تعديلات الإذاعة',
+        message: `هل أنت متأكد من حفظ التعديلات على إذاعة «${body.title}»؟`,
+        confirmLabel: 'نعم، حفظ التعديلات',
+      });
+      if (!ok) return;
+      state.editingBroadcastId = null;
+      runAction(() => api('/api/broadcasts/' + id, { method: 'PATCH', body: JSON.stringify(body) }), 'تم تحديث الإذاعة بنجاح');
+    };
+
+    window.approveBroadcast = async (id, title) => {
+      const ok = await openConfirm({
+        title: 'تأكيد اعتماد الإذاعة للبث',
+        message: `هل تريد اعتماد إذاعة «${title}» للبث الصباحي؟`,
+        confirmLabel: 'نعم، اعتماد البث',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/broadcasts/' + id, { method: 'PATCH', body: JSON.stringify({ status: 'approved' }) }), 'تم اعتماد البث');
+    };
+
+    window.deleteBroadcast = async (id, title) => {
+      const ok = await openConfirm({
+        title: 'تأكيد حذف الإذاعة',
+        message: `هل أنت متأكد من حذف إذاعة «${title}»؟`,
+        confirmLabel: 'نعم، حذف الإذاعة',
+        tone: 'danger',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/broadcasts/' + id, { method: 'DELETE' }), 'تم حذف الإذاعة');
+    };
+
+    window.reviewSub = async (id, decision, studentName, title) => {
       const awardedPoints = Number(document.getElementById('pts-' + id).value || 0);
       const adminNote = document.getElementById('note-' + id).value;
+      const ok = await openConfirm({
+        title: decision === 'approved' ? 'تأكيد قبول الإنجاز ومنح النقاط' : 'تأكيد رفض الإنجاز',
+        message: decision === 'approved'
+          ? `هل تريد قبول إنجاز «${studentName}» ومنحه ${awardedPoints} نقطة؟`
+          : `هل أنت متأكد من رفض إنجاز «${studentName}»؟`,
+        detail: title,
+        confirmLabel: decision === 'approved' ? 'نعم، قبول ومنح النقاط' : 'نعم، رفض',
+        tone: decision === 'approved' ? 'primary' : 'danger',
+      });
+      if (!ok) return;
       runAction(() => api('/api/submissions/' + id, { method: 'PATCH', body: JSON.stringify({ decision, awardedPoints, adminNote }) }), decision === 'approved' ? 'تم القبول وإضافة النقاط' : 'تم الرفض');
     };
-    window.replyComplaint = (id) => runAction(() => api('/api/complaints/' + id, { method: 'PATCH', body: JSON.stringify({ status: 'resolved', adminResponse: document.getElementById('cmp-' + id).value }) }), 'تم تحديث الشكوى');
-    window.replySuggestion = (id, status) => runAction(() => api('/api/suggestions/' + id, { method: 'PATCH', body: JSON.stringify({ status, adminResponse: document.getElementById('sug-' + id).value }) }), 'تم اعتماد الاقتراح');
-    window.submitAchievement = (e) => {
-      e.preventDefault();
-      runAction(() => api('/api/submissions', { method: 'POST', body: JSON.stringify({ title: document.getElementById('achTitle').value, details: document.getElementById('achDetails').value }) }), 'تم رفع الإنجاز للإدارة');
+
+    window.replyComplaint = async (id, targetName) => {
+      const ok = await openConfirm({
+        title: 'تأكيد معالجة الشكوى',
+        message: `هل تريد إغلاق وتحديث الشكوى ضد «${targetName}»؟`,
+        confirmLabel: 'نعم، تمت المعالجة',
+        tone: 'amber',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/complaints/' + id, { method: 'PATCH', body: JSON.stringify({ status: 'resolved', adminResponse: document.getElementById('cmp-' + id).value }) }), 'تم تحديث الشكوى');
     };
-    window.submitComplaint = (e) => {
-      e.preventDefault();
-      runAction(() => api('/api/complaints', { method: 'POST', body: JSON.stringify({ targetStudentName: document.getElementById('cmpTarget').value, reason: document.getElementById('cmpReason').value, details: document.getElementById('cmpDetails').value }) }), 'تم إرسال الشكوى');
+
+    window.replySuggestion = async (id, status, title) => {
+      const ok = await openConfirm({
+        title: 'تأكيد اعتماد الاقتراح',
+        message: `هل تريد اعتماد اقتراح «${title}» للتنفيذ؟`,
+        confirmLabel: 'نعم، اعتماد الاقتراح',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/suggestions/' + id, { method: 'PATCH', body: JSON.stringify({ status, adminResponse: document.getElementById('sug-' + id).value }) }), 'تم اعتماد الاقتراح');
     };
-    window.submitSuggestion = (e) => {
+
+    window.submitAchievement = async (e) => {
       e.preventDefault();
-      runAction(() => api('/api/suggestions', { method: 'POST', body: JSON.stringify({ title: document.getElementById('sugTitle').value, details: document.getElementById('sugDetails').value }) }), 'تم إرسال الاقتراح');
+      const title = document.getElementById('achTitle').value;
+      const details = document.getElementById('achDetails').value;
+      const ok = await openConfirm({
+        title: 'تأكيد رفع الإنجاز',
+        message: 'هل تريد رفع هذا الإنجاز للإدارة لمراجعته؟',
+        detail: title,
+        confirmLabel: 'نعم، رفع الإنجاز',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/submissions', { method: 'POST', body: JSON.stringify({ title, details }) }), 'تم رفع الإنجاز للإدارة');
     };
+
+    window.submitComplaint = async (e) => {
+      e.preventDefault();
+      const targetStudentName = document.getElementById('cmpTarget').value;
+      const reason = document.getElementById('cmpReason').value;
+      const details = document.getElementById('cmpDetails').value;
+      const ok = await openConfirm({
+        title: 'تأكيد إرسال الشكوى',
+        message: 'هل أنت متأكد من إرسال هذه الشكوى للإدارة؟ ستصل بسرية للمراجعة.',
+        detail: `الطالب: ${targetStudentName} · السبب: ${reason}`,
+        confirmLabel: 'نعم، إرسال الشكوى',
+        tone: 'amber',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/complaints', { method: 'POST', body: JSON.stringify({ targetStudentName, reason, details }) }), 'تم إرسال الشكوى');
+    };
+
+    window.submitSuggestion = async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('sugTitle').value;
+      const details = document.getElementById('sugDetails').value;
+      const ok = await openConfirm({
+        title: 'تأكيد تقديم الاقتراح',
+        message: 'هل تريد تقديم هذا الاقتراح للإدارة للاطلاع عليه؟',
+        detail: title,
+        confirmLabel: 'نعم، تقديم الاقتراح',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/suggestions', { method: 'POST', body: JSON.stringify({ title, details }) }), 'تم إرسال الاقتراح');
+    };
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && state.confirmOpts) window.resolveConfirm(false);
+    });
 
     if (getToken()) refreshWorkspace();
     else render();
