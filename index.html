@@ -94,8 +94,10 @@
     let confirmResolver = null;
     const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const isMgmt = (r) => ['president', 'vice_president', 'officer'].includes(r);
-    const effectivePerms = (u) => u?.role === 'president' ? ALL_PERMS.map((p) => p.key) : (Array.isArray(u?.permissions) ? u.permissions : (DEFAULT_ROLE_PERMS[u?.role] || []));
+    const isSupreme = (u) => Boolean(u && u.username === 'president');
+    const effectivePerms = (u) => isSupreme(u) ? ALL_PERMS.map((p) => p.key) : (Array.isArray(u?.permissions) ? u.permissions : (DEFAULT_ROLE_PERMS[u?.role] || []));
     const hasPerm = (u, perm) => effectivePerms(u).includes(perm);
+    const hasAllSixPerms = (u) => Boolean(u) && (isSupreme(u) || ALL_PERMS.every((p) => hasPerm(u, p.key)));
     const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
     const setToken = (t) => t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
 
@@ -148,6 +150,8 @@
         const [me, ws] = await Promise.all([api('/api/auth/me'), api('/api/workspace')]);
         state.user = me.user;
         state.data = ws;
+        if (state.tab === 'directory' && !hasAllSixPerms(state.user)) state.tab = isMgmt(state.user.role) ? 'overview' : 'member_stats';
+        if (state.tab === 'broadcasts' && !hasPerm(state.user, 'manage_broadcasts')) state.tab = isMgmt(state.user.role) ? 'overview' : 'member_stats';
         if (!state.selectedBroadcastId && ws.broadcasts[0]) state.selectedBroadcastId = ws.broadcasts[0].id;
       } catch (e) {
         state.error = e.message;
@@ -185,12 +189,14 @@
     }
 
     function navItemsFor(user) {
+      const canSeeDir = hasAllSixPerms(user);
+      const canSeeBrc = hasPerm(user, 'manage_broadcasts');
       if (isMgmt(user.role)) {
         return [
           { id: 'overview', label: 'لوحة القيادة' },
           { id: 'reports', label: 'التقارير' },
-          { id: 'broadcasts', label: 'الإذاعة' },
-          { id: 'directory', label: 'الأفراد والصلاحيات' },
+          ...(canSeeBrc ? [{ id: 'broadcasts', label: 'الإذاعة' }] : []),
+          ...(canSeeDir ? [{ id: 'directory', label: 'الأفراد والصلاحيات' }] : []),
           { id: 'submissions', label: 'تقديم طلاب النشاط' },
         ];
       }
@@ -199,7 +205,8 @@
         { id: 'member_achievements', label: 'تقديم إنجاز' },
         { id: 'member_complaints', label: 'تقديم شكوى' },
         { id: 'member_suggestions', label: 'الاقتراحات' },
-        { id: 'broadcasts', label: 'الإذاعة' },
+        ...(canSeeBrc ? [{ id: 'broadcasts', label: 'الإذاعة' }] : []),
+        ...(canSeeDir ? [{ id: 'directory', label: 'الأفراد والصلاحيات' }] : []),
       ];
     }
 
@@ -208,17 +215,26 @@
       const pendingSub = state.data.submissions.filter((s) => s.status === 'pending').length;
       const openCmp = state.data.complaints.filter((c) => c.status !== 'resolved').length;
       const newSug = state.data.suggestions.filter((s) => s.status === 'new').length;
+      const canSeeDir = hasAllSixPerms(state.user);
+      const canSeeBrc = hasPerm(state.user, 'manage_broadcasts');
       return `
         <div class="space-y-6">
           <div>
             <h2 class="text-xl font-bold">مرحباً، ${esc(state.user.fullName)}</h2>
             <p class="text-sm text-slate-500">${esc(ROLE_LABELS[state.user.role])} · ${esc(UNIT_LABELS[state.user.unit] || '')}</p>
           </div>
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <button onclick="setTab('directory')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
-              <div class="text-xs text-slate-500">الطلاب المسجلون</div>
-              <div class="text-2xl font-bold font-mono tabular-nums mt-2">${students.length}</div>
-            </button>
+          <div class="grid grid-cols-2 ${canSeeBrc ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4">
+            ${canSeeDir ? `
+              <button onclick="setTab('directory')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
+                <div class="text-xs text-slate-500">الطلاب المسجلون</div>
+                <div class="text-2xl font-bold font-mono tabular-nums mt-2">${students.length}</div>
+              </button>
+            ` : `
+              <div class="text-right luxury-card p-5">
+                <div class="text-xs text-slate-500">الطلاب المسجلون</div>
+                <div class="text-2xl font-bold font-mono tabular-nums mt-2">${students.length}</div>
+              </div>
+            `}
             <button onclick="setTab('submissions')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
               <div class="text-xs text-slate-500">إنجازات بانتظار المراجعة</div>
               <div class="text-2xl font-bold text-amber-700 font-mono tabular-nums mt-2">${pendingSub}</div>
@@ -227,10 +243,12 @@
               <div class="text-xs text-slate-500">شكاوى واقتراحات</div>
               <div class="text-2xl font-bold font-mono tabular-nums mt-2">${openCmp + newSug}</div>
             </button>
-            <button onclick="setTab('broadcasts')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
-              <div class="text-xs text-slate-500">الإذاعات المدرسية</div>
-              <div class="text-2xl font-bold font-mono tabular-nums mt-2">${state.data.broadcasts.length}</div>
-            </button>
+            ${canSeeBrc ? `
+              <button onclick="setTab('broadcasts')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
+                <div class="text-xs text-slate-500">الإذاعات المدرسية</div>
+                <div class="text-2xl font-bold font-mono tabular-nums mt-2">${state.data.broadcasts.length}</div>
+              </button>
+            ` : ''}
           </div>
           <section class="luxury-card p-6 space-y-4">
             <h3 class="text-base font-bold">التوجيهات والتنبيهات</h3>
@@ -358,9 +376,12 @@
     }
 
     function renderBroadcasts() {
+      if (!hasPerm(state.user, 'manage_broadcasts')) {
+        return `<div class="luxury-card p-10 text-center space-y-2"><h3 class="font-bold text-base">صلاحية مقيدة</h3><p class="text-sm text-slate-500">الاطلاع على الإذاعات وإدارتها مخصص فقط لمن يمتلك صلاحية «إدارة الإذاعة المدرسية».</p></div>`;
+      }
       const sel = state.data.broadcasts.find((b) => b.id === state.selectedBroadcastId) || state.data.broadcasts[0];
-      const canAdd = isMgmt(state.user.role) || hasPerm(state.user, 'manage_broadcasts') || state.user.unit === 'broadcast';
-      const canEditBrc = state.user.role === 'president' || state.user.role === 'vice_president' || hasPerm(state.user, 'manage_broadcasts');
+      const canAdd = hasPerm(state.user, 'manage_broadcasts');
+      const canEditBrc = hasPerm(state.user, 'manage_broadcasts');
       return `
         <div class="space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3 no-print">
@@ -410,7 +431,7 @@
                   <div class="flex flex-wrap items-center gap-2 no-print">
                     ${canEditBrc ? `<button onclick="openEditBroadcast(${sel.id})" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold cursor-pointer">تعديل الفقرات</button>` : ''}
                     ${(state.user.role === 'president' || state.user.role === 'vice_president') && sel.status === 'pending_approval' ? `<button onclick="approveBroadcast(${sel.id}, '${esc(sel.title)}')" class="px-3 py-1.5 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">اعتماد البث</button>` : ''}
-                    ${(state.user.role === 'president' || state.user.role === 'vice_president') ? `<button onclick="deleteBroadcast(${sel.id}, '${esc(sel.title)}')" class="px-3 py-1.5 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold cursor-pointer">حذف</button>` : ''}
+                    ${canEditBrc ? `<button onclick="deleteBroadcast(${sel.id}, '${esc(sel.title)}')" class="px-3 py-1.5 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold cursor-pointer">حذف</button>` : ''}
                   </div>
                 </div>
                 <div class="space-y-3 text-sm">
@@ -429,9 +450,11 @@
     }
 
     function renderDirectory() {
-      const isTop = state.user.role === 'president' || state.user.role === 'vice_president';
-      const isPres = state.user.role === 'president';
-      const canManageDir = isTop || hasPerm(state.user, 'manage_directory');
+      if (!hasAllSixPerms(state.user)) {
+        return `<div class="luxury-card p-10 text-center space-y-2"><h3 class="font-bold text-base">صلاحية مقيدة</h3><p class="text-sm text-slate-500">الاطلاع على قسم «الأفراد والصلاحيات» متاح فقط لمن يمتلك الصلاحيات الست كاملة.</p></div>`;
+      }
+      const isSupremeActor = isSupreme(state.user);
+      const canDelete = isSupremeActor || state.user.role === 'president';
       const genCode = Math.floor(100000 + Math.random() * 900000);
       return `
         <div class="space-y-6">
@@ -443,17 +466,19 @@
             <input id="uName" required placeholder="الاسم الكامل" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
             <input id="uPhone" type="tel" required placeholder="الجوال (إجباري 05x)" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
             <input id="uCode" required value="${genCode}" placeholder="رمز الدخول" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
-            <select id="uRole" ${!isTop ? 'disabled' : ''} class="h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm">
+            <select id="uRole" class="h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm">
               <option value="member">فرد (طالب)</option>
-              ${isTop ? `<option value="officer">ضابط نشاط (إدارة)</option><option value="vice_president">نائب الرئيس (إدارة)</option>` : ''}
-              ${isPres ? `<option value="president">رئيس النشاط (إدارة)</option>` : ''}
+              <option value="officer">ضابط نشاط (إدارة)</option>
+              <option value="vice_president">نائب الرئيس (إدارة)</option>
+              ${isSupremeActor ? `<option value="president">رئيس النشاط (إدارة)</option>` : ''}
             </select>
             <select id="uUnit" class="h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm">
               <option value="activity_1">النشاط الأول</option>
               <option value="activity_2">النشاط الثاني</option>
               <option value="broadcast">الإذاعة المدرسية</option>
               <option value="general">النشاط العام</option>
-              ${isTop ? `<option value="officers">لجنة الضباط</option>` : ''}
+              <option value="officers">لجنة الضباط</option>
+              <option value="command">القيادة العليا</option>
             </select>
             <div class="flex gap-2">
               <input id="uGrade" placeholder="الصف (ثاني متوسط)" class="flex-1 min-w-0 h-10 px-3 rounded-xl border border-slate-300 text-sm" />
@@ -464,12 +489,13 @@
           <section class="luxury-card overflow-x-auto">
             <table class="w-full text-right text-sm">
               <thead class="bg-slate-50/80 text-xs text-slate-500 border-b border-slate-200/80">
-                <tr><th class="py-3 px-4">الاسم</th><th class="py-3 px-4">الصفة</th><th class="py-3 px-4">القسم</th><th class="py-3 px-4">الجوال</th><th class="py-3 px-4">رمز الدخول</th><th class="py-3 px-4">النقاط</th><th class="py-3 px-4">واتساب</th>${canManageDir ? '<th class="py-3 px-4">تعديل وإدارة</th>' : ''}</tr>
+                <tr><th class="py-3 px-4">الاسم</th><th class="py-3 px-4">الصفة</th><th class="py-3 px-4">القسم</th><th class="py-3 px-4">الجوال</th><th class="py-3 px-4">رمز الدخول</th><th class="py-3 px-4">النقاط</th><th class="py-3 px-4">واتساب</th><th class="py-3 px-4">تعديل وإدارة</th></tr>
               </thead>
               <tbody class="divide-y divide-slate-200/70">
                 ${state.data.users.map((u) => {
-                  const lockedPres = u.role === 'president' || u.username === 'president';
-                  const rowEditable = lockedPres ? (u.id === state.user.id) : (isTop || (canManageDir && u.role === 'member'));
+                  const targetIsSup = isSupreme(u);
+                  const canControlTarget = u.id !== state.user.id && !targetIsSup && (u.role !== 'president' || isSupremeActor);
+                  const rowEditable = targetIsSup ? isSupremeActor : (u.role === 'president' ? isSupremeActor : true);
                   const permCnt = effectivePerms(u).length;
                   return `
                     <tr class="hover:bg-slate-50/70">
@@ -478,26 +504,26 @@
                         <div class="text-xs text-slate-500">${esc(u.gradeOrDept || u.memberCode)}${permCnt > 0 ? ` · <span class="text-teal-800">${permCnt} صلاحيات</span>` : ''}</div>
                       </td>
                       <td class="py-3 px-4">
-                        ${(isTop && u.id !== state.user.id && !lockedPres) ? `
+                        ${canControlTarget ? `
                           <select onchange="changeUserRole(${u.id}, '${esc(u.fullName)}', this.value)" class="h-8 px-2 rounded-lg border border-slate-200 text-xs bg-white">
                             <option value="member" ${u.role === 'member' ? 'selected' : ''}>فرد (طالب)</option>
                             <option value="officer" ${u.role === 'officer' ? 'selected' : ''}>ضابط نشاط</option>
                             <option value="vice_president" ${u.role === 'vice_president' ? 'selected' : ''}>نائب الرئيس</option>
-                            ${isPres ? `<option value="president" ${u.role === 'president' ? 'selected' : ''}>رئيس النشاط</option>` : ''}
+                            ${isSupremeActor ? `<option value="president" ${u.role === 'president' ? 'selected' : ''}>رئيس النشاط</option>` : ''}
                           </select>
-                        ` : `<span class="text-xs font-semibold">${esc(ROLE_LABELS[u.role])}${lockedPres ? ' · <span class="text-teal-800">رتبة ثابتة</span>' : ''}</span>`}
+                        ` : `<span class="text-xs font-semibold">${esc(ROLE_LABELS[u.role])}${targetIsSup ? ' · <span class="text-teal-800">الرئيس المؤسس</span>' : ''}</span>`}
                       </td>
                       <td class="py-3 px-4 text-xs text-slate-600">${esc(UNIT_LABELS[u.unit] || u.unit)}</td>
                       <td class="py-3 px-4 text-xs font-mono tabular-nums">${esc(u.phone || '—')}</td>
                       <td class="py-3 px-4 text-xs font-mono tabular-nums font-bold">${esc(u.loginCode || '—')}</td>
                       <td class="py-3 px-4 font-mono tabular-nums font-bold text-teal-800">${u.points}</td>
                       <td class="py-3 px-4">${u.phone ? `<a href="${waUrl(u)}" target="_blank" rel="noopener noreferrer" class="inline-block px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold">إرسال الأداء</a>` : '—'}</td>
-                      ${canManageDir ? `<td class="py-3 px-4 whitespace-nowrap">
+                      <td class="py-3 px-4 whitespace-nowrap">
                         <div class="inline-flex items-center gap-1.5">
                           ${rowEditable ? `<button onclick="openEditUser(${u.id})" class="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold cursor-pointer">تعديل شامل</button>` : ''}
-                          ${(isTop && !lockedPres && u.id !== state.user.id) ? `<button onclick="toggleActive(${u.id}, '${esc(u.fullName)}', ${!u.isActive})" class="px-2 py-1 rounded-lg border border-slate-200 text-xs cursor-pointer">${u.isActive ? 'إيقاف' : 'تفعيل'}</button>${isPres ? `<button onclick="deleteUser(${u.id}, '${esc(u.fullName)}')" class="px-2 py-1 rounded-lg border border-red-200 text-xs text-red-700 hover:bg-red-50 cursor-pointer">حذف</button>` : ''}` : (!rowEditable ? '—' : '')}
+                          ${canControlTarget ? `<button onclick="toggleActive(${u.id}, '${esc(u.fullName)}', ${!u.isActive})" class="px-2 py-1 rounded-lg border border-slate-200 text-xs cursor-pointer">${u.isActive ? 'إيقاف' : 'تفعيل'}</button>${canDelete ? `<button onclick="deleteUser(${u.id}, '${esc(u.fullName)}')" class="px-2 py-1 rounded-lg border border-red-200 text-xs text-red-700 hover:bg-red-50 cursor-pointer">حذف</button>` : ''}` : (!rowEditable ? '—' : '')}
                         </div>
-                      </td>` : ''}
+                      </td>
                     </tr>
                   `;
                 }).join('')}
@@ -677,9 +703,9 @@
       if (state.editingUserId) {
         const u = state.data.users.find((x) => x.id === state.editingUserId);
         if (u) {
-          const isPresTarget = u.role === 'president' || u.username === 'president';
-          const isTop = state.user && (state.user.role === 'president' || state.user.role === 'vice_president');
-          const isPresActor = state.user && state.user.role === 'president';
+          const targetIsSup = isSupreme(u);
+          const canAccessDir = hasAllSixPerms(state.user);
+          const isSupremeActor = isSupreme(state.user);
           const perms = effectivePerms(u);
           modals.push(`
             <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 backdrop-blur-xs p-4 overflow-y-auto animate-backdrop-enter" onclick="closeEditUser()">
@@ -691,7 +717,7 @@
                   </div>
                   <button onclick="closeEditUser()" class="px-2.5 py-1 rounded-lg text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">إغلاق</button>
                 </div>
-                ${isPresTarget ? `<div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-medium text-amber-900">رتبة رئيس النشاط وصلاحياته الكاملة محمية وثابتة؛ يمكنك تعديل الاسم والجوال ورمز الدخول والنقاط.</div>` : ''}
+                ${targetIsSup ? `<div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-medium text-amber-900">رتبة الرئيس المؤسس عبدالرحمن نسيم وصلاحياته الكاملة محمية وثابتة؛ يمكنك تعديل الاسم والجوال ورمز الدخول والنقاط.</div>` : ''}
                 <form onsubmit="saveUserEdits(event, ${u.id})" class="space-y-3.5">
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><label class="block text-xs font-semibold text-slate-700 mb-1">الاسم الكامل</label><input id="edUName" required value="${esc(u.fullName)}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
@@ -702,14 +728,14 @@
                     <div><label class="block text-xs font-semibold text-slate-700 mb-1">الصف الدراسي</label><input id="edUGrade" value="${esc(u.gradeOrDept || '')}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
                     <div><label class="block text-xs font-semibold text-slate-700 mb-1">رصيد النقاط</label><input id="edUPoints" type="number" min="0" required value="${u.points}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" /></div>
                   </div>
-                  ${(!isPresTarget && isTop) ? `
+                  ${(!targetIsSup && canAccessDir) ? `
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div><label class="block text-xs font-semibold text-slate-700 mb-1">الصفة الإدارية</label>
                         <select id="edURole" class="w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm">
                           <option value="member" ${u.role === 'member' ? 'selected' : ''}>فرد (طالب)</option>
                           <option value="officer" ${u.role === 'officer' ? 'selected' : ''}>ضابط نشاط</option>
                           <option value="vice_president" ${u.role === 'vice_president' ? 'selected' : ''}>نائب الرئيس</option>
-                          ${isPresActor ? `<option value="president" ${u.role === 'president' ? 'selected' : ''}>رئيس النشاط</option>` : ''}
+                          ${isSupremeActor ? `<option value="president" ${u.role === 'president' ? 'selected' : ''}>رئيس النشاط</option>` : ''}
                         </select>
                       </div>
                       <div><label class="block text-xs font-semibold text-slate-700 mb-1">القسم</label>
@@ -870,7 +896,11 @@
     }
 
     window.setPortal = (p) => { state.portalType = p; state.error = ''; render(); };
-    window.setTab = (t) => { state.tab = t; state.error = ''; state.okMsg = ''; render(); };
+    window.setTab = (t) => {
+      if (t === 'directory' && !hasAllSixPerms(state.user)) return;
+      if (t === 'broadcasts' && !hasPerm(state.user, 'manage_broadcasts')) return;
+      state.tab = t; state.error = ''; state.okMsg = ''; render();
+    };
     window.setReportTab = (t) => { state.reportTab = t; render(); };
     window.setSubTab = (t) => { state.subTab = t; render(); };
     window.selectBroadcast = (id) => { state.selectedBroadcastId = id; render(); };
@@ -948,8 +978,8 @@
     window.saveUserEdits = async (e, id) => {
       e.preventDefault();
       const u = state.data.users.find((x) => x.id === id);
-      const isPresTarget = u && (u.role === 'president' || u.username === 'president');
-      const isTop = state.user.role === 'president' || state.user.role === 'vice_president';
+      const targetIsSup = isSupreme(u);
+      const canAccessDir = hasAllSixPerms(state.user);
       const body = {
         fullName: document.getElementById('edUName').value,
         phone: document.getElementById('edUPhone').value,
@@ -958,7 +988,7 @@
       };
       const codeVal = document.getElementById('edUCode').value.trim();
       if (codeVal) body.loginCode = codeVal;
-      if (!isPresTarget && isTop) {
+      if (!targetIsSup && canAccessDir) {
         body.role = document.getElementById('edURole').value;
         body.unit = document.getElementById('edUUnit').value;
         body.isActive = document.getElementById('edUActive').value === '1';

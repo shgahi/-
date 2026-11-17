@@ -38,13 +38,19 @@ const DEFAULT_ROLE_PERMISSIONS = {
 };
 
 const isMgmt = (role) => MANAGEMENT_ROLES.includes(role);
+const isSupremePresident = (user) => Boolean(user && user.username === 'president');
 const hasPerm = (user, perm) => {
   if (!user) return false;
-  if (user.role === 'president') return true;
+  if (isSupremePresident(user)) return true;
   const perms = Array.isArray(user.permissions)
     ? user.permissions
     : DEFAULT_ROLE_PERMISSIONS[user.role] || [];
   return perms.includes(perm);
+};
+const hasAllSixPerms = (user) => {
+  if (!user) return false;
+  if (isSupremePresident(user)) return true;
+  return ALL_PERMISSIONS.every((p) => hasPerm(user, p));
 };
 const sanitizePermissions = (input) => {
   if (!Array.isArray(input)) return undefined;
@@ -371,19 +377,24 @@ const sanitizeUser = (u, viewer = null) => {
   const pub = {
     ...rest,
     permissions:
-      u.role === 'president'
+      isSupremePresident(u)
         ? [...ALL_PERMISSIONS]
         : Array.isArray(u.permissions)
           ? u.permissions
           : DEFAULT_ROLE_PERMISSIONS[u.role] || [],
   };
   if (!viewer) return pub;
+  const viewerAll = hasAllSixPerms(viewer);
+  const targetIsSupreme = isSupremePresident(u);
   const canSeeCode =
     u.id === viewer.id ||
-    viewer.role === 'president' ||
-    (viewer.role === 'vice_president' && u.role !== 'president') ||
-    ((isMgmt(viewer.role) || hasPerm(viewer, 'manage_directory')) && u.role === 'member');
-  return canSeeCode ? pub : { ...pub, loginCode: '' };
+    isSupremePresident(viewer) ||
+    (viewerAll && !targetIsSupreme);
+  return {
+    ...pub,
+    loginCode: canSeeCode ? pub.loginCode : '',
+    permissions: viewerAll || u.id === viewer.id ? pub.permissions : undefined,
+  };
 };
 
 async function findUserByLoginCode(code) {
@@ -465,14 +476,22 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
   try {
     await ensureReady();
     const viewer = req.user;
+    const canSeeUsers =
+      hasAllSixPerms(viewer) ||
+      isMgmt(viewer.role) ||
+      hasPerm(viewer, 'manage_activities') ||
+      hasPerm(viewer, 'manage_discipline');
+    const canSeeBroadcasts = hasPerm(viewer, 'manage_broadcasts');
+    const canSeeDiscipline = isMgmt(viewer.role) || hasPerm(viewer, 'manage_discipline');
+    const canReviewSubs = isMgmt(viewer.role) || hasPerm(viewer, 'review_submissions');
+
     if (!isNeon) {
       const db = readLocal();
-      const canSeeDiscipline = isMgmt(viewer.role) || hasPerm(viewer, 'manage_discipline');
-      const canReviewSubs = isMgmt(viewer.role) || hasPerm(viewer, 'review_submissions');
+      const visibleUsers = canSeeUsers ? db.users : db.users.filter((u) => u.id === viewer.id);
       return res.json({
-        users: db.users.map((u) => sanitizeUser(u, viewer)),
+        users: visibleUsers.map((u) => sanitizeUser(u, viewer)),
         activities: db.activities,
-        broadcasts: db.broadcasts,
+        broadcasts: canSeeBroadcasts ? db.broadcasts : [],
         disciplineLogs: canSeeDiscipline ? db.disciplineLogs : db.disciplineLogs.filter((d) => d.userId === viewer.id),
         directives: db.directives,
         submissions: canReviewSubs ? db.submissions : db.submissions.filter((s) => s.studentId === viewer.id),
@@ -481,12 +500,10 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
       });
     }
     const p = getPool();
-    const canSeeDiscipline = isMgmt(viewer.role) || hasPerm(viewer, 'manage_discipline');
-    const canReviewSubs = isMgmt(viewer.role) || hasPerm(viewer, 'review_submissions');
     const [uR, aR, bR, disR, dirR, subR, cmpR, sugR] = await Promise.all([
-      p.query('SELECT * FROM users ORDER BY id ASC'),
+      canSeeUsers ? p.query('SELECT * FROM users ORDER BY id ASC') : p.query('SELECT * FROM users WHERE id=$1', [viewer.id]),
       p.query('SELECT * FROM activities ORDER BY id DESC'),
-      p.query('SELECT * FROM broadcasts ORDER BY id DESC'),
+      canSeeBroadcasts ? p.query('SELECT * FROM broadcasts ORDER BY id DESC') : Promise.resolve({ rows: [] }),
       canSeeDiscipline
         ? p.query('SELECT * FROM discipline_logs ORDER BY id DESC')
         : p.query('SELECT * FROM discipline_logs WHERE user_id=$1 ORDER BY id DESC', [viewer.id]),
@@ -547,17 +564,14 @@ app.post('/api/users', requireAuth, async (req, res) => {
   try {
     await ensureReady();
     const actor = req.user;
-    if (!isMgmt(actor.role) && !hasPerm(actor, 'manage_directory')) {
-      return res.status(403).json({ error: 'ليس لديك صلاحية إضافة أفراد' });
+    if (!hasAllSixPerms(actor)) {
+      return res.status(403).json({ error: 'الوصول إلى الأفراد والصلاحيات يتطلب امتلاك الصلاحيات الست كاملة' });
     }
     const { fullName, loginCode, role, unit, phone, gradeOrDept, permissions } = req.body || {};
     const targetRole = ALLOWED_ROLES.includes(role) ? role : 'member';
 
-    if (actor.role !== 'president' && actor.role !== 'vice_president' && targetRole !== 'member') {
-      return res.status(403).json({ error: 'إضافة الأدوار الإدارية مخصصة للرئيس والنائب فقط' });
-    }
-    if (targetRole === 'president' && actor.role !== 'president') {
-      return res.status(403).json({ error: 'منح رتبة رئيس النشاط مخصص لرئيس النشاط فقط' });
+    if (targetRole === 'president' && !isSupremePresident(actor)) {
+      return res.status(403).json({ error: 'منح رتبة رئيس النشاط مخصص للرئيس عبدالرحمن نسيم فقط' });
     }
     if (!String(fullName || '').trim() || !String(loginCode || '').trim() || !String(phone || '').trim()) {
       return res.status(400).json({ error: 'يرجى إدخال الاسم الكامل ورقم الجوال ورمز الدخول' });
@@ -620,12 +634,8 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
   try {
     await ensureReady();
     const actor = req.user;
-    const canEdit =
-      actor.role === 'president' ||
-      actor.role === 'vice_president' ||
-      hasPerm(actor, 'manage_directory');
-    if (!canEdit) {
-      return res.status(403).json({ error: 'ليس لديك صلاحية تعديل الأفراد والصلاحيات' });
+    if (!hasAllSixPerms(actor)) {
+      return res.status(403).json({ error: 'تعديل الأفراد والصلاحيات يتطلب امتلاك الصلاحيات الست كاملة' });
     }
 
     const id = Number(req.params.id);
@@ -633,24 +643,24 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
     if (!target) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
     const { fullName, loginCode, role, unit, phone, gradeOrDept, points, isActive, permissions } = req.body || {};
-    const isTargetPresident = target.role === 'president' || target.username === 'president';
-    if (isTargetPresident) {
-      if (actor.id !== target.id) {
-        return res.status(403).json({ error: 'رتبة وحساب رئيس النشاط محميان ولا يمكن تعديلهما' });
+    const actorIsSupreme = isSupremePresident(actor);
+    const targetIsSupreme = isSupremePresident(target);
+
+    if (targetIsSupreme) {
+      if (!actorIsSupreme) {
+        return res.status(403).json({ error: 'حساب الرئيس عبدالرحمن نسيم محمي ولا يمكن لأي رئيس أو مستخدم آخر تعديله' });
       }
       if ((role !== undefined && role !== 'president') || (unit !== undefined && unit !== target.unit) || isActive === false) {
-        return res.status(403).json({ error: 'رتبة رئيس النشاط ثابتة ولا يمكن تغييرها أو إيقافها' });
+        return res.status(403).json({ error: 'رتبة الرئيس عبدالرحمن نسيم ثابتة ولا يمكن خفضها أو إيقافها' });
       }
     }
 
-    if (actor.role !== 'president' && actor.role !== 'vice_president') {
-      if (target.role !== 'member' || (role !== undefined && role !== 'member') || permissions !== undefined) {
-        return res.status(403).json({ error: 'تعديل الرتب والصلاحيات مخصص للرئيس والنائب فقط' });
-      }
+    if (target.role === 'president' && !targetIsSupreme && !actorIsSupreme) {
+      return res.status(403).json({ error: 'تعديل حسابات رؤساء النشاط مخصص للرئيس عبدالرحمن نسيم فقط' });
     }
 
-    if (role === 'president' && actor.role !== 'president') {
-      return res.status(403).json({ error: 'لا يمكن منح رتبة رئيس النشاط' });
+    if (role === 'president' && !actorIsSupreme) {
+      return res.status(403).json({ error: 'منح رتبة رئيس النشاط مخصص للرئيس عبدالرحمن نسيم فقط' });
     }
     if (role && !ALLOWED_ROLES.includes(role)) {
       return res.status(400).json({ error: 'رتبة غير صالحة' });
@@ -669,7 +679,7 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'رقم الجوال مطلوب' });
     }
 
-    const parsedPerms = isTargetPresident ? [...ALL_PERMISSIONS] : sanitizePermissions(permissions);
+    const parsedPerms = targetIsSupreme ? [...ALL_PERMISSIONS] : sanitizePermissions(permissions);
     const safePoints = points !== undefined && Number.isFinite(Number(points))
       ? Math.max(0, Math.round(Number(points)))
       : undefined;
@@ -684,7 +694,7 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
       if (phone !== undefined) u.phone = String(phone).trim();
       if (gradeOrDept !== undefined) u.gradeOrDept = String(gradeOrDept).trim();
       if (safePoints !== undefined) u.points = safePoints;
-      if (!isTargetPresident) {
+      if (!targetIsSupreme) {
         if (role !== undefined) u.role = role;
         if (unit !== undefined) u.unit = unit;
         if (isActive !== undefined) u.isActive = Boolean(isActive);
@@ -711,13 +721,13 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
       [
         fullName !== undefined && String(fullName).trim() ? String(fullName).trim() : null,
         cleanCode ?? null,
-        !isTargetPresident && role !== undefined ? role : null,
-        !isTargetPresident && unit !== undefined ? unit : null,
+        !targetIsSupreme && role !== undefined ? role : null,
+        !targetIsSupreme && unit !== undefined ? unit : null,
         phone !== undefined ? String(phone).trim() : null,
         gradeOrDept !== undefined ? String(gradeOrDept).trim() : null,
         safePoints ?? null,
-        !isTargetPresident && isActive !== undefined ? Boolean(isActive) : null,
-        !isTargetPresident && parsedPerms !== undefined ? JSON.stringify(parsedPerms) : null,
+        !targetIsSupreme && isActive !== undefined ? Boolean(isActive) : null,
+        !targetIsSupreme && parsedPerms !== undefined ? JSON.stringify(parsedPerms) : null,
         id,
       ]
     );
@@ -729,13 +739,20 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
 
 app.delete('/api/users/:id', requireAuth, async (req, res) => {
   try {
-    if (req.user.role !== 'president') return res.status(403).json({ error: 'الحذف مخصص لرئيس النشاط فقط' });
+    const actor = req.user;
+    const actorIsSupreme = isSupremePresident(actor);
+    if (!hasAllSixPerms(actor) || (!actorIsSupreme && actor.role !== 'president')) {
+      return res.status(403).json({ error: 'الحذف مخصص لرئيس النشاط المكتمل الصلاحيات فقط' });
+    }
     const id = Number(req.params.id);
-    if (id === req.user.id) return res.status(400).json({ error: 'لا يمكن حذف الحساب المسجل حالياً' });
+    if (id === actor.id) return res.status(400).json({ error: 'لا يمكن حذف الحساب المسجل حالياً' });
     const target = await findUserById(id);
     if (!target) return res.status(404).json({ error: 'الحساب غير موجود' });
-    if (target.role === 'president' || target.username === 'president') {
-      return res.status(403).json({ error: 'حساب رئيس النشاط محمي ولا يمكن حذفه' });
+    if (isSupremePresident(target)) {
+      return res.status(403).json({ error: 'حساب الرئيس عبدالرحمن نسيم محمي ولا يمكن حذفه' });
+    }
+    if (target.role === 'president' && !actorIsSupreme) {
+      return res.status(403).json({ error: 'حذف رئيس نشاط آخر مخصص للرئيس عبدالرحمن نسيم فقط' });
     }
     if (!isNeon) {
       const db = readLocal();
@@ -958,6 +975,9 @@ app.patch('/api/suggestions/:id', requireAuth, async (req, res) => {
 
 app.post('/api/broadcasts/generate', requireAuth, async (req, res) => {
   try {
+    if (!hasPerm(req.user, 'manage_broadcasts')) {
+      return res.status(403).json({ error: 'توليد الإذاعات مخصص لأصحاب صلاحية الإذاعة فقط' });
+    }
     const topic = String(req.body?.title || '').trim();
     if (!topic) return res.status(400).json({ error: 'يرجى كتابة عنوان الإذاعة أولاً' });
 
@@ -1080,6 +1100,9 @@ app.post('/api/broadcasts/generate', requireAuth, async (req, res) => {
 
 app.post('/api/broadcasts', requireAuth, async (req, res) => {
   try {
+    if (!hasPerm(req.user, 'manage_broadcasts')) {
+      return res.status(403).json({ error: 'إضافة الإذاعات مخصصة لأصحاب صلاحية الإذاعة فقط' });
+      }
     await ensureReady();
     const { title, airDate, airTime, theme, presenters, segments } = req.body || {};
     if (!title || !airDate || !airTime) return res.status(400).json({ error: 'يرجى إدخال عنوان الإذاعة والتاريخ والوقت' });
@@ -1119,7 +1142,7 @@ app.patch('/api/broadcasts/:id', requireAuth, async (req, res) => {
   try {
     await ensureReady();
     const user = req.user;
-    if (!isMgmt(user.role) && !hasPerm(user, 'manage_broadcasts')) {
+    if (!hasPerm(user, 'manage_broadcasts')) {
       return res.status(403).json({ error: 'ليس لديك صلاحية تعديل الإذاعة' });
     }
     const id = Number(req.params.id);
@@ -1179,7 +1202,7 @@ app.patch('/api/broadcasts/:id', requireAuth, async (req, res) => {
 
 app.delete('/api/broadcasts/:id', requireAuth, async (req, res) => {
   try {
-    if (req.user.role !== 'president' && req.user.role !== 'vice_president' && !hasPerm(req.user, 'manage_broadcasts')) {
+    if (!hasPerm(req.user, 'manage_broadcasts')) {
       return res.status(403).json({ error: 'ليس لديك صلاحية حذف الإذاعة' });
     }
     await ensureReady();
