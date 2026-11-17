@@ -1769,6 +1769,10 @@ app.delete('/api/reports/:id', requireAuth, async (req, res) => {
   }
 });
 
+app.get(['/moe-logo.png', '/assets/moe-logo.png'], (_req, res) => {
+  res.sendFile(path.join(__dirname, 'moe-logo.png'));
+});
+
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
   res.sendFile(path.join(__dirname, 'index.html'));
