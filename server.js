@@ -310,14 +310,56 @@ async function runGroqJsonPrompt(systemPrompt, userPrompt) {
   return JSON.parse(jsonMatch ? jsonMatch[0] : rawContent);
 }
 
+function normalizeLoginCode(raw) {
+  return String(raw ?? '')
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/\s+/g, '')
+    .trim();
+}
+
+function buildPgPoolConfig(rawUrl) {
+  const cleaned = String(rawUrl || '')
+    .trim()
+    .replace(/^psql\s+/i, '')
+    .replace(/^['"]|['"]$/g, '')
+    .trim();
+  try {
+    const parsed = new URL(cleaned);
+    const sslmode = (parsed.searchParams.get('sslmode') || '').toLowerCase();
+    const isLocalHost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    parsed.searchParams.delete('sslmode');
+    parsed.searchParams.delete('uselibpqcompat');
+    parsed.searchParams.delete('channel_binding');
+    const ssl =
+      sslmode === 'disable' || isLocalHost
+        ? false
+        : sslmode === 'verify-full'
+          ? { rejectUnauthorized: true }
+          : { rejectUnauthorized: false };
+    return {
+      connectionString: parsed.toString(),
+      ssl,
+      max: 10,
+      connectionTimeoutMillis: 15000,
+    };
+  } catch {
+    const isLocal = cleaned.includes('localhost') || cleaned.includes('127.0.0.1') || cleaned.includes('sslmode=disable');
+    return {
+      connectionString: cleaned,
+      ssl: isLocal ? false : { rejectUnauthorized: false },
+      max: 10,
+      connectionTimeoutMillis: 15000,
+    };
+  }
+}
+
 let pool = null;
 function getPool() {
   if (!pool && DATABASE_URL) {
-    pool = new Pool({
-      connectionString: DATABASE_URL,
-      ssl: DATABASE_URL.includes('localhost') || DATABASE_URL.includes('127.0.0.1')
-        ? false
-        : { rejectUnauthorized: false },
+    pool = new Pool(buildPgPoolConfig(DATABASE_URL));
+    pool.on('error', (err) => {
+      console.error('Unexpected PostgreSQL pool error:', err);
     });
   }
   return pool;
@@ -450,7 +492,19 @@ function readLocal() {
     fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2), 'utf8');
     return initial;
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  let changed = false;
+  for (const u of data.users || []) {
+    if (u.username === 'president') {
+      if (!u.loginCode) { u.loginCode = '245662'; changed = true; }
+      if (!u.isActive) { u.isActive = true; changed = true; }
+    } else if (u.username === 'vice' && !u.loginCode) {
+      u.loginCode = '324662';
+      changed = true;
+    }
+  }
+  if (changed) writeLocal(data);
+  return data;
 }
 
 function writeLocal(data) {
@@ -470,7 +524,7 @@ async function ensureReady() {
         CREATE TABLE IF NOT EXISTS users (
           id SERIAL PRIMARY KEY,
           member_code TEXT NOT NULL UNIQUE,
-          login_code TEXT NOT NULL UNIQUE,
+          login_code TEXT NOT NULL DEFAULT '',
           username TEXT NOT NULL UNIQUE,
           full_name TEXT NOT NULL,
           password_hash TEXT NOT NULL,
@@ -483,6 +537,7 @@ async function ensureReady() {
           permissions JSONB,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS login_code TEXT NOT NULL DEFAULT '';
         ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB;
         CREATE TABLE IF NOT EXISTS activities (
           id SERIAL PRIMARY KEY,
@@ -588,12 +643,13 @@ async function ensureReady() {
         );
       `);
       const countRes = await p.query('SELECT COUNT(*)::int AS cnt FROM users');
+      const seed = createInitialData();
       if (countRes.rows[0].cnt === 0) {
-        const seed = createInitialData();
         for (const u of seed.users) {
           await p.query(
             `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, phone, grade_or_dept, points, is_active, permissions)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
+             ON CONFLICT (username) DO NOTHING`,
             [u.memberCode, u.loginCode, u.username, u.fullName, u.passwordHash, u.role, u.unit, u.phone, u.gradeOrDept, u.points, u.isActive, JSON.stringify(u.permissions)]
           );
         }
@@ -618,8 +674,31 @@ async function ensureReady() {
             [d.title, d.content, d.targetUnit, d.priority, d.issuedByName, d.issuedByRole]
           );
         }
+      } else {
+        for (const u of seed.users) {
+          const ex = await p.query('SELECT id, login_code, is_active FROM users WHERE username = $1 LIMIT 1', [u.username]);
+          if (ex.rows.length === 0) {
+            await p.query(
+              `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, phone, grade_or_dept, points, is_active, permissions)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
+               ON CONFLICT DO NOTHING`,
+              [u.memberCode, u.loginCode, u.username, u.fullName, u.passwordHash, u.role, u.unit, u.phone, u.gradeOrDept, u.points, u.isActive, JSON.stringify(u.permissions)]
+            );
+          } else {
+            const row = ex.rows[0];
+            if (!row.login_code || !String(row.login_code).trim()) {
+              await p.query('UPDATE users SET login_code = $1 WHERE id = $2', [u.loginCode, row.id]);
+            }
+            if (u.username === 'president' && !row.is_active) {
+              await p.query('UPDATE users SET is_active = TRUE WHERE id = $1', [row.id]);
+            }
+          }
+        }
       }
-    })();
+    })().catch((err) => {
+      dbInitPromise = null;
+      throw err;
+    });
   }
   return dbInitPromise;
 }
@@ -670,11 +749,19 @@ const sanitizeUser = (u, viewer = null) => {
 
 async function findUserByLoginCode(code) {
   await ensureReady();
-  const clean = String(code || '').trim();
+  const clean = normalizeLoginCode(code);
+  if (!clean) return null;
   if (!isNeon) {
-    return readLocal().users.find((u) => u.loginCode === clean) || null;
+    return (
+      readLocal().users.find(
+        (u) => normalizeLoginCode(u.loginCode) === clean || u.memberCode.toLowerCase() === clean.toLowerCase()
+      ) || null
+    );
   }
-  const r = await getPool().query('SELECT * FROM users WHERE login_code = $1 LIMIT 1', [clean]);
+  const r = await getPool().query(
+    'SELECT * FROM users WHERE TRIM(login_code) = $1 OR LOWER(TRIM(member_code)) = LOWER($1) LIMIT 1',
+    [clean]
+  );
   return r.rows[0] ? mapUser(r.rows[0]) : null;
 }
 
@@ -718,8 +805,9 @@ app.get('/api/health', async (_req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { code, portalType } = req.body || {};
-    if (!String(code || '').trim()) return res.status(400).json({ error: 'يرجى إدخال رمز الدخول' });
-    const u = await findUserByLoginCode(code);
+    const cleanCode = normalizeLoginCode(code);
+    if (!cleanCode) return res.status(400).json({ error: 'يرجى إدخال رمز الدخول' });
+    const u = await findUserByLoginCode(cleanCode);
     if (!u) return res.status(401).json({ error: 'رمز الدخول غير صحيح' });
     if (!u.isActive) return res.status(403).json({ error: 'الحساب موقوف حالياً' });
     if (portalType === 'management' && !isMgmt(u.role)) {
@@ -730,8 +818,15 @@ app.post('/api/auth/login', async (req, res) => {
     }
     const token = jwt.sign({ userId: u.id, role: u.role }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: sanitizeUser(u) });
-  } catch {
-    res.status(500).json({ error: 'تعذر تسجيل الدخول' });
+  } catch (err) {
+    console.error('Login error:', err);
+    const msg = String(err && err.message ? err.message : '');
+    const isDbConn = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|SSL|certificate|password authentication|database/i.test(msg);
+    res.status(500).json({
+      error: isDbConn
+        ? 'تعذر الاتصال بقاعدة البيانات حالياً، يرجى التحقق من رابط DATABASE_URL وإعدادات SSL'
+        : 'تعذر تسجيل الدخول',
+    });
   }
 });
 
@@ -860,7 +955,10 @@ app.post('/api/users', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'يرجى إدخال الاسم الكامل ورقم الجوال ورمز الدخول' });
     }
 
-    const cleanCode = String(loginCode).trim();
+    const cleanCode = normalizeLoginCode(loginCode);
+    if (!cleanCode) {
+      return res.status(400).json({ error: 'يرجى إدخال رمز دخول صالح' });
+    }
     const rand = Math.floor(1000 + Math.random() * 9000);
     const memberCode = `${targetRole === 'member' ? 'STD' : 'ADM'}-${rand}`;
     const username = `user_${cleanCode}`.toLowerCase();
@@ -951,7 +1049,7 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
 
     let cleanCode;
     if (loginCode !== undefined) {
-      cleanCode = String(loginCode).trim();
+      cleanCode = normalizeLoginCode(loginCode);
       if (!cleanCode) return res.status(400).json({ error: 'رمز الدخول لا يمكن أن يكون فارغاً' });
       const existingCode = await findUserByLoginCode(cleanCode);
       if (existingCode && existingCode.id !== id) {
