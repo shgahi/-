@@ -44,7 +44,12 @@
         animation: none !important; transition: none !important; transform: none !important;
       }
     }
-    @media print { .no-print { display: none !important; } }
+    @media print {
+      @page { size: A4 portrait; margin: 5mm; }
+      html, body { background-color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .no-print { display: none !important; }
+      .print-sheet { border: none !important; box-shadow: none !important; margin: 0 auto !important; max-width: 100% !important; width: 100% !important; border-radius: 0 !important; break-inside: avoid; }
+    }
   </style>
 </head>
 <body class="bg-[#f5f7fa] text-slate-900 min-h-screen antialiased">
@@ -79,10 +84,27 @@
       user: null,
       portalType: 'management',
       tab: 'overview',
-      reportTab: 'students',
+      reportTab: 'evidence',
       subTab: 'achievements',
-      data: { users: [], activities: [], broadcasts: [], disciplineLogs: [], directives: [], submissions: [], complaints: [], suggestions: [] },
+      data: { users: [], activities: [], broadcasts: [], disciplineLogs: [], directives: [], submissions: [], complaints: [], suggestions: [], programReports: [] },
       selectedBroadcastId: null,
+      inlineBroadcastEdit: false,
+      selectedReportId: null,
+      showReportBuilder: false,
+      showRepAdvanced: false,
+      editingReportId: null,
+      reportDraft: {
+        schoolName: 'مدرسة الحديبية المتوسطة',
+        title: '',
+        field: '',
+        executors: '',
+        executionDate: (() => { try { return new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); } catch { return new Date().toISOString().slice(0, 10); } })(),
+        beneficiaries: 'الطلاب',
+        beneficiariesCount: '',
+        stepsText: '',
+        objectivesText: '',
+        images: [],
+      },
       editingUserId: null,
       editingBroadcastId: null,
       confirmOpts: null,
@@ -153,6 +175,8 @@
         if (state.tab === 'directory' && !hasAllSixPerms(state.user)) state.tab = isMgmt(state.user.role) ? 'overview' : 'member_stats';
         if (state.tab === 'broadcasts' && !hasPerm(state.user, 'manage_broadcasts')) state.tab = isMgmt(state.user.role) ? 'overview' : 'member_stats';
         if (!state.selectedBroadcastId && ws.broadcasts[0]) state.selectedBroadcastId = ws.broadcasts[0].id;
+        if (!state.selectedReportId && ws.programReports && ws.programReports[0]) state.selectedReportId = ws.programReports[0].id;
+        if (!state.reportDraft.executors && state.user) state.reportDraft.executors = state.user.fullName;
       } catch (e) {
         state.error = e.message;
       } finally {
@@ -276,20 +300,155 @@
 
     function renderReports() {
       const students = state.data.users.filter((u) => u.role === 'member');
+      const reports = state.data.programReports || [];
+      const selRep = reports.find((r) => r.id === state.selectedReportId) || reports[0] || null;
+      const d = state.reportDraft;
       return `
         <div class="space-y-6">
-          <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-3 no-print">
             <div>
               <h2 class="text-xl font-bold">التقارير والمتابعة</h2>
-              <p class="text-sm text-slate-500">أداء الطلاب مع الإرسال المباشر عبر واتساب، والنشاط الأول والثاني والانضباط</p>
+              <p class="text-sm text-slate-500">تقارير البرامج بالشواهد المصورة، أداء الطلاب واتساب، والنشاط الأول والثاني والانضباط</p>
             </div>
-            <div class="flex gap-1 p-1 bg-slate-200/75 rounded-xl text-xs font-semibold">
+            <div class="flex flex-wrap gap-1 p-1 bg-slate-200/75 rounded-xl text-xs font-semibold">
+              <button onclick="setReportTab('evidence')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'evidence' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">تقارير الشواهد (${reports.length})</button>
               <button onclick="setReportTab('students')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'students' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">أداء الطلاب (${students.length})</button>
               <button onclick="setReportTab('activity_1')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'activity_1' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">النشاط الأول</button>
               <button onclick="setReportTab('activity_2')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'activity_2' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">النشاط الثاني</button>
               <button onclick="setReportTab('discipline')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'discipline' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">الضباط والانضباط</button>
             </div>
           </div>
+
+          ${state.reportTab === 'evidence' ? `
+            <div class="space-y-5">
+              <div class="flex flex-wrap items-center justify-between gap-3 no-print">
+                <p class="text-xs text-slate-500">أدخل اسم البرنامج والمنفذين والتاريخ وأرفق حتى 4 شواهد مصورة، ويتولى الذكاء الاصطناعي استنتاج المجال وخطوات التنفيذ والأهداف مباشرة.</p>
+                <button onclick="toggleReportBuilder()" class="px-4 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">${state.showReportBuilder ? 'إغلاق النموذج' : 'إعداد تقرير جديد (4 شواهد)'}</button>
+              </div>
+
+              ${(state.showReportBuilder || reports.length === 0) ? `
+                <form onsubmit="submitProgramReport(event)" class="luxury-card p-6 space-y-4 no-print">
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <h3 class="text-sm font-bold">${state.editingReportId ? 'تعديل التقرير والشواهد' : 'إنشاء تقرير برنامج جديد (4 شواهد)'}</h3>
+                    <button type="button" onclick="generateReportDraft()" class="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer">توليد المجال والخطوات والأهداف بالذكاء الاصطناعي</button>
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">اسم البرنامج *</label><input id="repTitle" required value="${esc(d.title)}" oninput="syncRepDraft('title', this.value)" placeholder="مثال: البراكين" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">المنفذ / ين *</label><input id="repExec" required value="${esc(d.executors)}" oninput="syncRepDraft('executors', this.value)" placeholder="الأستاذ / ..." class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">تاريخ التنفيذ *</label><input id="repDate" required value="${esc(d.executionDate)}" oninput="syncRepDraft('executionDate', this.value)" placeholder="1448/05/04هـ" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" /></div>
+                  </div>
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between"><span class="text-xs font-semibold text-slate-700">الشواهد المصورة (بحد أقصى 4 صور مرتبة في شبكة 2×2)</span><span class="text-xs font-mono text-slate-500">${Math.min(4, d.images.length)}/4 شواهد</span></div>
+                    <div class="flex flex-wrap items-center gap-3">
+                      ${d.images.length < 4 ? `<label class="px-4 py-2 rounded-xl border-2 border-dashed border-teal-700/50 bg-teal-50/50 hover:bg-teal-50 text-xs font-bold text-teal-900 cursor-pointer">رفع صور الشواهد (حتى 4 صور)<input type="file" accept="image/*" multiple onchange="pickReportImages(event)" class="hidden" /></label>` : ''}
+                      ${d.images.slice(0, 4).map((src, i) => `<div class="relative w-24 h-20 rounded-xl border border-slate-200 overflow-hidden bg-slate-50"><img src="${src}" class="w-full h-full object-cover" /><button type="button" onclick="removeReportImage(${i})" class="absolute top-1 left-1 w-5 h-5 rounded-full bg-slate-900/80 text-white text-[10px] font-bold cursor-pointer">✕</button></div>`).join('')}
+                    </div>
+                  </div>
+                  <div class="border-t border-slate-100 pt-3">
+                    <button type="button" onclick="toggleRepAdvanced()" class="text-xs font-semibold text-teal-800 hover:text-teal-950 cursor-pointer">${state.showRepAdvanced ? 'إخفاء الحقول المولّدة تلقائياً' : 'تعديل المجال وخطوات التنفيذ والأهداف يدوياً (اختياري — تُولّد تلقائياً عند الحفظ)'}</button>
+                    ${state.showRepAdvanced ? `
+                      <div class="mt-3 space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">اسم المدرسة</label><input id="repSchool" value="${esc(d.schoolName)}" oninput="syncRepDraft('schoolName', this.value)" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">مجال البرنامج (بالذكاء الاصطناعي)</label><input id="repField" value="${esc(d.field)}" oninput="syncRepDraft('field', this.value)" placeholder="يُستنتج من اسم البرنامج" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">المستفيدون</label><input id="repBen" value="${esc(d.beneficiaries)}" oninput="syncRepDraft('beneficiaries', this.value)" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">عدد المستفيدين</label><input id="repBenCnt" value="${esc(d.beneficiariesCount)}" oninput="syncRepDraft('beneficiariesCount', this.value)" placeholder="اقل من 70 طالب" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">خطوات التنفيذ (اتركها فارغة للتوليد التلقائي)</label><textarea id="repSteps" rows="4" oninput="syncRepDraft('stepsText', this.value)" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(d.stepsText)}</textarea></div>
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">الأهداف (اتركها فارغة للتوليد التلقائي)</label><textarea id="repObjs" rows="4" oninput="syncRepDraft('objectivesText', this.value)" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(d.objectivesText)}</textarea></div>
+                        </div>
+                      </div>
+                    ` : ''}
+                  </div>
+                  <div class="flex justify-end gap-2">
+                    ${state.showReportBuilder ? `<button type="button" onclick="toggleReportBuilder()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold cursor-pointer">إلغاء</button>` : ''}
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">${state.editingReportId ? 'حفظ التعديلات' : 'إنشاء التقرير بالشواهد'}</button>
+                  </div>
+                </form>
+              ` : ''}
+
+              <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <div class="lg:col-span-4 luxury-card overflow-hidden divide-y divide-slate-200/70 no-print">
+                  <div class="px-4 py-3 bg-slate-50/70 text-xs font-bold text-slate-700">التقارير المحفوظة (${reports.length})</div>
+                  ${reports.length === 0 ? `<div class="p-6 text-center text-xs text-slate-500">لا توجد تقارير محفوظة بعد</div>` : reports.map((r) => `
+                    <button onclick="selectReport(${r.id})" class="w-full text-right p-4 cursor-pointer transition-colors ${selRep && selRep.id === r.id ? 'bg-teal-50/75' : 'hover:bg-slate-50'}">
+                      <div class="font-bold text-sm">${esc(r.title)}</div>
+                      <div class="text-xs text-slate-500 mt-1">${esc(r.field)} · ${esc(r.executionDate)} · ${Math.min(4, (r.images || []).length)}/4 شواهد</div>
+                    </button>
+                  `).join('')}
+                </div>
+
+                <div class="lg:col-span-8 space-y-3">
+                  ${selRep ? `
+                    <div class="flex flex-wrap justify-between items-center gap-2 no-print">
+                      <span class="text-xs text-slate-500">أعدّه: <b>${esc(selRep.createdByName)}</b></span>
+                      <div class="flex items-center gap-2">
+                        <button onclick="editProgramReport(${selRep.id})" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold cursor-pointer">تعديل التقرير</button>
+                        <button onclick="window.print()" class="px-4 py-1.5 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">طباعة / حفظ PDF</button>
+                        <button onclick="deleteProgramReport(${selRep.id}, '${esc(selRep.title)}')" class="px-3 py-1.5 rounded-xl border border-red-200 bg-white text-red-700 text-xs font-bold cursor-pointer">حذف</button>
+                      </div>
+                    </div>
+                    <div class="max-w-[794px] mx-auto bg-white border border-slate-200 shadow-lg overflow-hidden print-sheet">
+                      <div class="relative bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799] text-white px-6 pt-5 pb-9">
+                        <div class="flex items-center justify-center gap-5">
+                          <div class="flex items-center gap-3">
+                            <svg viewBox="0 0 88 54" class="w-20 h-12 shrink-0 text-white" fill="currentColor" aria-hidden="true">
+                              <circle cx="14" cy="15" r="2.2" /><circle cx="23" cy="12" r="2.3" /><circle cx="32" cy="10" r="2.5" /><circle cx="42" cy="9" r="2.6" /><circle cx="52" cy="10" r="2.5" /><circle cx="62" cy="12" r="2.4" /><circle cx="72" cy="15" r="2.2" />
+                              <circle cx="18" cy="21" r="2" /><circle cx="28" cy="19" r="2.2" /><circle cx="38" cy="17" r="2.4" /><circle cx="48" cy="17" r="2.3" /><circle cx="58" cy="19" r="2.2" /><circle cx="68" cy="21" r="2" />
+                              <circle cx="24" cy="27" r="1.8" /><circle cx="34" cy="25" r="2" /><circle cx="44" cy="24" r="2.2" /><circle cx="54" cy="25" r="2" /><circle cx="64" cy="27" r="1.8" />
+                              <path d="M12 37c11-6 21-6 32 0 11-6 21-6 32 0v4.2c-11-4.8-21-4.8-32 0-11-4.8-21-4.8-32 0V37z" />
+                              <path d="M15 45c10-4.5 19-4.5 29 0 10-4.5 19-4.5 29 0v3.2c-10-3.5-19-3.5-29 0-10-3.5-19-3.5-29 0V45z" opacity="0.88" />
+                            </svg>
+                            <div class="leading-tight text-right">
+                              <div class="text-xl font-bold">وزارة التعليم</div>
+                              <div class="text-[11px] opacity-95">Ministry of Education</div>
+                            </div>
+                          </div>
+                          <div class="w-[2px] h-14 bg-white/90 shrink-0"></div>
+                          <div class="text-right text-sm font-semibold leading-snug">
+                            <div>الإدارة العامة للتعليم</div>
+                            <div>بمحافظة جدة</div>
+                            <div>النشاط الطلابي</div>
+                          </div>
+                        </div>
+                        <div class="absolute left-1/2 -translate-x-1/2 -bottom-4 bg-[#24364d] text-white px-14 sm:px-20 py-1.5 rounded-xl text-sm sm:text-base font-bold shadow-md whitespace-nowrap border border-white/10">${esc(selRep.schoolName || 'مدرسة الحديبية المتوسطة')}</div>
+                      </div>
+                      <div class="px-6 pt-8 pb-5 space-y-4 bg-white">
+                        <div class="grid grid-cols-12 gap-3.5">
+                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-3.5 pb-2 bg-white text-center"><span class="absolute -top-3 right-3 bg-white px-2 text-xs sm:text-[13px] font-bold text-[#1e8c70]">اســــم البرنــــامج:</span><div class="text-sm sm:text-[15px] font-semibold text-slate-900">${esc(selRep.title || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-3.5 pb-2 bg-white text-center"><span class="absolute -top-3 right-3 bg-white px-2 text-xs sm:text-[13px] font-bold text-[#1e8c70]">مجــــال البرنــــامج:</span><div class="text-sm sm:text-[15px] font-semibold text-slate-900">${esc(selRep.field || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-3.5 pb-2 bg-white text-center"><span class="absolute -top-3 right-3 bg-white px-2 text-xs sm:text-[13px] font-bold text-[#1e8c70]">المنفـــــــذ/يــــن:</span><div class="text-sm sm:text-[15px] font-semibold text-slate-900">${esc(selRep.executors || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-3.5 pb-2 bg-white text-center"><span class="absolute -top-3 right-3 bg-white px-2 text-xs sm:text-[13px] font-bold text-[#1e8c70]">تاريــــخ التنفيــــذ:</span><div class="text-sm sm:text-[15px] font-semibold text-slate-900 font-mono">${esc(selRep.executionDate || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-3.5 pb-2 bg-white text-center"><span class="absolute -top-3 right-3 bg-white px-2 text-xs sm:text-[13px] font-bold text-[#1e8c70]">المستفيـــــــدون:</span><div class="text-sm sm:text-[15px] font-semibold text-slate-900">${esc(selRep.beneficiaries || 'الطلاب')}</div></div>
+                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-3.5 pb-2 bg-white text-center"><span class="absolute -top-3 right-3 bg-white px-2 text-xs sm:text-[13px] font-bold text-[#1e8c70]">عدد المستفيدين:</span><div class="text-sm sm:text-[15px] font-semibold text-slate-900">${esc(selRep.beneficiariesCount || 'اقل من 70 طالب')}</div></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-3.5 items-stretch">
+                          <div class="relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-4 pb-3 bg-white">
+                            <span class="absolute -top-3 right-3 bg-white px-2 text-xs sm:text-[13px] font-bold text-[#1e8c70]">خطوات التنفيذ:</span>
+                            <div class="space-y-1 text-xs sm:text-[13px] text-slate-900 leading-relaxed text-right">${(selRep.steps || []).map((s) => `<div>${esc(s)}</div>`).join('')}</div>
+                          </div>
+                          <div class="relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-4 pb-3 bg-white">
+                            <span class="absolute -top-3 right-3 bg-white px-2 text-xs sm:text-[13px] font-bold text-[#1e8c70]">الأهـــــــــــــــداف:</span>
+                            <div class="space-y-1 text-xs sm:text-[13px] text-slate-900 leading-relaxed text-right">${(selRep.objectives || []).map((o) => `<div>${esc(o)}</div>`).join('')}</div>
+                          </div>
+                        </div>
+                        <div class="relative border-[1.7px] border-[#217a8c] rounded-xl px-6 pt-6 pb-4 bg-white">
+                          <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-5 text-sm sm:text-[15px] font-bold text-[#1e8c70]">الشــــواهد</span>
+                          ${(selRep.images || []).length === 0 ? `<div class="py-8 text-center text-xs text-slate-400">لا توجد صور شواهد مرفقة (الحد الأقصى 4 صور)</div>` : `
+                            <div class="grid grid-cols-2 gap-4 max-w-[580px] mx-auto">
+                              ${(selRep.images || []).slice(0, 4).map((src) => `<div class="rounded-xl border border-slate-500/80 overflow-hidden bg-white flex items-center justify-center h-40 sm:h-44 print:h-[162px]"><img src="${src}" class="w-full h-full object-contain" /></div>`).join('')}
+                            </div>
+                          `}
+                        </div>
+                      </div>
+                      <div class="h-4 bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799]"></div>
+                    </div>
+                  ` : `<div class="luxury-card p-10 text-center text-sm text-slate-500 no-print">أنشئ أول تقرير بالشواهد لعرضه وطباعته</div>`}
+                </div>
+              </div>
+            </div>
+          ` : ''}
 
           ${state.reportTab === 'students' ? `
             <section class="luxury-card overflow-hidden">
@@ -421,27 +580,46 @@
                 </button>
               `).join('')}
             </div>
-            <div class="lg:col-span-8 luxury-card p-6 space-y-4">
+            <div class="lg:col-span-8 luxury-card p-6 space-y-4 print-sheet">
               ${sel ? `
                 <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200/80 pb-3">
-                  <div>
-                    <h3 class="text-lg font-bold">${esc(sel.title)}</h3>
-                    <div class="text-xs text-slate-500 font-mono">${esc(sel.airDate)} · ${esc(sel.airTime)}</div>
+                  <div class="flex-1 min-w-0">
+                    ${state.inlineBroadcastEdit ? `<input id="inBTitle" value="${esc(sel.title)}" class="w-full h-10 px-3 rounded-xl border border-teal-600 font-bold text-base" />` : `<h3 class="text-lg font-bold">${esc(sel.title)}</h3>`}
+                    <div class="text-xs text-slate-500 font-mono mt-1">${esc(sel.airDate)} · ${esc(sel.airTime)} · فريق الإلقاء: ${state.inlineBroadcastEdit ? `<input id="inBPres" value="${esc(sel.presenters)}" class="px-2 py-0.5 rounded border border-slate-300 font-sans text-xs" />` : esc(sel.presenters)}</div>
                   </div>
                   <div class="flex flex-wrap items-center gap-2 no-print">
-                    ${canEditBrc ? `<button onclick="openEditBroadcast(${sel.id})" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold cursor-pointer">تعديل الفقرات</button>` : ''}
-                    ${(state.user.role === 'president' || state.user.role === 'vice_president') && sel.status === 'pending_approval' ? `<button onclick="approveBroadcast(${sel.id}, '${esc(sel.title)}')" class="px-3 py-1.5 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">اعتماد البث</button>` : ''}
-                    ${canEditBrc ? `<button onclick="deleteBroadcast(${sel.id}, '${esc(sel.title)}')" class="px-3 py-1.5 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold cursor-pointer">حذف</button>` : ''}
+                    ${state.inlineBroadcastEdit ? `
+                      <button onclick="formatInlineBroadcast()" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold cursor-pointer">تنسيق سطر فاضي بعد الطالب</button>
+                      <button onclick="saveInlineBroadcast(${sel.id}, false)" class="px-3 py-1.5 rounded-xl border border-teal-700 text-teal-800 text-xs font-bold cursor-pointer">حفظ</button>
+                      <button onclick="saveInlineBroadcast(${sel.id}, true)" class="px-3.5 py-1.5 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">حفظ وطباعة</button>
+                      <button onclick="toggleInlineBroadcast(false)" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold cursor-pointer">إلغاء</button>
+                    ` : `
+                      ${canEditBrc ? `<button onclick="toggleInlineBroadcast(true)" class="px-3 py-1.5 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">تعديل قبل الطباعة</button>` : ''}
+                      ${canEditBrc ? `<button onclick="openEditBroadcast(${sel.id})" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold cursor-pointer">تعديل البيانات</button>` : ''}
+                      ${(state.user.role === 'president' || state.user.role === 'vice_president') && sel.status === 'pending_approval' ? `<button onclick="approveBroadcast(${sel.id}, '${esc(sel.title)}')" class="px-3 py-1.5 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">اعتماد البث</button>` : ''}
+                      ${canEditBrc ? `<button onclick="deleteBroadcast(${sel.id}, '${esc(sel.title)}')" class="px-3 py-1.5 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold cursor-pointer">حذف</button>` : ''}
+                    `}
                   </div>
                 </div>
-                <div class="space-y-3 text-sm">
-                  <div><div class="text-xs font-bold text-teal-800">1. المقدمة</div><p class="whitespace-pre-line">${esc(sel.segments?.intro)}</p></div>
-                  <div><div class="text-xs font-bold text-teal-800">2. القرآن الكريم</div><p class="whitespace-pre-line">${esc(sel.segments?.quran)}</p></div>
-                  <div><div class="text-xs font-bold text-teal-800">3. الحديث الشريف</div><p class="whitespace-pre-line">${esc(sel.segments?.hadith)}</p></div>
-                  <div><div class="text-xs font-bold text-teal-800">4. كلمة الصباح</div><p class="whitespace-pre-line">${esc(sel.segments?.morningWord)}</p></div>
-                  <div><div class="text-xs font-bold text-teal-800">5. هل تعلم</div><p class="whitespace-pre-line">${esc(sel.segments?.didYouKnow)}</p></div>
-                  <div><div class="text-xs font-bold text-teal-800">6. الخاتمة</div><p class="whitespace-pre-line">${esc(sel.segments?.closing)}</p></div>
-                </div>
+                ${state.inlineBroadcastEdit ? `
+                  <div class="space-y-3 text-sm">
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">1. المقدمة</label><textarea id="inBIntro" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.intro)}</textarea></div>
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">2. القرآن الكريم</label><textarea id="inBQuran" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.quran)}</textarea></div>
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">3. الحديث الشريف</label><textarea id="inBHadith" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.hadith)}</textarea></div>
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">4. كلمة الصباح</label><textarea id="inBWord" rows="4" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.morningWord)}</textarea></div>
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">5. هل تعلم</label><textarea id="inBDyk" rows="4" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.didYouKnow)}</textarea></div>
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">6. الخاتمة</label><textarea id="inBClose" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.closing)}</textarea></div>
+                  </div>
+                ` : `
+                  <div class="space-y-3 text-sm">
+                    <div><div class="text-xs font-bold text-teal-800">1. المقدمة</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.intro)}</p></div>
+                    <div><div class="text-xs font-bold text-teal-800">2. القرآن الكريم</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.quran)}</p></div>
+                    <div><div class="text-xs font-bold text-teal-800">3. الحديث الشريف</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.hadith)}</p></div>
+                    <div><div class="text-xs font-bold text-teal-800">4. كلمة الصباح</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.morningWord)}</p></div>
+                    <div><div class="text-xs font-bold text-teal-800">5. هل تعلم</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.didYouKnow)}</p></div>
+                    <div><div class="text-xs font-bold text-teal-800">6. الخاتمة</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.closing)}</p></div>
+                  </div>
+                `}
               ` : `<p class="text-sm text-slate-500">لا توجد إذاعات</p>`}
             </div>
           </div>
@@ -903,7 +1081,177 @@
     };
     window.setReportTab = (t) => { state.reportTab = t; render(); };
     window.setSubTab = (t) => { state.subTab = t; render(); };
-    window.selectBroadcast = (id) => { state.selectedBroadcastId = id; render(); };
+    window.selectBroadcast = (id) => { state.selectedBroadcastId = id; state.inlineBroadcastEdit = false; render(); };
+    window.toggleInlineBroadcast = (on) => { state.inlineBroadcastEdit = on; render(); };
+    function formatStudentLine(text) {
+      const n = String(text || '').replace(/\r\n/g, '\n').trim();
+      if (!n) return '';
+      const s = n.replace(/(الطالب[^\n]*?(?:\.{2,}|\([^\)]*\)|\.|:))[ \t]+([^\n]+)/g, '$1\n\n$2');
+      const ls = s.split('\n');
+      const out = [];
+      for (let i = 0; i < ls.length; i++) {
+        out.push(ls[i]);
+        if (/الطالب/.test(ls[i]) && i + 1 < ls.length && ls[i + 1].trim() !== '') out.push('');
+      }
+      return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+    window.formatInlineBroadcast = () => {
+      ['inBIntro','inBQuran','inBHadith','inBWord','inBDyk','inBClose'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = formatStudentLine(el.value);
+      });
+    };
+    window.saveInlineBroadcast = async (id, printAfter) => {
+      const body = {
+        title: document.getElementById('inBTitle').value.trim(),
+        presenters: document.getElementById('inBPres').value.trim(),
+        segments: {
+          intro: document.getElementById('inBIntro').value,
+          quran: document.getElementById('inBQuran').value,
+          hadith: document.getElementById('inBHadith').value,
+          morningWord: document.getElementById('inBWord').value,
+          didYouKnow: document.getElementById('inBDyk').value,
+          closing: document.getElementById('inBClose').value,
+        },
+      };
+      const ok = await openConfirm({
+        title: printAfter ? 'حفظ التعديلات وطباعة الإذاعة' : 'تأكيد حفظ تعديلات الإذاعة',
+        message: `هل أنت متأكد من حفظ التعديلات على إذاعة «${body.title}»؟`,
+        confirmLabel: printAfter ? 'نعم، حفظ وطباعة' : 'نعم، حفظ',
+      });
+      if (!ok) return;
+      state.inlineBroadcastEdit = false;
+      await runAction(() => api('/api/broadcasts/' + id, { method: 'PATCH', body: JSON.stringify(body) }), 'تم تحديث الإذاعة بنجاح');
+      if (printAfter) setTimeout(() => window.print(), 250);
+    };
+
+    window.selectReport = (id) => { state.selectedReportId = id; render(); };
+    window.syncRepDraft = (k, v) => { state.reportDraft[k] = v; };
+    window.toggleRepAdvanced = () => { state.showRepAdvanced = !state.showRepAdvanced; render(); };
+    window.toggleReportBuilder = () => {
+      state.showReportBuilder = !state.showReportBuilder;
+      if (!state.showReportBuilder) {
+        state.editingReportId = null;
+        state.showRepAdvanced = false;
+        state.reportDraft = { ...state.reportDraft, title: '', field: '', beneficiariesCount: '', stepsText: '', objectivesText: '', images: [] };
+      }
+      render();
+    };
+    window.removeReportImage = (idx) => {
+      state.reportDraft.images = state.reportDraft.images.filter((_, i) => i !== idx);
+      render();
+    };
+    window.pickReportImages = async (e) => {
+      const files = Array.from(e.target.files || []);
+      const remaining = Math.max(0, 4 - state.reportDraft.images.length);
+      if (remaining === 0) {
+        state.error = 'الحد الأقصى للشواهد هو 4 صور فقط كما في القالب الرسمي';
+        render();
+        return;
+      }
+      for (const f of files.slice(0, remaining)) {
+        const dataUrl = await new Promise((resolve) => {
+          const r = new FileReader();
+          r.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+              const max = 960;
+              let w = img.width, h = img.height;
+              if (w > max || h > max) {
+                if (w >= h) { h = Math.round(h * max / w); w = max; } else { w = Math.round(w * max / h); h = max; }
+              }
+              const c = document.createElement('canvas'); c.width = w; c.height = h;
+              const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+              resolve(c.toDataURL('image/jpeg', 0.8));
+            };
+            img.src = r.result;
+          };
+          r.readAsDataURL(f);
+        });
+        state.reportDraft.images.push(dataUrl);
+      }
+      state.reportDraft.images = state.reportDraft.images.slice(0, 4);
+      render();
+    };
+    window.generateReportDraft = async () => {
+      const title = (state.reportDraft.title || '').trim();
+      if (!title) { state.error = 'اكتب اسم البرنامج أولاً لتوليد المجال وخطوات التنفيذ والأهداف'; render(); return; }
+      state.error = ''; state.okMsg = 'جاري توليد المجال وخطوات التنفيذ والأهداف من اسم البرنامج...'; render();
+      try {
+        const gen = await api('/api/reports/generate', {
+          method: 'POST',
+          body: JSON.stringify({ title, executors: state.reportDraft.executors, executionDate: state.reportDraft.executionDate }),
+        });
+        state.reportDraft.field = gen.field;
+        state.reportDraft.beneficiaries = gen.beneficiaries || 'الطلاب';
+        state.reportDraft.beneficiariesCount = gen.beneficiariesCount || 'اقل من 70 طالب';
+        state.reportDraft.stepsText = (gen.steps || []).join('\n');
+        state.reportDraft.objectivesText = (gen.objectives || []).join('\n');
+        state.showRepAdvanced = true;
+        state.okMsg = `تم استنتاج المجال («${gen.field}») وتوليد خطوات التنفيذ والأهداف من اسم البرنامج`;
+        render();
+      } catch (err) { state.okMsg = ''; state.error = err.message; render(); }
+    };
+    window.editProgramReport = (id) => {
+      const rep = (state.data.programReports || []).find((x) => x.id === id);
+      if (!rep) return;
+      state.editingReportId = id;
+      state.showReportBuilder = true;
+      state.showRepAdvanced = true;
+      state.reportDraft = {
+        schoolName: rep.schoolName || 'مدرسة الحديبية المتوسطة',
+        title: rep.title, field: rep.field, executors: rep.executors,
+        executionDate: rep.executionDate, beneficiaries: rep.beneficiaries, beneficiariesCount: rep.beneficiariesCount,
+        stepsText: (rep.steps || []).join('\n'), objectivesText: (rep.objectives || []).join('\n'),
+        images: [...(rep.images || []).slice(0, 4)],
+      };
+      render();
+    };
+    window.submitProgramReport = async (e) => {
+      e.preventDefault();
+      const d = state.reportDraft;
+      let steps = d.stepsText.split('\n').map((s) => s.trim()).filter(Boolean);
+      let objectives = d.objectivesText.split('\n').map((s) => s.trim()).filter(Boolean);
+      let field = d.field.trim();
+      let count = d.beneficiariesCount.trim();
+      if (!steps.length || !objectives.length || !field) {
+        const gen = await api('/api/reports/generate', { method: 'POST', body: JSON.stringify({ title: d.title, executors: d.executors, executionDate: d.executionDate }) });
+        if (!field) field = gen.field;
+        if (!count) count = gen.beneficiariesCount;
+        if (!steps.length) steps = gen.steps;
+        if (!objectives.length) objectives = gen.objectives;
+      }
+      const clippedImgs = (d.images || []).slice(0, 4);
+      const ok = await openConfirm({
+        title: state.editingReportId ? 'تأكيد تعديل التقرير' : 'تأكيد إنشاء التقرير',
+        message: `هل تريد حفظ تقرير «${d.title}» (${field}) مع ${clippedImgs.length} شواهد مصورة؟`,
+        confirmLabel: 'نعم، حفظ التقرير',
+      });
+      if (!ok) return;
+      const payload = {
+        schoolName: d.schoolName.trim() || 'مدرسة الحديبية المتوسطة',
+        title: d.title.trim(), field: field,
+        executors: d.executors.trim(), executionDate: d.executionDate.trim(),
+        beneficiaries: d.beneficiaries.trim() || 'الطلاب', beneficiariesCount: count || 'اقل من 70 طالب',
+        steps, objectives, images: clippedImgs,
+      };
+      const editId = state.editingReportId;
+      state.editingReportId = null;
+      state.showReportBuilder = false;
+      state.showRepAdvanced = false;
+      await runAction(async () => {
+        const res = editId
+          ? await api('/api/reports/' + editId, { method: 'PATCH', body: JSON.stringify(payload) })
+          : await api('/api/reports', { method: 'POST', body: JSON.stringify(payload) });
+        state.selectedReportId = res.report.id;
+        state.reportDraft = { ...state.reportDraft, title: '', field: '', beneficiariesCount: '', stepsText: '', objectivesText: '', images: [] };
+      }, editId ? 'تم تحديث التقرير بنجاح' : 'تم إنشاء التقرير وحفظه بنجاح');
+    };
+    window.deleteProgramReport = async (id, title) => {
+      const ok = await openConfirm({ title: 'تأكيد حذف التقرير', message: `هل أنت متأكد من حذف تقرير «${title}»؟`, confirmLabel: 'نعم، حذف', tone: 'danger' });
+      if (!ok) return;
+      runAction(() => api('/api/reports/' + id, { method: 'DELETE' }), 'تم حذف التقرير');
+    };
     window.openEditUser = (id) => { state.editingUserId = id; renderModalRoot(); };
     window.closeEditUser = () => { state.editingUserId = null; renderModalRoot(); };
     window.openEditBroadcast = (id) => { state.editingBroadcastId = id; renderModalRoot(); };

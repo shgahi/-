@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
 
 const PORT = Number(process.env.PORT) || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'student-activity-dev-secret-change-in-prod';
@@ -57,6 +57,259 @@ const sanitizePermissions = (input) => {
   return input.filter((p) => ALL_PERMISSIONS.includes(p));
 };
 
+function formatBroadcastSegmentSpacing(text) {
+  const normalized = String(text ?? '').replace(/\r\n/g, '\n').trim();
+  if (!normalized) return '';
+  const splitInline = normalized.replace(
+    /(الطالب[^\n]*?(?:\.{2,}|\([^\)]*\)|\.|:))[ \t]+([^\n]+)/g,
+    '$1\n\n$2'
+  );
+  const lines = splitInline.split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    out.push(lines[i]);
+    const hasNextNonEmpty = i + 1 < lines.length && lines[i + 1].trim() !== '';
+    if (/الطالب/.test(lines[i]) && hasNextNonEmpty) {
+      out.push('');
+    }
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function buildFallbackReportContent(title, executors) {
+  const cleanTitle = String(title || '').trim();
+  const cleanExec = String(executors || '').trim() || 'إدارة النشاط الطلابي';
+  const t = cleanTitle;
+
+  if (/بركان|براكين|تفاعل|كيمياء|فيزياء|مختبر|تجرب|محلول|علوم|ذرة|كهرباء/.test(t)) {
+    return {
+      field: 'المختبر',
+      beneficiaries: 'الطلاب',
+      beneficiariesCount: 'اقل من 70 طالب',
+      steps: [
+        `1- تجهيز أدوات وتجارب برنامج «${cleanTitle}» داخل المختبر ومراعاة وسائل السلامة بإشراف ${cleanExec}.`,
+        `2- شرح المفهوم العلمي لـ«${cleanTitle}» وربطه بالظواهر الواقعية للطلاب.`,
+        `3- تنفيذ التطبيق العملي أمام الطلاب وإتاحة الفرصة للمجموعات للمشاركة والملاحظة.`,
+        `4- مناقشة النتائج العلمية وتدوين الاستنتاجات وتوثيق التجربة بالشواهد.`,
+      ],
+      objectives: [
+        `1- فهم واستيعاب المفاهيم والظواهر المرتبطة بـ«${cleanTitle}» بصورة عملية.`,
+        `2- تطبيق المنهج العلمي والتعلم بالتجربة والملاحظة المباشرة.`,
+        `3- تنمية مهارات التفكير العلمي وطرح التساؤلات لدى الطلاب.`,
+        `4- تعزيز العمل الجماعي والفضول العلمي وحب الاستكشاف.`,
+      ],
+    };
+  }
+  if (/قرآن|حديث|صلاة|أخلاق|قيم|سيرة|توعية إسلام|مصلى|رمضان|حج|فقه|عقيدة/.test(t)) {
+    return {
+      field: 'القيمي والإسلامي',
+      beneficiaries: 'الطلاب',
+      beneficiariesCount: 'اقل من 70 طالب',
+      steps: [
+        `1- الإعداد التربوي لبرنامج «${cleanTitle}» وتجهيز المحتوى القيمي بإشراف ${cleanExec}.`,
+        `2- افتتاح اللقاء بتلاوة عطرة وتقديم محاور «${cleanTitle}» بأسلوب مؤثر وقريب من الطلاب.`,
+        `3- إشراك الطلاب في قراءة النصوص والمواقف التربوية وتطبيقها في السلوك اليومي.`,
+        `4- تلخيص الرسائل القيمية وتكريم الطلاب المتميزين وتوثيق التنفيذ.`,
+      ],
+      objectives: [
+        `1- ترسيخ القيم الإسلامية والأخلاقية المستفادة من «${cleanTitle}» في نفوس الطلاب.`,
+        `2- تعزيز الوعي الديني والانضباط السلوكي داخل المدرسة وخارجها.`,
+        `3- تنمية الاعتزاز بالهوية الإسلامية والاقتداء بالهدي النبوي.`,
+        `4- تشجيع المبادرات الإيجابية والعمل الصالح بين طلاب المدرسة.`,
+      ],
+    };
+  }
+  if (/رياض|قدم|سلة|طائرة|تنس|بطولة|دوري|لياقة|ماراثون|مشي|جري|سباق/.test(t)) {
+    return {
+      field: 'الرياضي',
+      beneficiaries: 'الطلاب',
+      beneficiariesCount: 'اقل من 70 طالب',
+      steps: [
+        `1- الإعلان عن برنامج «${cleanTitle}» وتجهيز الملعب والأدوات الرياضية بإشراف ${cleanExec}.`,
+        `2- تقسيم الفرق المشاركة وتوضيح القوانين واللوائح التنظيمية للطلاب.`,
+        `3- إجراء التمارين التحضيرية وانطلاق منافسات «${cleanTitle}» بروح رياضية.`,
+        `4- حصر النتائج النهائية وتشجيع الفائزين وتوثيق الفعالية بالشواهد.`,
+      ],
+      objectives: [
+        `1- تعزيز اللياقة البدنية والاهتمام بالصحة العامة لدى الطلاب عبر «${cleanTitle}».`,
+        `2- غرس قيم التنافس الشريف والروح الرياضية واحترام الأنظمة.`,
+        `3- اكتشاف المواهب الرياضية الطلابية وصقل قدراتها داخل المدرسة.`,
+        `4- تنمية روح الفريق والتعاون الإيجابي بين طلاب الفصول.`,
+      ],
+    };
+  }
+  if (/صحة|سمنة|تغذية|أسنان|نظافة|إسعاف|دم|سلامة|مرور|وقاية|مكافحة|تدخين|أمن/.test(t)) {
+    return {
+      field: 'التوعوي والصحي',
+      beneficiaries: 'الطلاب',
+      beneficiariesCount: 'اقل من 70 طالب',
+      steps: [
+        `1- إعداد المادة التوعوية والوسائل الإيضاحية لبرنامج «${cleanTitle}» بقيادة ${cleanExec}.`,
+        `2- تنفيذ اللقاء التوعوي وتوضيح أبرز المخاطر والسلوكيات الوقائية المرتبطة بـ«${cleanTitle}».`,
+        `3- فتح باب النقاش والإجابة عن استفسارات الطلاب وعرض نماذج إرشادية.`,
+        `4- توزيع التوصيات التوعوية وتوثيق أثر البرنامج بالشواهد المصورة.`,
+      ],
+      objectives: [
+        `1- رفع مستوى الوعي الصحي والوقائي لدى الطلاب حول موضوع «${cleanTitle}».`,
+        `2- إكساب الطلاب عادات وسلوكيات سليمة تحافظ على سلامتهم اليومية.`,
+        `3- تعزيز المسؤولية الفردية تجاه الصحة والسلامة المدرسية.`,
+        `4- تمكين الطلاب من نقل الرسائل الإيجابية لزملائهم وأسرهم.`,
+      ],
+    };
+  }
+  if (/برمجة|تقنية|روبوت|حاسب|ذكاء|رقمي|أمن سيبراني|تصميم|تطبيق/.test(t)) {
+    return {
+      field: 'التقني والرقمي',
+      beneficiaries: 'الطلاب',
+      beneficiariesCount: 'اقل من 70 طالب',
+      steps: [
+        `1- تجهيز معمل الحاسب والأدوات الرقمية اللازمة لتنفيذ «${cleanTitle}» بإشراف ${cleanExec}.`,
+        `2- تقديم شرح تطبيقي لأساسيات ومهارات «${cleanTitle}» بخطوات مبسطة.`,
+        `3- تطبيق الطلاب للتدريبات العملية وبناء نماذج أولية وتبادل الخبرات.`,
+        `4- استعراض منجزات الطلاب وتقديم التغذية الراجعة وتوثيق الشواهد.`,
+      ],
+      objectives: [
+        `1- تنمية المهارات الرقمية والتقنية الحديثة لدى الطلاب في مجال «${cleanTitle}».`,
+        `2- تعزيز التفكير الإبداعي وحل المشكلات بأسلوب تقني منظم.`,
+        `3- تهيئة الطلاب للتعامل الواعي والآمن مع التقنية المعاصرة.`,
+        `4- تشجيع الابتكار وبناء المشاريع الطلابية التطبيقية.`,
+      ],
+    };
+  }
+  return {
+    field: /كشف|انضباط|وطن|بيئة|تطوع|شراكة|أسر/.test(t) ? 'الاجتماعي والوطني' : 'الثقافي',
+    beneficiaries: 'الطلاب',
+    beneficiariesCount: 'اقل من 70 طالب',
+    steps: [
+      `1- التخطيط المسبق لبرنامج «${cleanTitle}» وتحديد الأدوار ومحاور العرض بإشراف ${cleanExec}.`,
+      `2- تهيئة مقر التنفيذ وتجهيز الوسائل واللوحات الداعمة لموضوع «${cleanTitle}».`,
+      `3- تقديم فقرات البرنامج وتفعيل مشاركة الطلاب من خلال الحوار والتطبيق العملي.`,
+      `4- تلخيص أبرز المخرجات وتكريم المشاركين وتوثيق الفعالية بالصور.`,
+    ],
+    objectives: [
+      `1- تعزيز معرفة الطلاب ووعيهم بمحاور برنامج «${cleanTitle}».`,
+      `2- تنمية مهارات الإلقاء والتفاعل الإيجابي والمشاركة الطلابية الفاعلة.`,
+      `3- إثراء البيئة المدرسية ببرامج ثقافية وتربوية جاذبة ومنظمة.`,
+      `4- دعم بناء شخصية الطالب المتوازنة وتعزيز الانتماء للمدرسة والمجتمع.`,
+    ],
+  };
+}
+
+async function generateProgramReportWithAI(title, executors, executionDate) {
+  const cleanTitle = String(title || '').trim();
+  const cleanExec = String(executors || '').trim() || 'إدارة النشاط الطلابي';
+  const fallback = buildFallbackReportContent(cleanTitle, cleanExec);
+
+  if (!(process.env.GROQ_API_KEY || '').trim()) {
+    return { ...fallback, source: 'template' };
+  }
+  try {
+    const prompt = `بصفتك خبير نشاط طلابي في وزارة التعليم السعودية، أنشئ بيانات تقرير لبرنامج مدرسي بعنوان: "${cleanTitle}"
+المنفذون: "${cleanExec}"
+تاريخ التنفيذ: "${String(executionDate || '').trim() || 'اليوم'}"
+
+المطلوب استنتاج التالي بدقة عالية من اسم البرنامج "${cleanTitle}" فقط:
+1) مجال البرنامج ("field"): اختر المجال التربوي الأدق لهذا العنوان من كلمة أو كلمتين مثل: (المختبر، العلمي، الثقافي، الرياضي، التوعوي والصحي، القيمي والإسلامي، التقني والرقمي، الكشفي، الاجتماعي، الفني).
+2) خطوات التنفيذ ("steps"): اكتب 4 إلى 6 خطوات واقعية ومحددة جداً لطريقة تنفيذ "${cleanTitle}" نفسه ولا تكتب خطوات عامة مكررة.
+3) الأهداف ("objectives"): اكتب 4 أهداف تربوية دقيقة مرتبطة مباشرة بـ "${cleanTitle}".
+
+أعد JSON فقط دون أي نص قبله أو بعده:
+{
+  "field": "مجال البرنامج المناسب للعنوان",
+  "beneficiaries": "الطلاب",
+  "beneficiariesCount": "اقل من 70 طالب",
+  "steps": ["1- ...", "2- ...", "3- ...", "4- ..."],
+  "objectives": ["1- ...", "2- ...", "3- ...", "4- ..."]
+}`;
+    const parsed = await runGroqJsonPrompt(
+      'أنت منسق نشاط طلابي في وزارة التعليم السعودية وتعد تقارير البرامج والشواهد الرسمية بصيغة JSON فقط.',
+      prompt
+    );
+    return {
+      field: String(parsed.field || '').trim() || fallback.field,
+      beneficiaries: String(parsed.beneficiaries || '').trim() || fallback.beneficiaries,
+      beneficiariesCount: String(parsed.beneficiariesCount || '').trim() || fallback.beneficiariesCount,
+      steps: Array.isArray(parsed.steps) && parsed.steps.length ? parsed.steps.map((s) => String(s).trim()).filter(Boolean) : fallback.steps,
+      objectives: Array.isArray(parsed.objectives) && parsed.objectives.length ? parsed.objectives.map((o) => String(o).trim()).filter(Boolean) : fallback.objectives,
+      source: 'groq',
+    };
+  } catch {
+    return { ...fallback, source: 'template' };
+  }
+}
+
+
+async function runGroqJsonPrompt(systemPrompt, userPrompt) {
+  const apiKey = (process.env.GROQ_API_KEY || '').trim();
+  if (!apiKey) throw new Error('NO_GROQ_KEY');
+
+  const preferredModels = [
+    process.env.GROQ_MODEL?.trim(),
+    'llama-3.3-70b-versatile',
+    'openai/gpt-oss-120b',
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'llama-3.1-8b-instant',
+    'openai/gpt-oss-20b',
+    'allam-2-7b',
+  ].filter(Boolean);
+
+  let availableIds = [];
+  try {
+    const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (modelsRes.ok) {
+      const modelsJson = await modelsRes.json();
+      availableIds = (modelsJson.data || [])
+        .map((m) => m.id)
+        .filter((id) => !/whisper|guard|safeguard|orpheus|tts|embed|vision-preview/i.test(id));
+    }
+  } catch {}
+
+  const candidates = availableIds.length > 0
+    ? [...preferredModels.filter((m) => availableIds.includes(m)), ...availableIds.filter((id) => !preferredModels.includes(id))]
+    : preferredModels;
+
+  if (candidates.length === 0) throw new Error('لا توجد نماذج نصية متاحة في حساب Groq الحالي');
+
+  let rawContent = '';
+  let lastError = 'تعذر الاتصال بخدمة Groq';
+
+  for (const modelId of candidates) {
+    for (const useJsonMode of [true, false]) {
+      const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelId,
+          temperature: 0.6,
+          ...(useJsonMode ? { response_format: { type: 'json_object' } } : {}),
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+        }),
+      });
+      const data = await groqRes.json().catch(() => ({}));
+      if (groqRes.ok && data?.choices?.[0]?.message?.content) {
+        rawContent = data.choices[0].message.content;
+        break;
+      }
+      lastError = data?.error?.message || lastError;
+      const msg = lastError.toLowerCase();
+      if (msg.includes('does not exist') || msg.includes('do not have access') || groqRes.status === 404) break;
+    }
+    if (rawContent) break;
+  }
+
+  if (!rawContent) throw new Error(lastError);
+  const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+  return JSON.parse(jsonMatch ? jsonMatch[0] : rawContent);
+}
+
 let pool = null;
 function getPool() {
   if (!pool && DATABASE_URL) {
@@ -83,6 +336,7 @@ function createInitialData() {
       submissions: 0,
       complaints: 0,
       suggestions: 0,
+      programReports: 0,
     },
     users: [
       {
@@ -160,12 +414,12 @@ function createInitialData() {
         status: 'approved',
         officerChecked: true,
         segments: {
-          intro: 'بسم الله الرحمن الرحيم، أهلاً بكم في إذاعتنا الصباحية لهذا اليوم.',
-          quran: 'آيات مباركة من سورة العصر.',
-          hadith: 'قال رسول الله صلى الله عليه وسلم: كلكم راعٍ وكلكم مسؤول عن رعيته.',
-          morningWord: 'الالتزام بالوقت والمحافظة على النظام سر تميز الطالب المتفوق.',
-          didYouKnow: 'هل تعلم أن الاستيقاظ المبكر ينشط الذاكرة ويزيد التركيز في الحصص؟',
-          closing: 'شكراً لحسن استماعكم، ونتمنى لكم يوماً دراسياً سعيداً.',
+          intro: 'بسم الله الرحمن الرحيم، والصلاة والسلام على أشرف الأنبياء والمرسلين.\nمديرنا الفاضل، معلمينا الكرام، زملائي الطلاب، السلام عليكم ورحمة الله وبركاته.\nأهلاً بكم في إذاعتنا الصباحية عن الانضباط والهمة العالية.',
+          quran: 'خير ما نبدأ به إذاعتنا آيات عطرة من القرآن الكريم، يتلوها على مسامعكم الطالب............\n\n﴿وَالْعَصْرِ * إِنَّ الْإِنسَانَ لَفِي خُسْرٍ * إِلَّا الَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ وَتَوَاصَوْا بِالْحَقِّ وَتَوَاصَوْا بِالصَّبْرِ﴾.',
+          hadith: 'والآن مع الحديث الشريف، يقدمه الطالب............\n\nقال رسول الله ﷺ: «كُلُّكُمْ رَاعٍ وَكُلُّكُمْ مَسْؤُولٌ عَنْ رَعِيَّتِهِ».',
+          morningWord: 'والآن مع كلمة الصباح، يقدمها الطالب............\n\nالالتزام بالوقت والمحافظة على النظام سر تميز الطالب المتفوق، وبناء مستقبل مشرق بالعلم والعمل.',
+          didYouKnow: 'والآن مع فقرة هل تعلم، يقدمها الطالب............\n\n• هل تعلم أن الاستيقاظ المبكر ينشط الذاكرة ويزيد التركيز في الحصص؟\n• هل تعلم أن تنظيم الوقت يرفع التحصيل الدراسي؟\n• هل تعلم أن الانضباط المدرسي يعكس وعي الطالب واحترامه لنفسه؟',
+          closing: 'وفي ختام إذاعتنا المدرسية، نشكركم على حسن استماعكم، ونتمنى لكم يوماً دراسياً سعيداً.\nوالسلام عليكم ورحمة الله وبركاته.',
         },
         createdAt: now,
       },
@@ -186,6 +440,7 @@ function createInitialData() {
     submissions: [],
     complaints: [],
     suggestions: [],
+    programReports: [],
   };
 }
 
@@ -313,6 +568,22 @@ async function ensureReady() {
           details TEXT NOT NULL DEFAULT '',
           status TEXT NOT NULL DEFAULT 'new',
           admin_response TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS program_reports (
+          id SERIAL PRIMARY KEY,
+          school_name TEXT NOT NULL DEFAULT 'مدرسة الحديبية المتوسطة',
+          title TEXT NOT NULL,
+          field TEXT NOT NULL DEFAULT 'النشاط الطلابي',
+          executors TEXT NOT NULL,
+          execution_date TEXT NOT NULL,
+          beneficiaries TEXT NOT NULL DEFAULT 'الطلاب',
+          beneficiaries_count TEXT NOT NULL DEFAULT '',
+          steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+          objectives JSONB NOT NULL DEFAULT '[]'::jsonb,
+          images JSONB NOT NULL DEFAULT '[]'::jsonb,
+          created_by_id INTEGER NOT NULL,
+          created_by_name TEXT NOT NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
@@ -485,6 +756,8 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
     const canSeeDiscipline = isMgmt(viewer.role) || hasPerm(viewer, 'manage_discipline');
     const canReviewSubs = isMgmt(viewer.role) || hasPerm(viewer, 'review_submissions');
 
+    const canSeeReports = isMgmt(viewer.role) || hasPerm(viewer, 'manage_activities');
+
     if (!isNeon) {
       const db = readLocal();
       const visibleUsers = canSeeUsers ? db.users : db.users.filter((u) => u.id === viewer.id);
@@ -497,10 +770,11 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
         submissions: canReviewSubs ? db.submissions : db.submissions.filter((s) => s.studentId === viewer.id),
         complaints: canReviewSubs ? db.complaints : db.complaints.filter((c) => c.reporterId === viewer.id),
         suggestions: canReviewSubs ? db.suggestions : db.suggestions.filter((s) => s.studentId === viewer.id),
+        programReports: canSeeReports ? (db.programReports || []) : [],
       });
     }
     const p = getPool();
-    const [uR, aR, bR, disR, dirR, subR, cmpR, sugR] = await Promise.all([
+    const [uR, aR, bR, disR, dirR, subR, cmpR, sugR, repR] = await Promise.all([
       canSeeUsers ? p.query('SELECT * FROM users ORDER BY id ASC') : p.query('SELECT * FROM users WHERE id=$1', [viewer.id]),
       p.query('SELECT * FROM activities ORDER BY id DESC'),
       canSeeBroadcasts ? p.query('SELECT * FROM broadcasts ORDER BY id DESC') : Promise.resolve({ rows: [] }),
@@ -517,6 +791,7 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
       canReviewSubs
         ? p.query('SELECT * FROM suggestions ORDER BY id DESC')
         : p.query('SELECT * FROM suggestions WHERE student_id=$1 ORDER BY id DESC', [viewer.id]),
+      canSeeReports ? p.query('SELECT * FROM program_reports ORDER BY id DESC') : Promise.resolve({ rows: [] }),
     ]);
     res.json({
       users: uR.rows.map((r) => sanitizeUser(mapUser(r), viewer)),
@@ -553,6 +828,14 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
       suggestions: sugR.rows.map((r) => ({
         id: r.id, studentId: r.student_id, studentName: r.student_name, title: r.title,
         details: r.details, status: r.status, adminResponse: r.admin_response,
+      })),
+      programReports: repR.rows.map((r) => ({
+        id: r.id, schoolName: r.school_name, title: r.title, field: r.field, executors: r.executors,
+        executionDate: r.execution_date, beneficiaries: r.beneficiaries, beneficiariesCount: r.beneficiaries_count,
+        steps: Array.isArray(r.steps) ? r.steps : [],
+        objectives: Array.isArray(r.objectives) ? r.objectives : [],
+        images: Array.isArray(r.images) ? r.images : [],
+        createdById: r.created_by_id, createdByName: r.created_by_name,
       })),
     });
   } catch {
@@ -981,18 +1264,13 @@ app.post('/api/broadcasts/generate', requireAuth, async (req, res) => {
     const topic = String(req.body?.title || '').trim();
     if (!topic) return res.status(400).json({ error: 'يرجى كتابة عنوان الإذاعة أولاً' });
 
-    const apiKey = (process.env.GROQ_API_KEY || '').trim();
-    if (!apiKey) {
-      return res.status(400).json({ error: 'مفتاح GROQ_API_KEY غير مضاف في متغيرات البيئة' });
-    }
-
     const prompt = `اكتب إذاعة مدرسية كاملة للمرحلة المتوسطة بعنوان/موضوع: "${topic}"
-بنفس الأسلوب والترتيب التالي بالضبط:
-1- المقدمة: تبدأ بـ "بسم الله الرحمن الرحيم، والصلاة والسلام على أشرف الأنبياء والمرسلين. مديرنا الفاضل، معلمينا الكرام، زملائي الطلاب، السلام عليكم ورحمة الله وبركاته." ثم تعريف جميل وواضح بموضوع الإذاعة.
-2- القرآن الكريم: تبدأ بـ "خير ما نبدأ به إذاعتنا آيات عطرة من القرآن الكريم، يتلوها على مسامعكم الطالب............" ثم آية قرآنية مناسبة وصحيحة للموضوع بين ﴿...﴾.
-3- الحديث الشريف: تبدأ بـ "والآن مع الحديث الشريف، يقدمه الطالب..........." ثم حديث نبوي صحيح أو مشهور مناسب للموضوع بين «...».
-4- كلمة الصباح: تبدأ بـ "والآن مع كلمة الصباح يقدمها الطالب............" ثم كلمة مفيدة ومبسطة لطلاب المرحلة المتوسطة عن الموضوع.
-5- هل تعلم؟: تبدأ بـ "والآن مع فقرة هل تعلم، يقدمها الطالب: (........)." ثم 3 نقاط تبدأ كل نقطة بـ "• هل تعلم أن ...؟".
+بنفس الأسلوب والترتيب التالي بالضبط، مع التزام حتمي بترك سطر فاضي (سطرين \\n\\n) مباشرة بعد كل عبارة تذكر اسم الطالب (الطالب.........) قبل بدء الآية أو الحديث أو الكلمة أو النقاط:
+1- المقدمة: تبدأ بـ "بسم الله الرحمن الرحيم، والصلاة والسلام على أشرف الأنبياء والمرسلين.\nمديرنا الفاضل، معلمينا الكرام، زملائي الطلاب، السلام عليكم ورحمة الله وبركاته." ثم تعريف جميل وواضح بموضوع الإذاعة.
+2- القرآن الكريم: السطر الأول "خير ما نبدأ به إذاعتنا آيات عطرة من القرآن الكريم، يتلوها على مسامعكم الطالب............" ثم سطر فاضي (\\n\\n) ثم آية قرآنية مناسبة وصحيحة للموضوع بين ﴿...﴾.
+3- الحديث الشريف: السطر الأول "والآن مع الحديث الشريف والطالب............" ثم سطر فاضي (\\n\\n) ثم "قال رسول الله ﷺ: «...»." بحديث نبوي صحيح أو مشهور مناسب للموضوع.
+4- كلمة الصباح: السطر الأول "والآن مع كلمة الصباح والطالب............" ثم سطر فاضي (\\n\\n) ثم كلمة مفيدة ومبسطة لطلاب المرحلة المتوسطة عن الموضوع.
+5- هل تعلم؟: السطر الأول "والآن مع فقرة هل تعلم والطالب............" ثم سطر فاضي (\\n\\n) ثم 3 نقاط تبدأ كل نقطة بـ "• هل تعلم أن ...؟".
 6- الخاتمة: تبدأ بـ "وفي ختام إذاعتنا المدرسية، ..." مع خلاصة وتوصية وتنتهي بـ "والسلام عليكم ورحمة الله وبركاته."
 
 أعد النتيجة بصيغة JSON فقط بهذا الشكل الدقيق دون أي كلام قبله أو بعده:
@@ -1009,92 +1287,27 @@ app.post('/api/broadcasts/generate', requireAuth, async (req, res) => {
   }
 }`;
 
-    const preferredModels = [
-      process.env.GROQ_MODEL?.trim(),
-      'llama-3.3-70b-versatile',
-      'openai/gpt-oss-120b',
-      'meta-llama/llama-4-scout-17b-16e-instruct',
-      'llama-3.1-8b-instant',
-      'openai/gpt-oss-20b',
-      'allam-2-7b',
-    ].filter(Boolean);
-
-    let availableIds = [];
-    try {
-      const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (modelsRes.ok) {
-        const modelsJson = await modelsRes.json();
-        availableIds = (modelsJson.data || [])
-          .map((m) => m.id)
-          .filter((id) => !/whisper|guard|safeguard|orpheus|tts|embed|vision-preview/i.test(id));
-      }
-    } catch {}
-
-    const candidates = availableIds.length > 0
-      ? [...preferredModels.filter((m) => availableIds.includes(m)), ...availableIds.filter((id) => !preferredModels.includes(id))]
-      : preferredModels;
-
-    if (candidates.length === 0) {
-      return res.status(502).json({ error: 'لا توجد نماذج نصية متاحة في حساب Groq الحالي' });
-    }
-
-    let rawContent = '';
-    let lastError = 'تعذر الاتصال بخدمة Groq';
-
-    for (const modelId of candidates) {
-      for (const useJsonMode of [true, false]) {
-        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: modelId,
-            temperature: 0.6,
-            ...(useJsonMode ? { response_format: { type: 'json_object' } } : {}),
-            messages: [
-              {
-                role: 'system',
-                content: 'أنت معد إذاعات مدرسية للمرحلة المتوسطة باللغة العربية الفصحى السليمة. تلتزم بدقة الآيات والأحاديث وتعيد الإخراج بصيغة JSON فقط.',
-              },
-              { role: 'user', content: prompt },
-            ],
-          }),
-        });
-        const data = await groqRes.json().catch(() => ({}));
-        if (groqRes.ok && data?.choices?.[0]?.message?.content) {
-          rawContent = data.choices[0].message.content;
-          break;
-        }
-        lastError = data?.error?.message || lastError;
-        const msg = lastError.toLowerCase();
-        if (msg.includes('does not exist') || msg.includes('do not have access') || groqRes.status === 404) break;
-      }
-      if (rawContent) break;
-    }
-
-    if (!rawContent) {
-      return res.status(502).json({ error: lastError });
-    }
-    const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
-    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : rawContent);
+    const parsed = await runGroqJsonPrompt(
+      'أنت معد إذاعات مدرسية للمرحلة المتوسطة باللغة العربية الفصحى السليمة. تلتزم بدقة الآيات والأحاديث وتترك دائماً سطراً فاضياً بعد كل سطر يذكر فيه الطالب، وتعيد الإخراج بصيغة JSON فقط.',
+      prompt
+    );
     res.json({
       title: parsed.title || `إذاعة مدرسية عن ${topic}`,
       theme: parsed.theme || topic,
       segments: {
-        intro: parsed.segments?.intro || '',
-        quran: parsed.segments?.quran || '',
-        hadith: parsed.segments?.hadith || '',
-        morningWord: parsed.segments?.morningWord || '',
-        didYouKnow: parsed.segments?.didYouKnow || '',
-        closing: parsed.segments?.closing || '',
+        intro: formatBroadcastSegmentSpacing(parsed.segments?.intro || ''),
+        quran: formatBroadcastSegmentSpacing(parsed.segments?.quran || ''),
+        hadith: formatBroadcastSegmentSpacing(parsed.segments?.hadith || ''),
+        morningWord: formatBroadcastSegmentSpacing(parsed.segments?.morningWord || ''),
+        didYouKnow: formatBroadcastSegmentSpacing(parsed.segments?.didYouKnow || ''),
+        closing: formatBroadcastSegmentSpacing(parsed.segments?.closing || ''),
       },
     });
-  } catch {
-    res.status(500).json({ error: 'تعذر توليد الإذاعة حالياً' });
+  } catch (err) {
+    if (err?.message === 'NO_GROQ_KEY') {
+      return res.status(400).json({ error: 'مفتاح GROQ_API_KEY غير مضاف في متغيرات البيئة' });
+    }
+    res.status(502).json({ error: err?.message || 'تعذر توليد الإذاعة حالياً' });
   }
 });
 
@@ -1385,6 +1598,174 @@ app.delete('/api/directives/:id', requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'تعذر حذف التوجيه' });
+  }
+});
+
+app.post('/api/reports/generate', requireAuth, async (req, res) => {
+  try {
+    if (!isMgmt(req.user.role) && !hasPerm(req.user, 'manage_activities')) {
+      return res.status(403).json({ error: 'إعداد تقارير البرامج مخصص للإدارة فقط' });
+    }
+    const cleanTitle = String(req.body?.title || '').trim();
+    if (!cleanTitle) return res.status(400).json({ error: 'يرجى كتابة عنوان البرنامج أولاً' });
+    const cleanExec = String(req.body?.executors || req.user.fullName).trim();
+    const generated = await generateProgramReportWithAI(cleanTitle, cleanExec, req.body?.executionDate);
+    return res.json(generated);
+  } catch {
+    res.status(500).json({ error: 'تعذر توليد تفاصيل التقرير' });
+  }
+});
+
+app.post('/api/reports', requireAuth, async (req, res) => {
+  try {
+    if (!isMgmt(req.user.role) && !hasPerm(req.user, 'manage_activities')) {
+      return res.status(403).json({ error: 'إضافة تقارير البرامج مخصصة للإدارة فقط' });
+    }
+    await ensureReady();
+    const { schoolName, title, field, executors, executionDate, beneficiaries, beneficiariesCount, steps, objectives, images } = req.body || {};
+    const cleanTitle = String(title || '').trim();
+    const cleanExec = String(executors || '').trim();
+    const cleanDate = String(executionDate || '').trim();
+    if (!cleanTitle || !cleanExec || !cleanDate) {
+      return res.status(400).json({ error: 'يرجى إدخال عنوان البرنامج والمنفذين وتاريخ التنفيذ' });
+    }
+    const safeStepsInput = Array.isArray(steps) ? steps.map((s) => String(s).trim()).filter(Boolean) : [];
+    const safeObjsInput = Array.isArray(objectives) ? objectives.map((o) => String(o).trim()).filter(Boolean) : [];
+    const needAI = !String(field || '').trim() || !safeStepsInput.length || !safeObjsInput.length;
+    const aiData = needAI
+      ? await generateProgramReportWithAI(cleanTitle, cleanExec, cleanDate)
+      : buildFallbackReportContent(cleanTitle, cleanExec);
+
+    const safeSteps = safeStepsInput.length ? safeStepsInput : aiData.steps;
+    const safeObjs = safeObjsInput.length ? safeObjsInput : aiData.objectives;
+    const safeImgs = Array.isArray(images) ? images.map(String).filter((x) => x.startsWith('data:image/')).slice(0, 4) : [];
+    const safeSchool = String(schoolName || '').trim() || 'مدرسة الحديبية المتوسطة';
+    const safeField = String(field || '').trim() || aiData.field;
+    const safeBen = String(beneficiaries || '').trim() || aiData.beneficiaries;
+    const safeCnt = String(beneficiariesCount || '').trim() || aiData.beneficiariesCount;
+
+    if (!isNeon) {
+      const db = readLocal();
+      db.counters.programReports = (db.counters.programReports || 0) + 1;
+      db.programReports = db.programReports || [];
+      const item = {
+        id: db.counters.programReports, schoolName: safeSchool, title: cleanTitle, field: safeField,
+        executors: cleanExec, executionDate: cleanDate, beneficiaries: safeBen, beneficiariesCount: safeCnt,
+        steps: safeSteps, objectives: safeObjs, images: safeImgs,
+        createdById: req.user.id, createdByName: req.user.fullName, createdAt: new Date().toISOString(),
+      };
+      db.programReports.unshift(item);
+      writeLocal(db);
+      return res.status(201).json({ report: item });
+    }
+
+    const r = await getPool().query(
+      `INSERT INTO program_reports
+        (school_name, title, field, executors, execution_date, beneficiaries, beneficiaries_count, steps, objectives, images, created_by_id, created_by_name)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12) RETURNING *`,
+      [safeSchool, cleanTitle, safeField, cleanExec, cleanDate, safeBen, safeCnt, JSON.stringify(safeSteps), JSON.stringify(safeObjs), JSON.stringify(safeImgs), req.user.id, req.user.fullName]
+    );
+    const row = r.rows[0];
+    res.status(201).json({
+      report: {
+        id: row.id, schoolName: row.school_name, title: row.title, field: row.field, executors: row.executors,
+        executionDate: row.execution_date, beneficiaries: row.beneficiaries, beneficiariesCount: row.beneficiaries_count,
+        steps: row.steps || [], objectives: row.objectives || [], images: row.images || [],
+        createdById: row.created_by_id, createdByName: row.created_by_name,
+      },
+    });
+  } catch {
+    res.status(500).json({ error: 'تعذر حفظ التقرير' });
+  }
+});
+
+app.patch('/api/reports/:id', requireAuth, async (req, res) => {
+  try {
+    if (!isMgmt(req.user.role) && !hasPerm(req.user, 'manage_activities')) {
+      return res.status(403).json({ error: 'تعديل التقارير مخصص للإدارة فقط' });
+    }
+    await ensureReady();
+    const id = Number(req.params.id);
+    const body = req.body || {};
+
+    if (!isNeon) {
+      const db = readLocal();
+      db.programReports = db.programReports || [];
+      const item = db.programReports.find((r) => r.id === id);
+      if (!item) return res.status(404).json({ error: 'التقرير غير موجود' });
+      if (body.schoolName !== undefined) item.schoolName = String(body.schoolName).trim() || 'مدرسة الحديبية المتوسطة';
+      if (body.title !== undefined && String(body.title).trim()) item.title = String(body.title).trim();
+      if (body.field !== undefined) item.field = String(body.field).trim();
+      if (body.executors !== undefined && String(body.executors).trim()) item.executors = String(body.executors).trim();
+      if (body.executionDate !== undefined && String(body.executionDate).trim()) item.executionDate = String(body.executionDate).trim();
+      if (body.beneficiaries !== undefined) item.beneficiaries = String(body.beneficiaries).trim();
+      if (body.beneficiariesCount !== undefined) item.beneficiariesCount = String(body.beneficiariesCount).trim();
+      if (Array.isArray(body.steps)) item.steps = body.steps.map((s) => String(s).trim()).filter(Boolean);
+      if (Array.isArray(body.objectives)) item.objectives = body.objectives.map((o) => String(o).trim()).filter(Boolean);
+      if (Array.isArray(body.images)) item.images = body.images.map(String).filter((x) => x.startsWith('data:image/')).slice(0, 4);
+      writeLocal(db);
+      return res.json({ report: item });
+    }
+
+    const r = await getPool().query(
+      `UPDATE program_reports SET
+        school_name = COALESCE($1, school_name),
+        title = COALESCE($2, title),
+        field = COALESCE($3, field),
+        executors = COALESCE($4, executors),
+        execution_date = COALESCE($5, execution_date),
+        beneficiaries = COALESCE($6, beneficiaries),
+        beneficiaries_count = COALESCE($7, beneficiaries_count),
+        steps = COALESCE($8::jsonb, steps),
+        objectives = COALESCE($9::jsonb, objectives),
+        images = COALESCE($10::jsonb, images)
+       WHERE id=$11 RETURNING *`,
+      [
+        body.schoolName !== undefined ? (String(body.schoolName).trim() || 'مدرسة الحديبية المتوسطة') : null,
+        body.title !== undefined && String(body.title).trim() ? String(body.title).trim() : null,
+        body.field !== undefined ? String(body.field).trim() : null,
+        body.executors !== undefined && String(body.executors).trim() ? String(body.executors).trim() : null,
+        body.executionDate !== undefined && String(body.executionDate).trim() ? String(body.executionDate).trim() : null,
+        body.beneficiaries !== undefined ? String(body.beneficiaries).trim() : null,
+        body.beneficiariesCount !== undefined ? String(body.beneficiariesCount).trim() : null,
+        Array.isArray(body.steps) ? JSON.stringify(body.steps.map((s) => String(s).trim()).filter(Boolean)) : null,
+        Array.isArray(body.objectives) ? JSON.stringify(body.objectives.map((o) => String(o).trim()).filter(Boolean)) : null,
+        Array.isArray(body.images) ? JSON.stringify(body.images.map(String).filter((x) => x.startsWith('data:image/')).slice(0, 4)) : null,
+        id,
+      ]
+    );
+    if (r.rowCount === 0) return res.status(404).json({ error: 'التقرير غير موجود' });
+    const row = r.rows[0];
+    res.json({
+      report: {
+        id: row.id, schoolName: row.school_name, title: row.title, field: row.field, executors: row.executors,
+        executionDate: row.execution_date, beneficiaries: row.beneficiaries, beneficiariesCount: row.beneficiaries_count,
+        steps: row.steps || [], objectives: row.objectives || [], images: row.images || [],
+        createdById: row.created_by_id, createdByName: row.created_by_name,
+      },
+    });
+  } catch {
+    res.status(500).json({ error: 'تعذر تحديث التقرير' });
+  }
+});
+
+app.delete('/api/reports/:id', requireAuth, async (req, res) => {
+  try {
+    if (!isMgmt(req.user.role) && !hasPerm(req.user, 'manage_activities')) {
+      return res.status(403).json({ error: 'حذف التقارير مخصص للإدارة فقط' });
+    }
+    await ensureReady();
+    const id = Number(req.params.id);
+    if (!isNeon) {
+      const db = readLocal();
+      db.programReports = (db.programReports || []).filter((r) => r.id !== id);
+      writeLocal(db);
+      return res.json({ ok: true });
+    }
+    await getPool().query('DELETE FROM program_reports WHERE id=$1', [id]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'تعذر حذف التقرير' });
   }
 });
 
