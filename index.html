@@ -6,11 +6,20 @@
   <title>منظومة النشاط الطلابي</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: {
+        teal: { 50:'#eef5f2',100:'#d8e8e1',200:'#b2d1c5',300:'#84b4a3',400:'#53927c',500:'#327460',600:'#235c4c',700:'#184b3e',800:'#0f3d33',900:'#0a2d26',950:'#061d19' },
+        brass: { 50:'#faf6ec',100:'#f1e8d0',200:'#e3d2a4',300:'#d3bb7d',400:'#c4a660',500:'#b08d4c',600:'#917139',700:'#715730' }
+      } } }
+    };
+  </script>
   <style>
-    body { font-family: "IBM Plex Sans Arabic", "Cairo", sans-serif; background-color: #f5f7fa; }
-    h1, h2, h3, h4 { font-family: "Cairo", "IBM Plex Sans Arabic", sans-serif; }
+    body { font-family: "IBM Plex Sans Arabic", "Cairo", sans-serif; background-color: #f1f3f2; }
+    h1, h2, h3, h4 { font-family: "Noto Kufi Arabic", "Cairo", "IBM Plex Sans Arabic", sans-serif; letter-spacing: 0; }
+    h1, h2 { font-family: "Amiri", "Noto Kufi Arabic", serif; font-weight: 700; }
     .tabular-nums { font-variant-numeric: tabular-nums; }
     .report-kufi-font { font-family: "Noto Kufi Arabic", "IBM Plex Sans Arabic", sans-serif !important; }
     .english-date-font { font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif !important; }
@@ -29,20 +38,108 @@
     .animate-section-enter { animation: sectionEnter 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
     .animate-modal-enter { animation: modalEnter 240ms cubic-bezier(0.16, 1, 0.3, 1) both; }
     .animate-backdrop-enter { animation: backdropEnter 200ms ease-out both; }
+    :root { --ink:#06201b; --emerald:#0f3d33; --brass:#b08d4c; --brass-soft:#d3bb7d; --pearl:#f1f3f2; }
+    ::selection { background: rgba(176,141,76,.28); }
+    body {
+      background-image:
+        radial-gradient(1200px 520px at 100% -10%, rgba(176,141,76,.08), transparent 60%),
+        radial-gradient(900px 480px at 0% 0%, rgba(15,61,51,.06), transparent 55%);
+      background-attachment: fixed;
+    }
     .luxury-card {
-      background-color: #ffffff;
-      border: 1px solid rgba(203, 213, 225, 0.72);
+      background: linear-gradient(180deg, #ffffff 0%, #fcfdfc 100%);
+      border: 1px solid rgba(15, 61, 51, 0.10);
       border-radius: 1rem;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -8px rgba(15, 23, 42, 0.05);
-      transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1), border-color 220ms ease;
+      box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 1px 2px rgba(6, 32, 27, 0.05), 0 14px 34px -14px rgba(6, 32, 27, 0.14);
+      transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1), border-color 260ms ease;
+    }
+    .luxury-card-interactive { position: relative; }
+    .luxury-card-interactive::before {
+      content: ""; position: absolute; top: 0; right: 1.25rem; left: 1.25rem; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--brass), transparent); opacity: .0; transition: opacity 260ms ease;
     }
     .luxury-card-interactive:hover {
       transform: translateY(-2px);
-      border-color: rgba(15, 118, 110, 0.28);
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05), 0 16px 32px -12px rgba(15, 118, 110, 0.10);
+      border-color: rgba(176, 141, 76, 0.55);
+      box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 6px 14px rgba(6, 32, 27, 0.06), 0 22px 40px -16px rgba(6, 32, 27, 0.22);
     }
+    .luxury-card-interactive:hover::before { opacity: 1; }
+
+    /* Primary buttons */
+    button.bg-teal-800 {
+      background-image: linear-gradient(180deg, #17503f 0%, #0b3028 100%);
+      border: 1px solid rgba(176,141,76,.45);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(6,32,27,.30), 0 8px 18px -8px rgba(6,32,27,.45);
+      transition: filter 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+    }
+    button.bg-teal-800:hover { filter: brightness(1.12); }
+    button.bg-teal-800:active { transform: translateY(1px); }
+    button.bg-slate-900 {
+      background-image: linear-gradient(180deg, #1f2d2a 0%, #0f1a18 100%);
+      border: 1px solid rgba(255,255,255,.06);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 6px 14px -8px rgba(6,32,27,.5);
+    }
+
+    /* Fields */
+    input, select, textarea { transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease; }
+    input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus {
+      outline: none !important; border-color: var(--brass) !important;
+      box-shadow: 0 0 0 4px rgba(176,141,76,.16) !important; background-color: #fffefb;
+    }
+    button:focus-visible, a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+    /* Tables */
+    table thead { background: linear-gradient(180deg, #f6f8f7, #eef2f0) !important; }
+    table thead th { font-weight: 700; color: #3d5a52; border-bottom: 1px solid rgba(176,141,76,.35); }
+    table tbody tr { transition: background-color 160ms ease; }
+    table tbody tr:hover { background-color: rgba(15,61,51,.035); }
+
+    /* Sidebar */
+    .sidebar-lux {
+      background-color: #06201b;
+      background-image:
+        linear-gradient(180deg, rgba(176,141,76,.10), transparent 22%),
+        radial-gradient(420px 320px at 100% 0%, rgba(47,115,93,.28), transparent 70%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cpath d='M28 4l6 18 18 6-18 6-6 18-6-18-18-6 18-6z' fill='none' stroke='%23d3bb7d' stroke-opacity='.07' stroke-width='1'/%3E%3C/svg%3E");
+      border-left: 1px solid rgba(176,141,76,.30) !important;
+      box-shadow: -1px 0 0 rgba(0,0,0,.4);
+    }
+    .nav-active {
+      position: relative;
+      background: linear-gradient(270deg, rgba(176,141,76,.22), rgba(176,141,76,.04));
+      border: 1px solid rgba(176,141,76,.38);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+      color: #f6ecd2 !important;
+    }
+    .nav-active::after {
+      content: ""; position: absolute; right: -1px; top: 20%; bottom: 20%; width: 3px; border-radius: 3px;
+      background: linear-gradient(180deg, var(--brass-soft), var(--brass));
+    }
+    .brass-rule { height: 1px; background: linear-gradient(90deg, transparent, rgba(211,187,125,.65), transparent); border: 0; }
+
+    /* Header */
+    header.sticky { background: rgba(255,255,255,.80) !important; backdrop-filter: blur(14px) saturate(1.3); border-bottom-color: rgba(176,141,76,.28) !important; }
+
+    /* Login */
+    .login-stage {
+      background-color: #051a16;
+      background-image:
+        radial-gradient(700px 460px at 80% 10%, rgba(47,115,93,.40), transparent 65%),
+        radial-gradient(620px 420px at 10% 95%, rgba(176,141,76,.20), transparent 65%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cpath d='M36 6l8 22 22 8-22 8-8 22-8-22-22-8 22-8z' fill='none' stroke='%23d3bb7d' stroke-opacity='.08' stroke-width='1'/%3E%3C/svg%3E");
+    }
+    .login-card { border-radius: 1.25rem; border: 1px solid rgba(176,141,76,.35); box-shadow: 0 30px 70px -20px rgba(0,0,0,.65), 0 0 0 6px rgba(255,255,255,.04); position: relative; }
+    .login-card::before { content:""; position:absolute; top:0; right:2rem; left:2rem; height:3px; border-radius:0 0 4px 4px; background: linear-gradient(90deg, var(--brass), var(--brass-soft), var(--brass)); }
+    .login-title { font-family: "Amiri", serif; font-size: 2rem; line-height: 1.3; }
+
+    /* Modals */
+    .animate-modal-enter { box-shadow: 0 40px 90px -24px rgba(6,32,27,.55), 0 0 0 1px rgba(176,141,76,.25) !important; border-radius: 1.25rem !important; }
+
+    /* Numerals in stat cards */
+    .luxury-card .font-mono { font-family: "IBM Plex Sans Arabic", "Cairo", sans-serif; font-feature-settings: "tnum"; }
+
     @media (prefers-reduced-motion: reduce) {
-      .animate-section-enter, .animate-modal-enter, .animate-backdrop-enter, .luxury-card {
+      .animate-section-enter, .animate-modal-enter, .animate-backdrop-enter, .luxury-card, button.bg-teal-800 {
         animation: none !important; transition: none !important; transform: none !important;
       }
     }
@@ -189,16 +286,21 @@
 
     function renderLogin() {
       return `
-        <div class="min-h-screen flex items-center justify-center p-4 bg-[#0b1618] relative overflow-hidden">
-          <div class="w-full max-w-md luxury-card p-8 space-y-6 animate-section-enter relative z-10">
+        <div class="min-h-screen flex items-center justify-center p-4 login-stage relative overflow-hidden">
+          <div class="w-full max-w-md relative z-10 space-y-7 animate-section-enter">
+          <div class="flex flex-col items-center gap-4">
+            <img src="/moe-logo.png" alt="وزارة التعليم - Ministry of Education" class="h-24 w-auto object-contain drop-shadow-[0_6px_18px_rgba(0,0,0,.45)]" />
+            <hr class="brass-rule w-40" />
+          </div>
+          <div class="login-card luxury-card p-8 space-y-6">
             <div>
-              <p class="text-xs font-bold text-teal-800">بوابة النشاط الطلابي</p>
-              <h1 class="text-2xl font-bold text-slate-900 mt-1">تسجيل الدخول بالرمز</h1>
+              <p class="text-xs font-bold text-brass-600">بوابة النشاط الطلابي</p>
+              <h1 class="login-title text-slate-900 mt-1">تسجيل الدخول بالرمز</h1>
               <p class="text-sm text-slate-500 mt-1">اختر بوابة الدخول ثم أدخل الرمز السري المخصص لك</p>
             </div>
             <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
-              <button onclick="setPortal('management')" class="py-2 rounded-lg text-xs font-bold transition-all ${state.portalType === 'management' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}">دخول الإدارة</button>
-              <button onclick="setPortal('member')" class="py-2 rounded-lg text-xs font-bold transition-all ${state.portalType === 'member' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}">دخول الأفراد (الطلاب)</button>
+              <button onclick="setPortal('management')" class="py-2 rounded-lg text-xs font-bold transition-all ${state.portalType === 'management' ? 'bg-white text-teal-900 shadow-sm ring-1 ring-brass-300/60' : 'text-slate-600'}">دخول الإدارة</button>
+              <button onclick="setPortal('member')" class="py-2 rounded-lg text-xs font-bold transition-all ${state.portalType === 'member' ? 'bg-white text-teal-900 shadow-sm ring-1 ring-brass-300/60' : 'text-slate-600'}">دخول الأفراد (الطلاب)</button>
             </div>
             ${state.error ? `<div class="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700">${esc(state.error)}</div>` : ''}
             <form onsubmit="submitLogin(event)" class="space-y-4">
@@ -209,6 +311,7 @@
               <button type="submit" class="w-full h-11 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-sm font-bold shadow-xs transition-colors">دخول للمنظومة</button>
             </form>
             <p class="text-xs text-slate-500 border-t border-slate-200/80 pt-4">يتم إضافة حسابات الطلاب وإصدار رموزهم من قِبل الإدارة فقط.</p>
+          </div>
           </div>
         </div>
       `;
@@ -1025,16 +1128,20 @@
       else body = renderStudentPortal();
 
       root.innerHTML = `
-        <div class="min-h-screen flex bg-[#f5f7fa]">
-          <aside class="hidden lg:flex w-64 shrink-0 bg-[#0b1618] text-white flex-col border-l border-white/10 no-print">
-            <div class="p-5 border-b border-white/10">
-              <div class="text-xs text-amber-200/80 font-bold">منظومة النشاط الطلابي</div>
-              <div class="font-bold text-sm mt-1">${esc(state.user.fullName)}</div>
-              <div class="text-xs text-slate-400">${esc(ROLE_LABELS[state.user.role])}</div>
+        <div class="min-h-screen flex">
+          <aside class="hidden lg:flex w-64 shrink-0 sidebar-lux text-white flex-col border-l border-white/10 no-print">
+            <div class="px-5 pt-6 pb-4 flex flex-col items-center gap-3">
+              <img src="/moe-logo.png" alt="وزارة التعليم" class="h-14 w-auto object-contain opacity-95" />
+              <hr class="brass-rule w-full" />
             </div>
-            <nav class="flex-1 p-3 space-y-1.5">
+            <div class="px-5 pb-5 border-b border-white/10">
+              <div class="text-xs text-brass-300 font-bold">منظومة النشاط الطلابي</div>
+              <div class="font-bold text-sm mt-1.5 text-white">${esc(state.user.fullName)}</div>
+              <div class="text-xs text-slate-400 mt-0.5">${esc(ROLE_LABELS[state.user.role])}</div>
+            </div>
+            <nav class="flex-1 p-3.5 space-y-1.5">
               ${nav.map((n) => `
-                <button onclick="setTab('${n.id}')" class="w-full text-right px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${state.tab === n.id ? 'bg-gradient-to-l from-teal-700 to-teal-800 text-white shadow-sm' : 'text-slate-300 hover:bg-white/[0.06]'}">${esc(n.label)}</button>
+                <button onclick="setTab('${n.id}')" class="w-full text-right px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${state.tab === n.id ? 'nav-active' : 'text-slate-300 hover:bg-white/[0.06]'}">${esc(n.label)}</button>
               `).join('')}
             </nav>
             <div class="p-4 border-t border-white/10">
@@ -1046,7 +1153,7 @@
               <div class="flex lg:hidden gap-1 overflow-x-auto">
                 ${nav.map((n) => `<button onclick="setTab('${n.id}')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${state.tab === n.id ? 'bg-teal-800 text-white' : 'bg-slate-100 text-slate-700'}">${esc(n.label)}</button>`).join('')}
               </div>
-              <div class="hidden lg:block text-sm font-bold text-slate-800">${esc((nav.find((n) => n.id === state.tab) || {}).label || '')}</div>
+              <div class="hidden lg:block text-base font-bold text-teal-900">${esc((nav.find((n) => n.id === state.tab) || {}).label || '')}</div>
               <div class="flex items-center gap-2 shrink-0">
                 <button onclick="refreshWorkspace()" class="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold cursor-pointer">تحديث</button>
                 <button onclick="logout()" class="lg:hidden px-3 py-1.5 rounded-xl border border-red-200 text-xs font-bold text-red-700 cursor-pointer">خروج</button>
