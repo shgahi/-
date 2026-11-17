@@ -9,68 +9,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root {
-      --brand: #115e59;
-      --brand-hover: #134e4a;
-      --brand-soft: #f0fdfa;
-      --brand-border: #99f6e4;
-      --accent: #c59b27;
-      --accent-soft: #fdf8eb;
-      --accent-border: #e9d595;
-      --surface: #ffffff;
-      --canvas: #f5f7fa;
-      --ink: #0f172a;
-      --ink-muted: #64748b;
-    }
-
-    body {
-      font-family: "IBM Plex Sans Arabic", "Cairo", sans-serif;
-      background-color: var(--canvas);
-      color: var(--ink);
-    }
-
-    h1, h2, h3, h4, .font-display {
-      font-family: "Cairo", "IBM Plex Sans Arabic", sans-serif;
-    }
-
-    button:focus-visible,
-    a:focus-visible,
-    input:focus-visible,
-    select:focus-visible,
-    textarea:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(17, 94, 89, 0.28);
-    }
-
+    body { font-family: "IBM Plex Sans Arabic", "Cairo", sans-serif; background-color: #f5f7fa; }
+    h1, h2, h3, h4 { font-family: "Cairo", "IBM Plex Sans Arabic", sans-serif; }
     .tabular-nums { font-variant-numeric: tabular-nums; }
     .report-kufi-font { font-family: "Noto Kufi Arabic", "IBM Plex Sans Arabic", sans-serif !important; }
     .english-date-font { font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif !important; }
-
-    .gold-divider {
-      height: 1px;
-      background: linear-gradient(to left, transparent, rgba(197, 155, 39, 0.55), transparent);
-    }
-
-    .islamic-pattern-light {
-      background-color: #f4f7f6;
-      background-image:
-        linear-gradient(135deg, rgba(17, 94, 89, 0.04) 0%, rgba(197, 155, 39, 0.04) 100%),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23115e59' stroke-opacity='0.05' stroke-width='1.1'%3E%3Cpath d='M40 4 L50 30 L76 40 L50 50 L40 76 L30 50 L4 40 L30 30 Z'/%3E%3Crect x='22' y='22' width='36' height='36' transform='rotate(45 40 40)'/%3E%3Ccircle cx='40' cy='40' r='8'/%3E%3C/g%3E%3C/svg%3E");
-    }
-
-    .islamic-pattern-dark {
-      background-color: #0b1618;
-      background-image:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'%3E%3Cg fill='none' stroke='%23c59b27' stroke-opacity='0.06' stroke-width='1.1'%3E%3Cpath d='M44 4 L55 33 L84 44 L55 55 L44 84 L33 55 L4 44 L33 33 Z'/%3E%3Crect x='24' y='24' width='40' height='40' transform='rotate(45 44 44)'/%3E%3Ccircle cx='44' cy='44' r='9'/%3E%3C/g%3E%3C/svg%3E"),
-        linear-gradient(145deg, #0b1618 0%, #0f2f32 55%, #115e59 100%);
-    }
-
     @keyframes sectionEnter {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes tabEnter {
-      from { opacity: 0; transform: translateY(6px); }
+      from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
     @keyframes modalEnter {
@@ -81,85 +26,46 @@
       from { opacity: 0; }
       to { opacity: 1; }
     }
-    @keyframes shimmer {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-
-    .skeleton-shimmer {
-      background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.5s infinite linear;
-    }
-
-    .animate-section-enter { animation: sectionEnter 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-    .animate-tab-enter { animation: tabEnter 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-    .animate-modal-enter { animation: modalEnter 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-    .animate-backdrop-enter { animation: backdropEnter 180ms ease-out both; }
-
+    .animate-section-enter { animation: sectionEnter 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .animate-modal-enter { animation: modalEnter 240ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .animate-backdrop-enter { animation: backdropEnter 200ms ease-out both; }
     .luxury-card {
-      background-color: var(--surface);
-      border: 1px solid rgba(226, 232, 240, 0.9);
+      background-color: #ffffff;
+      border: 1px solid rgba(203, 213, 225, 0.72);
       border-radius: 1rem;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), 0 10px 26px -14px rgba(15, 23, 42, 0.07);
-      transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms ease;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -8px rgba(15, 23, 42, 0.05);
+      transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1), border-color 220ms ease;
     }
     .luxury-card-interactive:hover {
       transform: translateY(-2px);
-      border-color: rgba(17, 94, 89, 0.35);
-      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04), 0 16px 32px -16px rgba(17, 94, 89, 0.16);
+      border-color: rgba(15, 118, 110, 0.28);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05), 0 16px 32px -12px rgba(15, 118, 110, 0.10);
     }
-
     @media (prefers-reduced-motion: reduce) {
-      .animate-section-enter, .animate-tab-enter, .animate-modal-enter, .animate-backdrop-enter, .skeleton-shimmer, .luxury-card {
+      .animate-section-enter, .animate-modal-enter, .animate-backdrop-enter, .luxury-card {
         animation: none !important; transition: none !important; transform: none !important;
       }
     }
-
     @media print {
-      @page { size: A4 portrait; margin: 6mm; }
-      html, body {
-        width: 100% !important; height: auto !important; min-height: 0 !important;
-        margin: 0 !important; padding: 0 !important;
-        background-color: #ffffff !important; overflow: visible !important;
-        -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
-      }
-      #app, .print-reset {
-        display: block !important; width: 100% !important; max-width: 100% !important;
-        min-height: 0 !important; margin: 0 !important; padding: 0 !important; gap: 0 !important;
-        animation: none !important; transform: none !important; overflow: visible !important;
-      }
-      .print-reset > * + * { margin-top: 0 !important; }
+      @page { size: A4 portrait; margin: 5mm; }
+      html, body { background-color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       .no-print { display: none !important; }
-      .print-sheet {
-        width: 196mm !important; max-width: 100% !important; margin: 0 auto !important;
-        border: 1.5px solid #cbd5e1 !important; box-shadow: none !important;
-        border-radius: 10px !important; overflow: hidden !important; box-sizing: border-box !important;
-        break-inside: avoid !important; page-break-inside: avoid !important; break-after: auto !important;
-      }
+      .print-sheet { border: none !important; box-shadow: none !important; margin: 0 auto !important; max-width: 100% !important; width: 100% !important; border-radius: 0 !important; break-inside: avoid; }
     }
   </style>
 </head>
-<body class="bg-[var(--canvas)] text-[var(--ink)] min-h-screen antialiased">
+<body class="bg-[#f5f7fa] text-slate-900 min-h-screen antialiased">
   <div id="app"></div>
   <div id="modal-root"></div>
-  <div id="toast-root" class="fixed bottom-4 left-4 z-[120] flex flex-col gap-2 max-w-sm w-[calc(100vw-2rem)] pointer-events-none no-print" aria-live="polite"></div>
 
   <script>
     const TOKEN_KEY = 'activity_sys_token';
     const ROLE_LABELS = { president: 'رئيس النشاط', vice_president: 'نائب الرئيس', officer: 'ضابط نشاط', member: 'فرد (طالب)' };
     const UNIT_LABELS = { command: 'القيادة العليا', officers: 'لجنة الضباط', activity_1: 'النشاط الأول', activity_2: 'النشاط الثاني', broadcast: 'الإذاعة المدرسية', general: 'النشاط العام', all: 'الجميع' };
-    const STATUS_BADGE_TONES = {
-      brand: 'bg-[var(--brand-soft)] text-[var(--brand)] border-[var(--brand-border)]',
-      gold: 'bg-[var(--accent-soft)] text-[#8a6510] border-[var(--accent-border)]',
-      warning: 'bg-amber-50 text-amber-800 border-amber-200',
-      danger: 'bg-red-50 text-red-700 border-red-200',
-      neutral: 'bg-slate-100 text-slate-700 border-slate-200',
-    };
-    const SUB_STATUS = { pending: ['بانتظار الإدارة', 'warning'], approved: ['مقبول', 'brand'], rejected: ['مرفوض', 'danger'] };
-    const CMP_STATUS = { new: ['جديدة', 'warning'], reviewing: ['قيد المتابعة', 'gold'], resolved: ['تمت المعالجة', 'brand'] };
-    const SUG_STATUS = { new: ['جديد', 'warning'], reviewed: ['تمت المراجعة', 'gold'], adopted: ['معتمد للتنفيذ', 'brand'] };
-    const BRC_STATUS = { pending_approval: ['بانتظار الاعتماد', 'warning'], approved: ['معتمدة للبث', 'brand'], aired: ['تم البث', 'gold'], returned: ['معادة للتعديل', 'danger'] };
+    const SUB_STATUS = { pending: ['بانتظار الإدارة', 'text-amber-700'], approved: ['مقبول', 'text-emerald-700'], rejected: ['مرفوض', 'text-red-700'] };
+    const CMP_STATUS = { new: ['جديدة', 'text-amber-700'], reviewing: ['قيد المتابعة', 'text-sky-700'], resolved: ['تمت المعالجة', 'text-emerald-700'] };
+    const SUG_STATUS = { new: ['جديد', 'text-amber-700'], reviewed: ['تمت المراجعة', 'text-sky-700'], adopted: ['معتمد للتنفيذ', 'text-emerald-700'] };
+    const BRC_STATUS = { pending_approval: ['بانتظار الاعتماد', 'text-amber-700'], approved: ['معتمدة للبث', 'text-emerald-700'], aired: ['تم البث', 'text-teal-700'], returned: ['معادة', 'text-red-700'] };
 
     const ALL_PERMS = [
       { key: 'manage_directory', label: 'إدارة الأفراد والصلاحيات', desc: 'إضافة وتعديل بيانات الطلاب ورموز الدخول' },
@@ -175,16 +81,6 @@
       officer: ['manage_activities', 'manage_discipline', 'manage_broadcasts', 'review_submissions', 'issue_directives'],
       member: [],
     };
-
-    const AVATAR_PALETTES = [
-      { bg: 'bg-[#e6f4f1]', text: 'text-[#0f514b]', border: 'border-[#b5dfd7]' },
-      { bg: 'bg-[#fdf6e2]', text: 'text-[#8a6510]', border: 'border-[#edd79b]' },
-      { bg: 'bg-[#e8eff7]', text: 'text-[#1e3a5f]', border: 'border-[#c3d5ea]' },
-      { bg: 'bg-[#f4ece6]', text: 'text-[#7c3f1d]', border: 'border-[#e3cbbd]' },
-      { bg: 'bg-[#eef2f6]', text: 'text-[#334155]', border: 'border-[#cbd5e1]' },
-      { bg: 'bg-[#e7f3f5]', text: 'text-[#155e75]', border: 'border-[#bae0e6]' },
-      { bg: 'bg-[#f3eef8]', text: 'text-[#5b3b8c]', border: 'border-[#d9cceb]' },
-    ];
 
     let state = {
       user: null,
@@ -214,14 +110,12 @@
       editingUserId: null,
       editingBroadcastId: null,
       confirmOpts: null,
-      bootstrapping: false,
+      error: '',
+      okMsg: '',
       loading: false,
-      busyKey: null,
-      toasts: [],
     };
 
     let confirmResolver = null;
-    let nextToastId = 1;
     const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const isMgmt = (r) => ['president', 'vice_president', 'officer'].includes(r);
     const isSupreme = (u) => Boolean(u && u.username === 'president');
@@ -230,173 +124,6 @@
     const hasAllSixPerms = (u) => Boolean(u) && (isSupreme(u) || ALL_PERMS.every((p) => hasPerm(u, p.key)));
     const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
     const setToken = (t) => t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
-
-    function svgIcon(name, cls = 'w-4 h-4') {
-      const attrs = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true"`;
-      switch (name) {
-        case 'users': return `<svg ${attrs}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
-        case 'award': return `<svg ${attrs}><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`;
-        case 'radio': return `<svg ${attrs}><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>`;
-        case 'alert': return `<svg ${attrs}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
-        case 'arrowUp': return `<svg ${attrs}><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>`;
-        case 'arrowDown': return `<svg ${attrs}><path d="m7 7 10 10"/><path d="M17 7v10H7"/></svg>`;
-        case 'minus': return `<svg ${attrs}><path d="M5 12h14"/></svg>`;
-        case 'spinner': return `<svg ${attrs}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
-        case 'sparkles': return `<svg ${attrs}><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>`;
-        case 'printer': return `<svg ${attrs}><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>`;
-        case 'plus': return `<svg ${attrs}><path d="M5 12h14"/><path d="M12 5v14"/></svg>`;
-        case 'check': return `<svg ${attrs}><path d="M20 6 9 17l-5-5"/></svg>`;
-        case 'checkCircle': return `<svg ${attrs}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`;
-        case 'x': return `<svg ${attrs}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
-        case 'edit': return `<svg ${attrs}><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
-        case 'trash': return `<svg ${attrs}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`;
-        case 'lock': return `<svg ${attrs}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
-        case 'shield': return `<svg ${attrs}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/></svg>`;
-        case 'bell': return `<svg ${attrs}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
-        case 'lightbulb': return `<svg ${attrs}><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>`;
-        case 'refresh': return `<svg ${attrs}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`;
-        case 'logout': return `<svg ${attrs}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`;
-        case 'fileText': return `<svg ${attrs}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`;
-        case 'upload': return `<svg ${attrs}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`;
-        case 'inbox': return `<svg ${attrs}><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>`;
-        case 'layout': return `<svg ${attrs}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>`;
-        case 'send': return `<svg ${attrs}><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`;
-        case 'info':
-        default: return `<svg ${attrs}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`;
-      }
-    }
-
-    function moeLogoHtml(size = 'md') {
-      const dims = size === 'lg' ? 'w-16 h-16 p-2.5' : (size === 'sm' ? 'w-10 h-10 p-1.5' : 'w-12 h-12 p-2');
-      return `
-        <div class="rounded-full bg-white ring-2 ring-[var(--accent)]/65 shadow-sm flex items-center justify-center shrink-0 overflow-hidden ${dims}" title="شعار وزارة التعليم">
-          <div role="img" aria-label="شعار وزارة التعليم" class="w-full h-full" style="background-color: var(--brand); mask-image: url('/moe-logo.png'); -webkit-mask-image: url('/moe-logo.png'); mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-position: center; -webkit-mask-position: center; mask-size: contain; -webkit-mask-size: contain;"></div>
-        </div>
-      `;
-    }
-
-    function avatarHtml(name, size = 'md') {
-      const clean = String(name || 'ط').trim();
-      let hash = 0;
-      for (let i = 0; i < clean.length; i += 1) hash = (hash * 31 + clean.charCodeAt(i)) >>> 0;
-      const p = AVATAR_PALETTES[hash % AVATAR_PALETTES.length];
-      const letter = clean.charAt(0) || 'ط';
-      const sz = size === 'xs' ? 'w-7 h-7 text-[11px]' : (size === 'sm' ? 'w-8 h-8 text-xs' : (size === 'lg' ? 'w-11 h-11 text-base' : 'w-9 h-9 text-sm'));
-      return `<div aria-hidden="true" class="rounded-full border flex items-center justify-center font-bold shrink-0 select-none ${sz} ${p.bg} ${p.text} ${p.border}">${esc(letter)}</div>`;
-    }
-
-    function badgeHtml(label, tone = 'neutral', cls = '') {
-      const toneCls = STATUS_BADGE_TONES[tone] || STATUS_BADGE_TONES.neutral;
-      return `<span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap ${toneCls} ${cls}">${esc(label)}</span>`;
-    }
-
-    function emptyStateHtml(iconName, title, description = '', actionHtml = '') {
-      return `
-        <div class="rounded-2xl border border-dashed border-slate-300/90 bg-slate-50/60 px-6 py-10 flex flex-col items-center justify-center text-center">
-          <div class="relative mb-3">
-            <div class="w-12 h-12 rounded-2xl bg-[var(--brand-soft)] border border-[var(--brand-border)] text-[var(--brand)] flex items-center justify-center shadow-2xs">${svgIcon(iconName, 'w-5 h-5')}</div>
-            <span aria-hidden="true" class="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-[var(--accent)] ring-2 ring-white"></span>
-          </div>
-          <div class="text-sm font-bold text-slate-900">${esc(title)}</div>
-          ${description ? `<p class="text-xs text-slate-500 mt-1 max-w-sm leading-relaxed">${esc(description)}</p>` : ''}
-          ${actionHtml ? `<div class="mt-4">${actionHtml}</div>` : ''}
-        </div>
-      `;
-    }
-
-    function skeletonHtml() {
-      const kpis = [1, 2, 3, 4].map(() => `
-        <div class="luxury-card p-5 space-y-4">
-          <div class="flex items-center justify-between">
-            <div class="h-3.5 w-24 rounded-md skeleton-shimmer"></div>
-            <div class="w-10 h-10 rounded-full skeleton-shimmer"></div>
-          </div>
-          <div class="h-8 w-16 rounded-lg skeleton-shimmer"></div>
-          <div class="h-3 w-28 rounded-md skeleton-shimmer"></div>
-        </div>
-      `).join('');
-      const rows = [1, 2, 3].map(() => `
-        <div class="p-4 rounded-xl border border-slate-100 space-y-2.5">
-          <div class="flex items-center justify-between gap-4">
-            <div class="h-4 w-48 rounded-md skeleton-shimmer"></div>
-            <div class="h-5 w-20 rounded-full skeleton-shimmer"></div>
-          </div>
-          <div class="h-3 w-full rounded-md skeleton-shimmer"></div>
-        </div>
-      `).join('');
-      return `
-        <div class="space-y-6 animate-section-enter" aria-busy="true" aria-label="جاري التحميل">
-          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">${kpis}</div>
-          <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
-            <div class="xl:col-span-7 luxury-card p-6 space-y-4">
-              <div class="h-5 w-40 rounded-lg skeleton-shimmer"></div>
-              <div class="space-y-3">${rows}</div>
-            </div>
-            <div class="xl:col-span-5 luxury-card p-6 space-y-4">
-              <div class="h-5 w-36 rounded-lg skeleton-shimmer"></div>
-              <div class="space-y-3">
-                ${[1, 2, 3].map(() => `
-                  <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-100">
-                    <div class="w-9 h-9 rounded-full skeleton-shimmer shrink-0"></div>
-                    <div class="flex-1 space-y-2"><div class="h-3.5 w-32 rounded-md skeleton-shimmer"></div><div class="h-3 w-44 rounded-md skeleton-shimmer"></div></div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function computeWeeklyDelta(items) {
-      const now = Date.now();
-      const weekMs = 7 * 24 * 60 * 60 * 1000;
-      const startCur = now - weekMs;
-      const startPrev = now - weekMs * 2;
-      let currentWeek = 0;
-      let previousWeek = 0;
-      for (const item of items || []) {
-        const ts = item && item.createdAt ? Date.parse(item.createdAt) : NaN;
-        if (Number.isNaN(ts)) continue;
-        if (ts >= startCur) currentWeek += 1;
-        else if (ts >= startPrev) previousWeek += 1;
-      }
-      const diff = currentWeek - previousWeek;
-      if (diff > 0) return { dir: 'up', label: `+${diff} عن الأسبوع الماضي` };
-      if (diff < 0) return { dir: 'down', label: `${diff} عن الأسبوع الماضي` };
-      return { dir: 'flat', label: 'ثابت عن الأسبوع الماضي' };
-    }
-
-    function renderToasts() {
-      const troot = document.getElementById('toast-root');
-      if (!troot) return;
-      troot.innerHTML = state.toasts.map((t) => {
-        const cls = t.tone === 'error'
-          ? 'bg-red-950/95 text-white border-red-800/70'
-          : (t.tone === 'success' ? 'bg-[var(--brand)] text-white border-[var(--brand-hover)]' : 'bg-slate-900 text-white border-slate-700');
-        const ic = t.tone === 'error' ? 'alert' : (t.tone === 'success' ? 'checkCircle' : 'info');
-        return `
-          <div role="status" class="pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold animate-section-enter ${cls}">
-            <span class="shrink-0">${svgIcon(ic, 'w-4 h-4')}</span>
-            <span class="flex-1 leading-relaxed">${esc(t.message)}</span>
-            <button type="button" onclick="dismissToast(${t.id})" class="p-1 rounded-lg hover:bg-white/15 shrink-0 cursor-pointer" aria-label="إغلاق التنبيه">${svgIcon('x', 'w-3.5 h-3.5')}</button>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function showToast(message, tone = 'info') {
-      if (!message) return;
-      const id = nextToastId++;
-      state.toasts = [...state.toasts.slice(-3), { id, message, tone }];
-      renderToasts();
-      setTimeout(() => dismissToast(id), 4200);
-    }
-
-    window.dismissToast = (id) => {
-      state.toasts = state.toasts.filter((t) => t.id !== id);
-      renderToasts();
-    };
 
     function openConfirm(opts) {
       return new Promise((resolve) => {
@@ -440,8 +167,7 @@
       return 'https://wa.me/' + digits + '?text=' + encodeURIComponent(lines);
     }
 
-    async function refreshWorkspace(silent = false) {
-      if (!state.data.users.length) state.bootstrapping = true;
+    async function refreshWorkspace() {
       state.loading = true;
       render();
       try {
@@ -454,70 +180,35 @@
         if (!state.selectedReportId && ws.programReports && ws.programReports[0]) state.selectedReportId = ws.programReports[0].id;
         if (!state.reportDraft.executors && state.user) state.reportDraft.executors = state.user.fullName;
       } catch (e) {
-        if (!silent) showToast(e.message, 'error');
+        state.error = e.message;
       } finally {
-        state.bootstrapping = false;
         state.loading = false;
         render();
       }
     }
 
     function renderLogin() {
-      const isLoginBusy = state.busyKey === 'login';
       return `
-        <div class="min-h-screen grid grid-cols-1 lg:grid-cols-12 islamic-pattern-light">
-          <div class="lg:col-span-5 islamic-pattern-dark text-white p-8 sm:p-12 flex flex-col justify-between relative overflow-hidden">
-            <div class="space-y-6 relative z-10">
-              <div class="flex items-center gap-4">
-                ${moeLogoHtml('lg')}
-                <div>
-                  <div class="text-xs font-bold tracking-wide text-[var(--accent-border)]">الإدارة العامة للتعليم</div>
-                  <div class="text-lg font-extrabold mt-0.5">منظومة النشاط الطلابي</div>
-                </div>
-              </div>
-              <div class="gold-divider"></div>
-              <div class="space-y-3 pt-2">
-                <h1 class="text-2xl sm:text-3xl font-extrabold leading-snug">بوابة إدارة البرامج المدرسية والشواهد والانضباط</h1>
-                <p class="text-sm text-slate-300 leading-relaxed max-w-md">منصة متكاملة لإعداد تقارير الشواهد المعتمدة، تنظيم الإذاعة الصباحية، ومتابعة نقاط وإنجازات الطلاب.</p>
-              </div>
+        <div class="min-h-screen flex items-center justify-center p-4 bg-[#0b1618] relative overflow-hidden">
+          <div class="w-full max-w-md luxury-card p-8 space-y-6 animate-section-enter relative z-10">
+            <div>
+              <p class="text-xs font-bold text-teal-800">بوابة النشاط الطلابي</p>
+              <h1 class="text-2xl font-bold text-slate-900 mt-1">تسجيل الدخول بالرمز</h1>
+              <p class="text-sm text-slate-500 mt-1">اختر بوابة الدخول ثم أدخل الرمز السري المخصص لك</p>
             </div>
-            <div class="hidden lg:block pt-8 relative z-10">
-              <div class="gold-divider mb-4"></div>
-              <p class="text-xs text-slate-400">مدرسة الحديبية المتوسطة · النشاط الطلابي</p>
+            <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
+              <button onclick="setPortal('management')" class="py-2 rounded-lg text-xs font-bold transition-all ${state.portalType === 'management' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}">دخول الإدارة</button>
+              <button onclick="setPortal('member')" class="py-2 rounded-lg text-xs font-bold transition-all ${state.portalType === 'member' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}">دخول الأفراد (الطلاب)</button>
             </div>
-          </div>
-
-          <div class="lg:col-span-7 flex items-center justify-center p-6 sm:p-10">
-            <div class="w-full max-w-md luxury-card p-7 sm:p-8 space-y-6 animate-section-enter">
-              <div class="flex items-center gap-3.5">
-                <div class="lg:hidden">${moeLogoHtml('md')}</div>
-                <div>
-                  <span class="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--brand)]">
-                    ${svgIcon('shield', 'w-3.5 h-3.5 text-[var(--accent)]')}
-                    <span>بوابة الدخول الموحدة</span>
-                  </span>
-                  <h2 class="text-2xl font-bold text-slate-900 mt-0.5">تسجيل الدخول بالرمز</h2>
-                </div>
+            ${state.error ? `<div class="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700">${esc(state.error)}</div>` : ''}
+            <form onsubmit="submitLogin(event)" class="space-y-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1.5">رمز الدخول</label>
+                <input id="loginCodeInput" type="password" inputmode="numeric" required placeholder="أدخل الرمز المكون من 6 أرقام" class="w-full h-11 px-4 rounded-xl border border-slate-300 text-center font-mono text-base tracking-widest focus:outline-none focus:border-teal-800" />
               </div>
-
-              <div class="flex border-b border-slate-200">
-                <button type="button" onclick="setPortal('management')" class="flex-1 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${state.portalType === 'management' ? 'border-[var(--brand)] text-[var(--brand)]' : 'border-transparent text-slate-500 hover:text-slate-800'}">دخول الإدارة</button>
-                <button type="button" onclick="setPortal('member')" class="flex-1 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${state.portalType === 'member' ? 'border-[var(--brand)] text-[var(--brand)]' : 'border-transparent text-slate-500 hover:text-slate-800'}">دخول الأفراد (الطلاب)</button>
-              </div>
-
-              <form onsubmit="submitLogin(event)" class="space-y-4">
-                <div>
-                  <label class="block text-xs font-semibold text-slate-700 mb-1.5">رمز الدخول الشخصي</label>
-                  <input id="loginCodeInput" type="password" inputmode="numeric" required placeholder="أدخل الرمز المكون من 6 أرقام" class="w-full h-11 px-4 rounded-xl border border-slate-300 text-center font-mono text-base tracking-widest focus:border-[var(--brand)]" />
-                </div>
-                <button type="submit" ${isLoginBusy ? 'disabled' : ''} class="w-full h-11 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-70 text-white text-sm font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer">
-                  ${isLoginBusy ? svgIcon('spinner', 'w-4 h-4 animate-spin') : svgIcon('lock', 'w-4 h-4')}
-                  <span>${isLoginBusy ? 'جاري التحقق من الرمز...' : 'دخول للمنظومة'}</span>
-                </button>
-              </form>
-              <div class="gold-divider"></div>
-              <p class="text-xs text-slate-500">يتم إضافة حسابات الطلاب وإصدار رموز الدخول الخاصة بهم من قِبل الإدارة فقط.</p>
-            </div>
+              <button type="submit" class="w-full h-11 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-sm font-bold shadow-xs transition-colors">دخول للمنظومة</button>
+            </form>
+            <p class="text-xs text-slate-500 border-t border-slate-200/80 pt-4">يتم إضافة حسابات الطلاب وإصدار رموزهم من قِبل الإدارة فقط.</p>
           </div>
         </div>
       `;
@@ -528,137 +219,82 @@
       const canSeeBrc = hasPerm(user, 'manage_broadcasts');
       if (isMgmt(user.role)) {
         return [
-          { id: 'overview', label: 'لوحة القيادة', icon: 'layout' },
-          { id: 'reports', label: 'التقارير', icon: 'fileText' },
-          ...(canSeeBrc ? [{ id: 'broadcasts', label: 'الإذاعة', icon: 'radio' }] : []),
-          ...(canSeeDir ? [{ id: 'directory', label: 'الأفراد والصلاحيات', icon: 'users' }] : []),
-          { id: 'submissions', label: 'تقديم طلاب النشاط', icon: 'award' },
+          { id: 'overview', label: 'لوحة القيادة' },
+          { id: 'reports', label: 'التقارير' },
+          ...(canSeeBrc ? [{ id: 'broadcasts', label: 'الإذاعة' }] : []),
+          ...(canSeeDir ? [{ id: 'directory', label: 'الأفراد والصلاحيات' }] : []),
+          { id: 'submissions', label: 'تقديم طلاب النشاط' },
         ];
       }
       return [
-        { id: 'member_stats', label: 'إحصائياتي', icon: 'layout' },
-        { id: 'member_achievements', label: 'تقديم إنجاز', icon: 'award' },
-        { id: 'member_complaints', label: 'تقديم شكوى', icon: 'alert' },
-        { id: 'member_suggestions', label: 'الاقتراحات', icon: 'lightbulb' },
-        ...(canSeeBrc ? [{ id: 'broadcasts', label: 'الإذاعة', icon: 'radio' }] : []),
-        ...(canSeeDir ? [{ id: 'directory', label: 'الأفراد والصلاحيات', icon: 'users' }] : []),
+        { id: 'member_stats', label: 'إحصائياتي' },
+        { id: 'member_achievements', label: 'تقديم إنجاز' },
+        { id: 'member_complaints', label: 'تقديم شكوى' },
+        { id: 'member_suggestions', label: 'الاقتراحات' },
+        ...(canSeeBrc ? [{ id: 'broadcasts', label: 'الإذاعة' }] : []),
+        ...(canSeeDir ? [{ id: 'directory', label: 'الأفراد والصلاحيات' }] : []),
       ];
-    }
-
-    function kpiCardHtml({ title, value, delta, iconName, iconTone = 'brand', onClick = '' }) {
-      const iconBg = iconTone === 'gold'
-        ? 'bg-[var(--accent-soft)] text-[#8a6510] border-[var(--accent-border)]'
-        : (iconTone === 'warning'
-          ? 'bg-amber-50 text-amber-800 border-amber-200'
-          : (iconTone === 'danger' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-[var(--brand-soft)] text-[var(--brand)] border-[var(--brand-border)]'));
-      const deltaCls = delta.dir === 'up' ? 'text-[var(--brand)]' : (delta.dir === 'down' ? 'text-red-700' : 'text-slate-500');
-      const deltaIcon = delta.dir === 'up' ? 'arrowUp' : (delta.dir === 'down' ? 'arrowDown' : 'minus');
-      const inner = `
-        <div class="flex items-start justify-between gap-3">
-          <span class="text-xs font-semibold text-slate-500">${esc(title)}</span>
-          <span class="w-10 h-10 rounded-full border flex items-center justify-center shrink-0 ${iconBg}">${svgIcon(iconName, 'w-4 h-4')}</span>
-        </div>
-        <div class="text-3xl font-extrabold text-slate-900 font-mono tabular-nums mt-3">${esc(value)}</div>
-        <div class="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold ${deltaCls}">
-          ${svgIcon(deltaIcon, 'w-3.5 h-3.5')}
-          <span>${esc(delta.label)}</span>
-        </div>
-      `;
-      if (onClick) {
-        return `<button type="button" onclick="${onClick}" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer flex flex-col justify-between">${inner}</button>`;
-      }
-      return `<div class="text-right luxury-card p-5 flex flex-col justify-between">${inner}</div>`;
     }
 
     function renderOverview() {
       const students = state.data.users.filter((u) => u.role === 'member');
-      const pendingSub = state.data.submissions.filter((s) => s.status === 'pending');
-      const openCmp = state.data.complaints.filter((c) => c.status !== 'resolved');
-      const newSug = state.data.suggestions.filter((s) => s.status === 'new');
+      const pendingSub = state.data.submissions.filter((s) => s.status === 'pending').length;
+      const openCmp = state.data.complaints.filter((c) => c.status !== 'resolved').length;
+      const newSug = state.data.suggestions.filter((s) => s.status === 'new').length;
       const canSeeDir = hasAllSixPerms(state.user);
       const canSeeBrc = hasPerm(state.user, 'manage_broadcasts');
-      const isDirBusy = state.busyKey === 'create_directive';
       return `
         <div class="space-y-6">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 class="text-xl font-bold text-slate-900">مرحباً، ${esc(state.user.fullName)}</h2>
-              <p class="text-sm text-slate-500">${esc(ROLE_LABELS[state.user.role])} · ${esc(UNIT_LABELS[state.user.unit] || '')}</p>
-            </div>
-            ${badgeHtml('نظرة عامة', 'brand')}
+          <div>
+            <h2 class="text-xl font-bold">مرحباً، ${esc(state.user.fullName)}</h2>
+            <p class="text-sm text-slate-500">${esc(ROLE_LABELS[state.user.role])} · ${esc(UNIT_LABELS[state.user.unit] || '')}</p>
           </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 ${canSeeBrc ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4">
-            ${kpiCardHtml({
-              title: 'الطلاب المسجلون',
-              value: students.length,
-              delta: computeWeeklyDelta(students),
-              iconName: 'users',
-              iconTone: 'brand',
-              onClick: canSeeDir ? "setTab('directory')" : '',
-            })}
-            ${kpiCardHtml({
-              title: 'إنجازات بانتظار المراجعة',
-              value: pendingSub.length,
-              delta: computeWeeklyDelta(pendingSub),
-              iconName: 'award',
-              iconTone: 'warning',
-              onClick: "setTab('submissions')",
-            })}
-            ${kpiCardHtml({
-              title: 'شكاوى واقتراحات نشطة',
-              value: openCmp.length + newSug.length,
-              delta: computeWeeklyDelta([...openCmp, ...newSug]),
-              iconName: 'alert',
-              iconTone: 'gold',
-              onClick: "setTab('submissions')",
-            })}
-            ${canSeeBrc ? kpiCardHtml({
-              title: 'الإذاعات المدرسية',
-              value: state.data.broadcasts.length,
-              delta: computeWeeklyDelta(state.data.broadcasts),
-              iconName: 'radio',
-              iconTone: 'brand',
-              onClick: "setTab('broadcasts')",
-            }) : ''}
-          </div>
-
-          <section class="luxury-card p-6 space-y-4">
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <span class="w-8 h-8 rounded-full bg-[var(--brand-soft)] text-[var(--brand)] border border-[var(--brand-border)] flex items-center justify-center">${svgIcon('bell', 'w-4 h-4')}</span>
-                <h3 class="text-base font-bold">التوجيهات والتنبيهات</h3>
-              </div>
-              <span class="text-xs text-slate-500">${state.data.directives.length} تنبيهات</span>
-            </div>
-            <form onsubmit="createDirective(event)" class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-              <input id="dirTitle" required placeholder="عنوان التنبيه" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
-              <input id="dirContent" required placeholder="نص التنبيه للطلاب..." class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
-              <button type="submit" ${isDirBusy ? 'disabled' : ''} class="h-10 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-70 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer">
-                ${isDirBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('plus', 'w-3.5 h-3.5')}
-                <span>نشر التنبيه</span>
+          <div class="grid grid-cols-2 ${canSeeBrc ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4">
+            ${canSeeDir ? `
+              <button onclick="setTab('directory')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
+                <div class="text-xs text-slate-500">الطلاب المسجلون</div>
+                <div class="text-2xl font-bold font-mono tabular-nums mt-2">${students.length}</div>
               </button>
-            </form>
-            ${state.data.directives.length === 0 ? emptyStateHtml('bell', 'لا توجد توجيهات منشورة حالياً', 'انشر أول توجيه رسمي ليظهر لجميع الطلاب في بوابة الأعضاء.') : `
-              <div class="divide-y divide-slate-200/70">
-                ${state.data.directives.map((d) => `
-                  <div class="py-3.5 flex items-start justify-between gap-3">
-                    <div class="flex items-start gap-3">
-                      ${avatarHtml(d.issuedByName, 'sm')}
-                      <div>
-                        <div class="font-bold text-sm text-slate-900">${esc(d.title)}</div>
-                        <div class="text-xs text-slate-500 mt-0.5">${esc(d.issuedByName)}</div>
-                        <p class="text-sm text-slate-700 mt-1">${esc(d.content)}</p>
-                      </div>
-                    </div>
-                    <button type="button" onclick="deleteDirective(${d.id}, '${esc(d.title)}')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-red-700 hover:bg-red-50 shrink-0 cursor-pointer">
-                      ${svgIcon('trash', 'w-3.5 h-3.5')}
-                      <span>حذف</span>
-                    </button>
-                  </div>
-                `).join('')}
+            ` : `
+              <div class="text-right luxury-card p-5">
+                <div class="text-xs text-slate-500">الطلاب المسجلون</div>
+                <div class="text-2xl font-bold font-mono tabular-nums mt-2">${students.length}</div>
               </div>
             `}
+            <button onclick="setTab('submissions')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
+              <div class="text-xs text-slate-500">إنجازات بانتظار المراجعة</div>
+              <div class="text-2xl font-bold text-amber-700 font-mono tabular-nums mt-2">${pendingSub}</div>
+            </button>
+            <button onclick="setTab('submissions')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
+              <div class="text-xs text-slate-500">شكاوى واقتراحات</div>
+              <div class="text-2xl font-bold font-mono tabular-nums mt-2">${openCmp + newSug}</div>
+            </button>
+            ${canSeeBrc ? `
+              <button onclick="setTab('broadcasts')" class="text-right luxury-card luxury-card-interactive p-5 cursor-pointer">
+                <div class="text-xs text-slate-500">الإذاعات المدرسية</div>
+                <div class="text-2xl font-bold font-mono tabular-nums mt-2">${state.data.broadcasts.length}</div>
+              </button>
+            ` : ''}
+          </div>
+          <section class="luxury-card p-6 space-y-4">
+            <h3 class="text-base font-bold">التوجيهات والتنبيهات</h3>
+            <form onsubmit="createDirective(event)" class="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <input id="dirTitle" required placeholder="عنوان التنبيه" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+              <input id="dirContent" required placeholder="نص التنبيه للطلاب..." class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+              <button type="submit" class="h-10 px-4 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">نشر التنبيه</button>
+            </form>
+            <div class="divide-y divide-slate-200/70">
+              ${state.data.directives.map((d) => `
+                <div class="py-3.5 flex items-start justify-between gap-3">
+                  <div>
+                    <div class="font-bold text-sm">${esc(d.title)}</div>
+                    <div class="text-xs text-slate-500 mt-0.5">${esc(d.issuedByName)}</div>
+                    <p class="text-sm text-slate-700 mt-1">${esc(d.content)}</p>
+                  </div>
+                  <button onclick="deleteDirective(${d.id}, '${esc(d.title)}')" class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-red-700 hover:bg-red-50 shrink-0 cursor-pointer">حذف</button>
+                </div>
+              `).join('')}
+            </div>
           </section>
         </div>
       `;
@@ -669,267 +305,232 @@
       const reports = state.data.programReports || [];
       const selRep = reports.find((r) => r.id === state.selectedReportId) || reports[0] || null;
       const d = state.reportDraft;
-      const isGenRepBusy = state.busyKey === 'gen_report';
-      const isSaveRepBusy = state.busyKey === 'save_report';
-      const isAddActBusy = state.busyKey === 'create_activity';
-      const isAddDisBusy = state.busyKey === 'create_discipline';
-
       return `
-        <div class="space-y-6 print-reset">
+        <div class="space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3 no-print">
             <div>
               <h2 class="text-xl font-bold">التقارير والمتابعة</h2>
               <p class="text-sm text-slate-500">تقارير البرامج بالشواهد المصورة، أداء الطلاب واتساب، والنشاط الأول والثاني والانضباط</p>
             </div>
-            <div class="flex flex-wrap border-b border-slate-200 text-xs font-semibold">
-              <button type="button" onclick="setReportTab('evidence')" class="px-3.5 py-2 border-b-2 transition-colors cursor-pointer ${state.reportTab === 'evidence' ? 'border-[var(--brand)] text-[var(--brand)] font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'}">تقارير الشواهد (${reports.length})</button>
-              <button type="button" onclick="setReportTab('students')" class="px-3.5 py-2 border-b-2 transition-colors cursor-pointer ${state.reportTab === 'students' ? 'border-[var(--brand)] text-[var(--brand)] font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'}">أداء الطلاب (${students.length})</button>
-              <button type="button" onclick="setReportTab('activity_1')" class="px-3.5 py-2 border-b-2 transition-colors cursor-pointer ${state.reportTab === 'activity_1' ? 'border-[var(--brand)] text-[var(--brand)] font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'}">النشاط الأول</button>
-              <button type="button" onclick="setReportTab('activity_2')" class="px-3.5 py-2 border-b-2 transition-colors cursor-pointer ${state.reportTab === 'activity_2' ? 'border-[var(--brand)] text-[var(--brand)] font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'}">النشاط الثاني</button>
-              <button type="button" onclick="setReportTab('discipline')" class="px-3.5 py-2 border-b-2 transition-colors cursor-pointer ${state.reportTab === 'discipline' ? 'border-[var(--brand)] text-[var(--brand)] font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'}">الضباط والانضباط</button>
+            <div class="flex flex-wrap gap-1 p-1 bg-slate-200/75 rounded-xl text-xs font-semibold">
+              <button onclick="setReportTab('evidence')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'evidence' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">تقارير الشواهد (${reports.length})</button>
+              <button onclick="setReportTab('students')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'students' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">أداء الطلاب (${students.length})</button>
+              <button onclick="setReportTab('activity_1')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'activity_1' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">النشاط الأول</button>
+              <button onclick="setReportTab('activity_2')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'activity_2' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">النشاط الثاني</button>
+              <button onclick="setReportTab('discipline')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'discipline' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">الضباط والانضباط</button>
             </div>
           </div>
 
-          <div class="animate-tab-enter print-reset">
-            ${state.reportTab === 'evidence' ? `
-              <div class="space-y-5 print-reset">
-                <div class="flex flex-wrap items-center justify-between gap-3 no-print">
-                  <p class="text-xs text-slate-500">أدخل اسم البرنامج والمنفذين والتاريخ وأرفق حتى 4 شواهد مصورة، ويتولى الذكاء الاصطناعي استنتاج المجال وخطوات التنفيذ والأهداف مباشرة.</p>
-                  <button type="button" onclick="toggleReportBuilder()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-xs font-bold cursor-pointer">
-                    ${svgIcon(state.showReportBuilder ? 'x' : 'plus', 'w-3.5 h-3.5')}
-                    <span>${state.showReportBuilder ? 'إغلاق النموذج' : 'إعداد تقرير جديد (4 شواهد)'}</span>
-                  </button>
+          ${state.reportTab === 'evidence' ? `
+            <div class="space-y-5">
+              <div class="flex flex-wrap items-center justify-between gap-3 no-print">
+                <p class="text-xs text-slate-500">أدخل اسم البرنامج والمنفذين والتاريخ وأرفق حتى 4 شواهد مصورة، ويتولى الذكاء الاصطناعي استنتاج المجال وخطوات التنفيذ والأهداف مباشرة.</p>
+                <button onclick="toggleReportBuilder()" class="px-4 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">${state.showReportBuilder ? 'إغلاق النموذج' : 'إعداد تقرير جديد (4 شواهد)'}</button>
+              </div>
+
+              ${(state.showReportBuilder || reports.length === 0) ? `
+                <form onsubmit="submitProgramReport(event)" class="luxury-card p-6 space-y-4 no-print">
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <h3 class="text-sm font-bold">${state.editingReportId ? 'تعديل التقرير والشواهد' : 'إنشاء تقرير برنامج جديد (4 شواهد)'}</h3>
+                    <button type="button" onclick="generateReportDraft()" class="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer">توليد المجال والخطوات والأهداف بالذكاء الاصطناعي</button>
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">اسم البرنامج *</label><input id="repTitle" required value="${esc(d.title)}" oninput="syncRepDraft('title', this.value)" placeholder="مثال: البراكين" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">المنفذ / ين *</label><input id="repExec" required value="${esc(d.executors)}" oninput="syncRepDraft('executors', this.value)" placeholder="الأستاذ / ..." class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">تاريخ التنفيذ *</label><input id="repDate" required value="${esc(toEngDigits(d.executionDate))}" oninput="syncRepDraft('executionDate', this.value)" placeholder="1448/05/04هـ" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm english-date-font" /></div>
+                  </div>
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between"><span class="text-xs font-semibold text-slate-700">الشواهد المصورة (بحد أقصى 4 صور مرتبة في شبكة 2×2)</span><span class="text-xs font-mono text-slate-500">${Math.min(4, d.images.length)}/4 شواهد</span></div>
+                    <div class="flex flex-wrap items-center gap-3">
+                      ${d.images.length < 4 ? `<label class="px-4 py-2 rounded-xl border-2 border-dashed border-teal-700/50 bg-teal-50/50 hover:bg-teal-50 text-xs font-bold text-teal-900 cursor-pointer">رفع صور الشواهد (حتى 4 صور)<input type="file" accept="image/*" multiple onchange="pickReportImages(event)" class="hidden" /></label>` : ''}
+                      ${d.images.slice(0, 4).map((src, i) => `<div class="relative w-24 h-20 rounded-xl border border-slate-200 overflow-hidden bg-slate-50"><img src="${src}" class="w-full h-full object-cover" /><button type="button" onclick="removeReportImage(${i})" class="absolute top-1 left-1 w-5 h-5 rounded-full bg-slate-900/80 text-white text-[10px] font-bold cursor-pointer">✕</button></div>`).join('')}
+                    </div>
+                  </div>
+                  <div class="border-t border-slate-100 pt-3">
+                    <button type="button" onclick="toggleRepAdvanced()" class="text-xs font-semibold text-teal-800 hover:text-teal-950 cursor-pointer">${state.showRepAdvanced ? 'إخفاء الحقول المولّدة تلقائياً' : 'تعديل المجال وخطوات التنفيذ والأهداف يدوياً (اختياري — تُولّد تلقائياً عند الحفظ)'}</button>
+                    ${state.showRepAdvanced ? `
+                      <div class="mt-3 space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">اسم المدرسة</label><input id="repSchool" value="${esc(d.schoolName)}" oninput="syncRepDraft('schoolName', this.value)" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">مجال البرنامج (بالذكاء الاصطناعي)</label><input id="repField" value="${esc(d.field)}" oninput="syncRepDraft('field', this.value)" placeholder="يُستنتج من اسم البرنامج" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">المستفيدون</label><input id="repBen" value="${esc(d.beneficiaries)}" oninput="syncRepDraft('beneficiaries', this.value)" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">عدد المستفيدين</label><input id="repBenCnt" value="${esc(d.beneficiariesCount)}" oninput="syncRepDraft('beneficiariesCount', this.value)" placeholder="اقل من 70 طالب" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">خطوات التنفيذ (اتركها فارغة للتوليد التلقائي)</label><textarea id="repSteps" rows="4" oninput="syncRepDraft('stepsText', this.value)" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(d.stepsText)}</textarea></div>
+                          <div><label class="block text-xs font-semibold text-slate-700 mb-1">الأهداف (اتركها فارغة للتوليد التلقائي)</label><textarea id="repObjs" rows="4" oninput="syncRepDraft('objectivesText', this.value)" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(d.objectivesText)}</textarea></div>
+                        </div>
+                      </div>
+                    ` : ''}
+                  </div>
+                  <div class="flex justify-end gap-2">
+                    ${state.showReportBuilder ? `<button type="button" onclick="toggleReportBuilder()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold cursor-pointer">إلغاء</button>` : ''}
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">${state.editingReportId ? 'حفظ التعديلات' : 'إنشاء التقرير بالشواهد'}</button>
+                  </div>
+                </form>
+              ` : ''}
+
+              <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <div class="lg:col-span-4 luxury-card overflow-hidden divide-y divide-slate-200/70 no-print">
+                  <div class="px-4 py-3 bg-slate-50/70 text-xs font-bold text-slate-700">التقارير المحفوظة (${reports.length})</div>
+                  ${reports.length === 0 ? `<div class="p-6 text-center text-xs text-slate-500">لا توجد تقارير محفوظة بعد</div>` : reports.map((r) => `
+                    <button onclick="selectReport(${r.id})" class="w-full text-right p-4 cursor-pointer transition-colors ${selRep && selRep.id === r.id ? 'bg-teal-50/75' : 'hover:bg-slate-50'}">
+                      <div class="font-bold text-sm">${esc(r.title)}</div>
+                      <div class="text-xs text-slate-500 mt-1">${esc(r.field)} · <span class="english-date-font">${esc(toEngDigits(r.executionDate))}</span> · ${Math.min(4, (r.images || []).length)}/4 شواهد</div>
+                    </button>
+                  `).join('')}
                 </div>
 
-                ${(state.showReportBuilder || reports.length === 0) ? `
-                  <form onsubmit="submitProgramReport(event)" class="luxury-card p-6 space-y-4 no-print">
-                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                      <h3 class="text-sm font-bold">${state.editingReportId ? 'تعديل التقرير والشواهد' : 'إنشاء تقرير برنامج جديد (4 شواهد)'}</h3>
-                      <button type="button" onclick="generateReportDraft()" ${isGenRepBusy ? 'disabled' : ''} class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white text-xs font-bold cursor-pointer">
-                        ${isGenRepBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('sparkles', 'w-3.5 h-3.5')}
-                        <span>${isGenRepBusy ? 'جاري التوليد...' : 'توليد المجال والخطوات والأهداف بالذكاء الاصطناعي'}</span>
-                      </button>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div><label class="block text-xs font-semibold text-slate-700 mb-1">اسم البرنامج *</label><input id="repTitle" required value="${esc(d.title)}" oninput="syncRepDraft('title', this.value)" placeholder="مثال: البراكين" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
-                      <div><label class="block text-xs font-semibold text-slate-700 mb-1">المنفذ / ين *</label><input id="repExec" required value="${esc(d.executors)}" oninput="syncRepDraft('executors', this.value)" placeholder="الأستاذ / ..." class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
-                      <div><label class="block text-xs font-semibold text-slate-700 mb-1">تاريخ التنفيذ *</label><input id="repDate" required value="${esc(toEngDigits(d.executionDate))}" oninput="syncRepDraft('executionDate', this.value)" placeholder="1448/05/04هـ" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm english-date-font" /></div>
-                    </div>
-                    <div class="space-y-2">
-                      <div class="flex items-center justify-between"><span class="text-xs font-semibold text-slate-700">الشواهد المصورة (بحد أقصى 4 صور مرتبة في شبكة 2×2)</span><span class="text-xs font-mono text-slate-500">${Math.min(4, d.images.length)}/4 شواهد</span></div>
-                      <div class="flex flex-wrap items-center gap-3">
-                        ${d.images.length < 4 ? `<label class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-dashed border-[var(--brand-border)] bg-[var(--brand-soft)] hover:bg-[var(--brand-soft)] text-xs font-bold text-[var(--brand)] cursor-pointer">${svgIcon('upload', 'w-4 h-4')}<span>رفع صور الشواهد (حتى 4 صور)</span><input type="file" accept="image/*" multiple onchange="pickReportImages(event)" class="hidden" /></label>` : ''}
-                        ${d.images.slice(0, 4).map((src, i) => `<div class="relative w-24 h-20 rounded-xl border border-slate-200 overflow-hidden bg-slate-50"><img src="${src}" class="w-full h-full object-cover" /><button type="button" onclick="removeReportImage(${i})" aria-label="إزالة الصورة" class="absolute top-1 left-1 w-5 h-5 rounded-full bg-slate-900/80 text-white flex items-center justify-center cursor-pointer">${svgIcon('x', 'w-3 h-3')}</button></div>`).join('')}
+                <div class="lg:col-span-8 space-y-3">
+                  ${selRep ? `
+                    <div class="flex flex-wrap justify-between items-center gap-2 no-print">
+                      <span class="text-xs text-slate-500">أعدّه: <b>${esc(selRep.createdByName)}</b></span>
+                      <div class="flex items-center gap-2">
+                        <button onclick="editProgramReport(${selRep.id})" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold cursor-pointer">تعديل التقرير</button>
+                        <button onclick="window.print()" class="px-4 py-1.5 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">طباعة / حفظ PDF</button>
+                        <button onclick="deleteProgramReport(${selRep.id}, '${esc(selRep.title)}')" class="px-3 py-1.5 rounded-xl border border-red-200 bg-white text-red-700 text-xs font-bold cursor-pointer">حذف</button>
                       </div>
                     </div>
-                    <div class="border-t border-slate-100 pt-3">
-                      <button type="button" onclick="toggleRepAdvanced()" class="text-xs font-semibold text-[var(--brand)] hover:text-[var(--brand-hover)] cursor-pointer">${state.showRepAdvanced ? 'إخفاء الحقول المولّدة تلقائياً' : 'تعديل المجال وخطوات التنفيذ والأهداف يدوياً (اختياري — تُولّد تلقائياً عند الحفظ)'}</button>
-                      ${state.showRepAdvanced ? `
-                        <div class="mt-3 space-y-3">
-                          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                            <div><label class="block text-xs font-semibold text-slate-700 mb-1">اسم المدرسة</label><input id="repSchool" value="${esc(d.schoolName)}" oninput="syncRepDraft('schoolName', this.value)" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
-                            <div><label class="block text-xs font-semibold text-slate-700 mb-1">مجال البرنامج (بالذكاء الاصطناعي)</label><input id="repField" value="${esc(d.field)}" oninput="syncRepDraft('field', this.value)" placeholder="يُستنتج من اسم البرنامج" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
-                            <div><label class="block text-xs font-semibold text-slate-700 mb-1">المستفيدون</label><input id="repBen" value="${esc(d.beneficiaries)}" oninput="syncRepDraft('beneficiaries', this.value)" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
-                            <div><label class="block text-xs font-semibold text-slate-700 mb-1">عدد المستفيدين</label><input id="repBenCnt" value="${esc(d.beneficiariesCount)}" oninput="syncRepDraft('beneficiariesCount', this.value)" placeholder="اقل من 70 طالب" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
-                          </div>
-                          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div><label class="block text-xs font-semibold text-slate-700 mb-1">خطوات التنفيذ (اتركها فارغة للتوليد التلقائي)</label><textarea id="repSteps" rows="4" oninput="syncRepDraft('stepsText', this.value)" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(d.stepsText)}</textarea></div>
-                            <div><label class="block text-xs font-semibold text-slate-700 mb-1">الأهداف (اتركها فارغة للتوليد التلقائي)</label><textarea id="repObjs" rows="4" oninput="syncRepDraft('objectivesText', this.value)" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(d.objectivesText)}</textarea></div>
+                    <div class="max-w-[794px] mx-auto bg-white border border-slate-200 shadow-lg overflow-hidden print-sheet report-kufi-font">
+                      <div class="relative bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799] text-white px-6 pt-5 pb-9 rounded-b-xl">
+                        <div class="flex items-center justify-center gap-5">
+                          <img src="/moe-logo.png" alt="وزارة التعليم - Ministry of Education" class="h-[68px] w-auto object-contain shrink-0" />
+                          <div class="w-[2.5px] h-[64px] bg-white shrink-0"></div>
+                          <div class="text-right text-[14px] font-medium leading-[1.65]">
+                            <div>الإدارة العامة للتعليم</div>
+                            <div>بمحافظة جدة</div>
+                            <div>النشاط الطلابي</div>
                           </div>
                         </div>
-                      ` : ''}
-                    </div>
-                    <div class="flex justify-end gap-2">
-                      ${state.showReportBuilder ? `<button type="button" onclick="toggleReportBuilder()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold cursor-pointer">إلغاء</button>` : ''}
-                      <button type="submit" ${isSaveRepBusy ? 'disabled' : ''} class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-70 text-white text-xs font-bold cursor-pointer">
-                        ${isSaveRepBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('check', 'w-3.5 h-3.5')}
-                        <span>${state.editingReportId ? 'حفظ التعديلات' : 'إنشاء التقرير بالشواهد'}</span>
-                      </button>
-                    </div>
-                  </form>
-                ` : ''}
-
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start print-reset">
-                  <div class="lg:col-span-4 luxury-card overflow-hidden divide-y divide-slate-200/70 no-print">
-                    <div class="px-4 py-3 bg-slate-50/70 text-xs font-bold text-slate-700 flex items-center justify-between">
-                      <span>التقارير المحفوظة</span>
-                      ${badgeHtml(reports.length + ' تقارير', 'neutral')}
-                    </div>
-                    ${reports.length === 0 ? `<div class="p-4">${emptyStateHtml('fileText', 'لا توجد تقارير محفوظة بعد', 'أنشئ أول تقرير بالشواهد لعرضه وطباعته.')}</div>` : reports.map((r) => `
-                      <button type="button" onclick="selectReport(${r.id})" class="w-full text-right p-4 cursor-pointer transition-colors ${selRep && selRep.id === r.id ? 'bg-[var(--brand-soft)] border-r-2 border-[var(--brand)]' : 'hover:bg-slate-50'}">
-                        <div class="font-bold text-sm text-slate-900">${esc(r.title)}</div>
-                        <div class="text-xs text-slate-500 mt-1">${esc(r.field)} · ${formatEngDateHtml(r.executionDate)} · ${Math.min(4, (r.images || []).length)}/4 شواهد</div>
-                      </button>
-                    `).join('')}
-                  </div>
-
-                  <div class="lg:col-span-8 space-y-3 print-reset">
-                    ${selRep ? `
-                      <div class="flex flex-wrap justify-between items-center gap-2 no-print">
-                        <div class="flex items-center gap-2">
-                          ${avatarHtml(selRep.createdByName, 'xs')}
-                          <span class="text-xs text-slate-500">أعدّه: <b class="text-slate-800">${esc(selRep.createdByName)}</b></span>
+                        <div class="absolute left-1/2 -translate-x-1/2 -bottom-4 bg-[#24364d] text-white px-16 sm:px-24 py-1.5 rounded-xl text-[14px] sm:text-[15px] font-medium shadow-md whitespace-nowrap border border-white/10">${esc(selRep.schoolName || 'مدرسة الحديبية المتوسطة')}</div>
+                      </div>
+                      <div class="px-6 pt-8 pb-4 space-y-4 bg-white">
+                        <div class="grid grid-cols-12 gap-x-3.5 gap-y-4">
+                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">اســـــم البرنــــامج:</span><div class="text-[15px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.title || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">مجــــال البرنــــامج:</span><div class="text-[15px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.field || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">المنفــــــــــذ/يــــن:</span><div class="text-[15px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.executors || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">تاريـــــخ التنفيــــذ:</span><div class="text-[15px] sm:text-[16px] font-medium text-slate-900 min-h-[1.35rem] english-date-font">${esc(toEngDigits(selRep.executionDate || '—'))}</div></div>
+                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">المستفيــــــــدون:</span><div class="text-[15px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.beneficiaries || 'الطلاب')}</div></div>
+                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">عدد المستفيدين:</span><div class="text-[15px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.beneficiariesCount || 'اقل من 70 طالب')}</div></div>
                         </div>
-                        <div class="flex items-center gap-2">
-                          <button type="button" onclick="editProgramReport(${selRep.id})" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold cursor-pointer">${svgIcon('edit', 'w-3.5 h-3.5')}<span>تعديل التقرير</span></button>
-                          <button type="button" onclick="window.print()" class="inline-flex items-center gap-1 px-4 py-1.5 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-xs font-bold cursor-pointer">${svgIcon('printer', 'w-3.5 h-3.5')}<span>طباعة / حفظ PDF</span></button>
-                          <button type="button" onclick="deleteProgramReport(${selRep.id}, '${esc(selRep.title)}')" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-red-200 bg-white text-red-700 hover:bg-red-50 text-xs font-bold cursor-pointer">${svgIcon('trash', 'w-3.5 h-3.5')}<span>حذف</span></button>
+                        <div class="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-3.5 items-stretch pt-1">
+                          <div class="relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-3 bg-white">
+                            <span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">خطوات التنفيــــذ:</span>
+                            <div class="space-y-1 text-xs sm:text-[13px] text-slate-900 leading-relaxed text-right">${(selRep.steps || []).map((s) => `<div>${esc(s)}</div>`).join('')}</div>
+                          </div>
+                          <div class="relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-3 bg-white">
+                            <span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">الأهــــــــــــــــــــداف:</span>
+                            <div class="space-y-1 text-xs sm:text-[13px] text-slate-900 leading-relaxed text-right">${(selRep.objectives || []).map((o) => `<div>${esc(o)}</div>`).join('')}</div>
+                          </div>
+                        </div>
+                        <div class="relative border-[1.7px] border-[#217a8c] rounded-xl px-6 pt-7 pb-4 bg-white mt-1">
+                          <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-white px-5 text-[18px] sm:text-[19px] print:text-[18px] font-medium leading-none text-[#1e8c70]">الشــــواهــــد</span>
+                          ${(selRep.images || []).length === 0 ? `<div class="py-10 text-center text-xs text-slate-400">لا توجد صور شواهد مرفقة (الحد الأقصى 4 صور)</div>` : `
+                            <div class="grid grid-cols-2 gap-4 max-w-[580px] mx-auto">
+                              ${(selRep.images || []).slice(0, 4).map((src) => `<div class="rounded-xl border border-slate-500/80 overflow-hidden bg-white flex items-center justify-center h-36 sm:h-40 print:h-[152px]"><img src="${src}" class="w-full h-full object-contain" /></div>`).join('')}
+                            </div>
+                          `}
                         </div>
                       </div>
-                      <div class="max-w-[794px] mx-auto bg-white border border-slate-200 shadow-lg overflow-hidden print-sheet report-kufi-font">
-                        <div class="relative bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799] text-white px-6 pt-4 pb-8 print:pt-3 print:pb-6 rounded-b-xl">
-                          <div class="flex items-center justify-center gap-5">
-                            <img src="/moe-logo.png" alt="وزارة التعليم - Ministry of Education" class="h-[66px] print:h-[58px] w-auto object-contain shrink-0" />
-                            <div class="w-[2.5px] h-[62px] print:h-[54px] bg-white shrink-0"></div>
-                            <div class="text-right text-[14px] print:text-[13px] font-medium leading-[1.65]">
-                              <div>الإدارة العامة للتعليم</div>
-                              <div>بمحافظة جدة</div>
-                              <div>النشاط الطلابي</div>
-                            </div>
-                          </div>
-                          <div class="absolute left-1/2 -translate-x-1/2 -bottom-4 bg-[#24364d] text-white px-16 sm:px-24 py-1.5 print:py-1 rounded-xl text-[14px] sm:text-[15px] font-medium shadow-md whitespace-nowrap border border-white/10">${esc(selRep.schoolName || 'مدرسة الحديبية المتوسطة')}</div>
-                        </div>
-                        <div class="px-5 pt-7 pb-3.5 print:px-4 print:pt-5 print:pb-2.5 space-y-3.5 print:space-y-2.5 bg-white">
-                          <div class="grid grid-cols-12 gap-x-3.5 gap-y-3.5 print:gap-x-3 print:gap-y-2.5">
-                            <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">اســـــم البرنــــامج:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.title || '—')}</div></div>
-                            <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">مجــــال البرنــــامج:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.field || '—')}</div></div>
-                            <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">المنفــــــــــذ/يــــن:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.executors || '—')}</div></div>
-                            <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">تاريـــــخ التنفيــــذ:</span><div class="text-[15px] sm:text-[16px] print:text-[14.5px] font-medium text-slate-900 min-h-[1.35rem]">${formatEngDateHtml(selRep.executionDate || '—')}</div></div>
-                            <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">المستفيــــــــدون:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.beneficiaries || 'الطلاب')}</div></div>
-                            <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">عدد المستفيدين:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.beneficiariesCount || 'اقل من 70 طالب')}</div></div>
-                          </div>
-                          <div class="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-3.5 print:gap-3 items-stretch pt-0.5">
-                            <div class="relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2.5 print:pt-3.5 print:pb-2 bg-white">
-                              <span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">خطوات التنفيــــذ:</span>
-                              <div class="space-y-1 text-[12.5px] sm:text-[13px] print:text-[11.5px] print:leading-snug font-semibold text-slate-900 leading-relaxed text-right">${(selRep.steps || []).map((s) => `<div>${esc(s)}</div>`).join('')}</div>
-                            </div>
-                            <div class="relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2.5 print:pt-3.5 print:pb-2 bg-white">
-                              <span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">الأهــــــــــــــــــــداف:</span>
-                              <div class="space-y-1 text-[12.5px] sm:text-[13px] print:text-[11.5px] print:leading-snug font-semibold text-slate-900 leading-relaxed text-right">${(selRep.objectives || []).map((o) => `<div>${esc(o)}</div>`).join('')}</div>
-                            </div>
-                          </div>
-                          <div class="relative border-2 border-[#217a8c] rounded-xl px-3.5 pt-5 pb-3 print:px-3 print:pt-4 print:pb-2.5 bg-white mt-0.5">
-                            <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-5 text-[16px] sm:text-[17px] print:text-[15.5px] font-medium leading-none text-[#1e8c70]">الشــــواهــــد</span>
-                            ${(selRep.images || []).length === 0 ? `<div class="py-10 text-center text-xs text-slate-400">لا توجد صور شواهد مرفقة (الحد الأقصى 4 صور)</div>` : `
-                              <div class="grid grid-cols-2 gap-3 print:gap-2.5 w-full">
-                                ${(selRep.images || []).slice(0, 4).map((src) => `<div class="rounded-xl border border-slate-500/80 overflow-hidden bg-slate-50/40 flex items-center justify-center h-56 sm:h-64 print:h-[192px]"><img src="${src}" class="w-full h-full object-contain" /></div>`).join('')}
-                              </div>
-                            `}
-                          </div>
-                        </div>
-                        <div class="h-4 print:h-3 bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799]"></div>
-                      </div>
-                    ` : `<div class="no-print">${emptyStateHtml('fileText', 'اختر أو أنشئ تقريراً بالشواهد', 'ستظهر معاينة صفحة التقرير الرسمية جاهزة للطباعة أو الحفظ بصيغة PDF.')}</div>`}
-                  </div>
+                      <div class="h-4 bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799]"></div>
+                    </div>
+                  ` : `<div class="luxury-card p-10 text-center text-sm text-slate-500 no-print">أنشئ أول تقرير بالشواهد لعرضه وطباعته</div>`}
                 </div>
               </div>
-            ` : ''}
+            </div>
+          ` : ''}
 
-            ${state.reportTab === 'students' ? `
-              <section class="luxury-card overflow-hidden">
-                ${students.length === 0 ? `<div class="p-6">${emptyStateHtml('users', 'لا يوجد طلاب مسجلون بعد', 'أضف الطلاب من قسم الأفراد والصلاحيات لمتابعة أدائهم ونقاطهم.')}</div>` : `
-                  <div class="overflow-x-auto">
-                    <table class="w-full text-right text-sm">
-                      <thead class="bg-slate-50/80 text-xs text-slate-500 border-b border-slate-200/80">
-                        <tr><th class="py-3 px-4">الطالب</th><th class="py-3 px-4">القسم</th><th class="py-3 px-4">الصف</th><th class="py-3 px-4">الجوال</th><th class="py-3 px-4">النقاط</th><th class="py-3 px-4">واتساب</th></tr>
-                      </thead>
-                      <tbody class="divide-y divide-slate-200/70">
-                        ${students.map((st) => `
-                          <tr class="hover:bg-slate-50/70">
-                            <td class="py-3 px-4"><div class="flex items-center gap-2.5">${avatarHtml(st.fullName, 'sm')}<span class="font-semibold text-slate-900">${esc(st.fullName)}</span></div></td>
-                            <td class="py-3 px-4 text-xs text-slate-600">${esc(UNIT_LABELS[st.unit] || st.unit)}</td>
-                            <td class="py-3 px-4 text-xs text-slate-600">${esc(st.gradeOrDept || '—')}</td>
-                            <td class="py-3 px-4 text-xs font-mono tabular-nums">${esc(st.phone)}</td>
-                            <td class="py-3 px-4 font-mono tabular-nums font-bold text-[var(--brand)]">${st.points}</td>
-                            <td class="py-3 px-4">
-                              <a href="${waUrl(st)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-xs font-semibold transition-colors">${svgIcon('send', 'w-3 h-3')}<span>إرسال الأداء واتساب</span></a>
-                            </td>
-                          </tr>
-                        `).join('')}
-                      </tbody>
-                    </table>
+          ${state.reportTab === 'students' ? `
+            <section class="luxury-card overflow-hidden">
+              ${students.length === 0 ? `<div class="p-10 text-center text-sm text-slate-500">لا يوجد طلاب مسجلون بعد. أضف الطلاب من قسم الأفراد والصلاحيات.</div>` : `
+                <div class="overflow-x-auto">
+                  <table class="w-full text-right text-sm">
+                    <thead class="bg-slate-50/80 text-xs text-slate-500 border-b border-slate-200/80">
+                      <tr><th class="py-3 px-4">الطالب</th><th class="py-3 px-4">القسم</th><th class="py-3 px-4">الصف</th><th class="py-3 px-4">الجوال</th><th class="py-3 px-4">النقاط</th><th class="py-3 px-4">واتساب</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200/70">
+                      ${students.map((st) => `
+                        <tr class="hover:bg-slate-50/70">
+                          <td class="py-3 px-4 font-semibold">${esc(st.fullName)}</td>
+                          <td class="py-3 px-4 text-xs text-slate-600">${esc(UNIT_LABELS[st.unit] || st.unit)}</td>
+                          <td class="py-3 px-4 text-xs text-slate-600">${esc(st.gradeOrDept || '—')}</td>
+                          <td class="py-3 px-4 text-xs font-mono tabular-nums">${esc(st.phone)}</td>
+                          <td class="py-3 px-4 font-mono tabular-nums font-bold text-teal-800">${st.points}</td>
+                          <td class="py-3 px-4">
+                            <a href="${waUrl(st)}" target="_blank" rel="noopener noreferrer" class="inline-block px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold">إرسال الأداء واتساب</a>
+                          </td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              `}
+            </section>
+          ` : ''}
+
+          ${(state.reportTab === 'activity_1' || state.reportTab === 'activity_2') ? `
+            <section class="luxury-card p-6 space-y-4">
+              <h3 class="font-bold text-base">${state.reportTab === 'activity_1' ? 'برامج النشاط الأول' : 'برامج النشاط الثاني'}</h3>
+              <form onsubmit="createActivity(event, '${state.reportTab}')" class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                <input id="actTitle" required placeholder="عنوان البرنامج" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+                <input id="actCat" placeholder="المجال (ثقافي/رياضي)" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+                <input id="actDate" type="date" required value="2026-11-25" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
+                <button type="submit" class="h-10 px-4 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">إضافة برنامج</button>
+              </form>
+              <div class="divide-y divide-slate-200/70">
+                ${state.data.activities.filter((a) => a.unit === state.reportTab).map((a) => `
+                  <div class="py-3 flex justify-between items-center gap-3">
+                    <div>
+                      <div class="font-bold text-sm">${esc(a.title)}</div>
+                      <div class="text-xs text-slate-500">${esc(a.category)} · ${esc(a.eventDate)} · ${esc(a.location)}</div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <span class="text-xs font-semibold text-emerald-700">معتمد</span>
+                      <button onclick="deleteActivity(${a.id}, '${esc(a.title)}')" class="px-2 py-1 rounded-lg border border-slate-200 text-xs text-red-700 hover:bg-red-50 cursor-pointer">حذف</button>
+                    </div>
                   </div>
-                `}
-              </section>
-            ` : ''}
+                `).join('')}
+              </div>
+            </section>
+          ` : ''}
 
-            ${(state.reportTab === 'activity_1' || state.reportTab === 'activity_2') ? `
-              <section class="luxury-card p-6 space-y-4">
-                <h3 class="font-bold text-base">${state.reportTab === 'activity_1' ? 'برامج النشاط الأول' : 'برامج النشاط الثاني'}</h3>
-                <form onsubmit="createActivity(event, '${state.reportTab}')" class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                  <input id="actTitle" required placeholder="عنوان البرنامج" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
-                  <input id="actCat" placeholder="المجال (ثقافي/رياضي)" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
-                  <input id="actDate" type="date" required value="2026-11-25" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
-                  <button type="submit" ${isAddActBusy ? 'disabled' : ''} class="h-10 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-70 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer">
-                    ${isAddActBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('plus', 'w-3.5 h-3.5')}
-                    <span>إضافة برنامج</span>
-                  </button>
+          ${state.reportTab === 'discipline' ? `
+            <section class="luxury-card p-6 space-y-4">
+              <h3 class="font-bold text-base">سجل الضباط والانضباط والنقاط</h3>
+              ${students.length === 0 ? `<p class="text-sm text-slate-500">أضف طلاباً أولاً لتسجيل ملاحظات الانضباط.</p>` : `
+                <form onsubmit="createDiscipline(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  <select id="disUser" required class="h-10 px-3 rounded-xl border border-slate-300 text-sm bg-white">
+                    ${students.map((s) => `<option value="${s.id}">${esc(s.fullName)}</option>`).join('')}
+                  </select>
+                  <input id="disDelta" type="number" required value="5" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" placeholder="النقاط (+/-)" />
+                  <input id="disNote" required placeholder="سبب التقييم أو المخالفة" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+                  <button type="submit" class="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer">حفظ السجل</button>
                 </form>
-                ${state.data.activities.filter((a) => a.unit === state.reportTab).length === 0 ? emptyStateHtml('fileText', 'لا توجد برامج مضافة في هذا القسم حالياً') : `
-                  <div class="divide-y divide-slate-200/70">
-                    ${state.data.activities.filter((a) => a.unit === state.reportTab).map((a) => `
-                      <div class="py-3 flex justify-between items-center gap-3">
-                        <div>
-                          <div class="font-bold text-sm">${esc(a.title)}</div>
-                          <div class="text-xs text-slate-500">${esc(a.category)} · ${esc(a.eventDate)} · ${esc(a.location)}</div>
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                          ${badgeHtml('معتمد', 'brand')}
-                          <button type="button" onclick="deleteActivity(${a.id}, '${esc(a.title)}')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs text-red-700 hover:bg-red-50 cursor-pointer">${svgIcon('trash', 'w-3.5 h-3.5')}<span>حذف</span></button>
-                        </div>
-                      </div>
-                    `).join('')}
+              `}
+              <div class="divide-y divide-slate-200/70">
+                ${state.data.disciplineLogs.map((l) => `
+                  <div class="py-3 flex justify-between items-center gap-3 text-sm">
+                    <div><span class="font-bold">${esc(l.userName)}</span> — ${esc(l.note)}</div>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <span class="font-mono font-bold ${l.pointsDelta >= 0 ? 'text-emerald-700' : 'text-red-700'}">${l.pointsDelta >= 0 ? '+' + l.pointsDelta : l.pointsDelta}</span>
+                      <button onclick="deleteDiscipline(${l.id}, '${esc(l.userName)}')" class="px-2 py-1 rounded-lg border border-slate-200 text-xs text-red-700 hover:bg-red-50 cursor-pointer">حذف</button>
+                    </div>
                   </div>
-                `}
-              </section>
-            ` : ''}
-
-            ${state.reportTab === 'discipline' ? `
-              <section class="luxury-card p-6 space-y-4">
-                <h3 class="font-bold text-base">سجل الضباط والانضباط والنقاط</h3>
-                ${students.length === 0 ? emptyStateHtml('users', 'لا يوجد طلاب مسجلون لتقييمهم', 'أضف طلاباً من قسم الأفراد والصلاحيات أولاً.') : `
-                  <form onsubmit="createDiscipline(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                    <select id="disUser" required class="h-10 px-3 rounded-xl border border-slate-300 text-sm bg-white">
-                      ${students.map((s) => `<option value="${s.id}">${esc(s.fullName)}</option>`).join('')}
-                    </select>
-                    <input id="disDelta" type="number" required value="5" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" placeholder="النقاط (+/-)" />
-                    <input id="disNote" required placeholder="سبب التقييم أو المخالفة" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
-                    <button type="submit" ${isAddDisBusy ? 'disabled' : ''} class="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer">
-                      ${isAddDisBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('check', 'w-3.5 h-3.5')}
-                      <span>حفظ السجل</span>
-                    </button>
-                  </form>
-                `}
-                ${state.data.disciplineLogs.length === 0 ? emptyStateHtml('shield', 'لا توجد سجلات انضباط مسجلة حالياً') : `
-                  <div class="divide-y divide-slate-200/70">
-                    ${state.data.disciplineLogs.map((l) => `
-                      <div class="py-3 flex justify-between items-center gap-3 text-sm">
-                        <div class="flex items-center gap-2.5">${avatarHtml(l.userName, 'sm')}<div><span class="font-bold">${esc(l.userName)}</span> — ${esc(l.note)}</div></div>
-                        <div class="flex items-center gap-2 shrink-0">
-                          ${badgeHtml(l.pointsDelta >= 0 ? '+' + l.pointsDelta + ' نقطة' : l.pointsDelta + ' نقطة', l.pointsDelta >= 0 ? 'brand' : 'danger')}
-                          <button type="button" onclick="deleteDiscipline(${l.id}, '${esc(l.userName)}')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs text-red-700 hover:bg-red-50 cursor-pointer">${svgIcon('trash', 'w-3.5 h-3.5')}<span>حذف</span></button>
-                        </div>
-                      </div>
-                    `).join('')}
-                  </div>
-                `}
-              </section>
-            ` : ''}
-          </div>
+                `).join('')}
+              </div>
+            </section>
+          ` : ''}
         </div>
       `;
     }
 
     function renderBroadcasts() {
       if (!hasPerm(state.user, 'manage_broadcasts')) {
-        return emptyStateHtml('lock', 'صلاحية مقيدة', 'الاطلاع على الإذاعات وإدارتها مخصص فقط لمن يمتلك صلاحية «إدارة الإذاعة المدرسية».');
+        return `<div class="luxury-card p-10 text-center space-y-2"><h3 class="font-bold text-base">صلاحية مقيدة</h3><p class="text-sm text-slate-500">الاطلاع على الإذاعات وإدارتها مخصص فقط لمن يمتلك صلاحية «إدارة الإذاعة المدرسية».</p></div>`;
       }
       const sel = state.data.broadcasts.find((b) => b.id === state.selectedBroadcastId) || state.data.broadcasts[0];
       const canAdd = hasPerm(state.user, 'manage_broadcasts');
       const canEditBrc = hasPerm(state.user, 'manage_broadcasts');
-      const isGenBrcBusy = state.busyKey === 'gen_broadcast';
-      const isAddBrcBusy = state.busyKey === 'create_broadcast';
-      const isSaveInlineBusy = state.busyKey === 'save_inline_broadcast';
       return `
         <div class="space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3 no-print">
@@ -937,7 +538,7 @@
               <h2 class="text-xl font-bold">الإذاعة المدرسية</h2>
               <p class="text-sm text-slate-500">جدول الإذاعات الصباحية والتعديل الكامل على الفقرات</p>
             </div>
-            ${sel ? `<button type="button" onclick="window.print()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold cursor-pointer">${svgIcon('printer', 'w-3.5 h-3.5')}<span>طباعة النص</span></button>` : ''}
+            ${sel ? `<button onclick="window.print()" class="px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold cursor-pointer">طباعة النص</button>` : ''}
           </div>
           ${canAdd ? `
             <div class="luxury-card p-5 space-y-3 no-print">
@@ -948,10 +549,7 @@
                 </div>
                 <div class="flex gap-2 flex-1 sm:max-w-md">
                   <input id="aiTopic" placeholder="مثال: مرض السكري" class="flex-1 h-10 px-3 rounded-xl border border-slate-300 text-sm" />
-                  <button type="button" onclick="generateBroadcast()" ${isGenBrcBusy ? 'disabled' : ''} class="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white text-xs font-bold whitespace-nowrap inline-flex items-center gap-1.5 cursor-pointer">
-                    ${isGenBrcBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('sparkles', 'w-3.5 h-3.5')}
-                    <span>${isGenBrcBusy ? 'جاري التوليد...' : 'توليد بالذكاء الاصطناعي'}</span>
-                  </button>
+                  <button type="button" onclick="generateBroadcast()" class="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold whitespace-nowrap cursor-pointer">توليد بالذكاء الاصطناعي</button>
                 </div>
               </div>
               <form onsubmit="createBroadcast(event)" class="grid grid-cols-1 sm:grid-cols-5 gap-2">
@@ -959,72 +557,60 @@
                 <input id="brcDate" type="date" required value="2026-11-23" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
                 <input id="brcTime" type="time" required value="07:15" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
                 <input id="brcWord" placeholder="كلمة الصباح" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
-                <button type="submit" ${isAddBrcBusy ? 'disabled' : ''} class="h-10 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-70 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer">
-                  ${isAddBrcBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('plus', 'w-3.5 h-3.5')}
-                  <span>إضافة إذاعة</span>
-                </button>
+                <button type="submit" class="h-10 px-4 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">إضافة إذاعة</button>
               </form>
             </div>
           ` : ''}
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div class="lg:col-span-4 luxury-card divide-y divide-slate-200/70 overflow-hidden no-print">
-              ${state.data.broadcasts.length === 0 ? `<div class="p-4">${emptyStateHtml('radio', 'لا توجد إذاعات محفوظة', 'استخدم التوليد بالذكاء الاصطناعي أو أضف إذاعة يدوياً.')}</div>` : state.data.broadcasts.map((b) => {
-                const st = BRC_STATUS[b.status] || BRC_STATUS.approved;
-                return `
-                  <button type="button" onclick="selectBroadcast(${b.id})" class="w-full text-right p-4 transition-colors cursor-pointer ${sel && sel.id === b.id ? 'bg-[var(--brand-soft)] border-r-2 border-[var(--brand)]' : 'hover:bg-slate-50'}">
-                    <div class="flex items-center justify-between gap-2">
-                      <div class="font-bold text-sm text-slate-900 truncate">${esc(b.title)}</div>
-                      ${badgeHtml(st[0], st[1])}
-                    </div>
-                    <div class="text-xs text-slate-500 mt-1.5 font-mono">${esc(b.airDate)} · ${esc(b.airTime)}</div>
-                  </button>
-                `;
-              }).join('')}
+              ${state.data.broadcasts.map((b) => `
+                <button onclick="selectBroadcast(${b.id})" class="w-full text-right p-4 transition-colors cursor-pointer ${sel && sel.id === b.id ? 'bg-teal-50/75' : 'hover:bg-slate-50'}">
+                  <div class="font-bold text-sm">${esc(b.title)}</div>
+                  <div class="text-xs text-slate-500 mt-1 font-mono">${esc(b.airDate)} · ${esc(b.airTime)} · <span class="${(BRC_STATUS[b.status] || BRC_STATUS.approved)[1]}">${(BRC_STATUS[b.status] || BRC_STATUS.approved)[0]}</span></div>
+                </button>
+              `).join('')}
             </div>
             <div class="lg:col-span-8 luxury-card p-6 space-y-4 print-sheet">
               ${sel ? `
                 <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200/80 pb-3">
                   <div class="flex-1 min-w-0">
-                    ${state.inlineBroadcastEdit ? `<input id="inBTitle" value="${esc(sel.title)}" class="w-full h-10 px-3 rounded-xl border border-[var(--brand)] font-bold text-base" />` : `<h3 class="text-lg font-bold">${esc(sel.title)}</h3>`}
-                    <div class="text-xs text-slate-500 font-mono mt-1 flex flex-wrap items-center gap-2">
-                      <span>${esc(sel.airDate)} · ${esc(sel.airTime)} · فريق الإلقاء:</span>
-                      ${state.inlineBroadcastEdit ? `<input id="inBPres" value="${esc(sel.presenters)}" class="px-2 py-0.5 rounded border border-slate-300 font-sans text-xs" />` : `<span class="inline-flex items-center gap-1.5 font-sans">${avatarHtml(sel.presenters, 'xs')}<span>${esc(sel.presenters)}</span></span>`}
-                    </div>
+                    ${state.inlineBroadcastEdit ? `<input id="inBTitle" value="${esc(sel.title)}" class="w-full h-10 px-3 rounded-xl border border-teal-600 font-bold text-base" />` : `<h3 class="text-lg font-bold">${esc(sel.title)}</h3>`}
+                    <div class="text-xs text-slate-500 font-mono mt-1">${esc(sel.airDate)} · ${esc(sel.airTime)} · فريق الإلقاء: ${state.inlineBroadcastEdit ? `<input id="inBPres" value="${esc(sel.presenters)}" class="px-2 py-0.5 rounded border border-slate-300 font-sans text-xs" />` : esc(sel.presenters)}</div>
                   </div>
                   <div class="flex flex-wrap items-center gap-2 no-print">
                     ${state.inlineBroadcastEdit ? `
-                      <button type="button" onclick="formatInlineBroadcast()" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold cursor-pointer">تنسيق سطر فاضي بعد الطالب</button>
-                      <button type="button" onclick="saveInlineBroadcast(${sel.id}, false)" ${isSaveInlineBusy ? 'disabled' : ''} class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[var(--brand)] text-[var(--brand)] text-xs font-bold cursor-pointer">${isSaveInlineBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('check', 'w-3.5 h-3.5')}<span>حفظ</span></button>
-                      <button type="button" onclick="saveInlineBroadcast(${sel.id}, true)" ${isSaveInlineBusy ? 'disabled' : ''} class="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-[var(--brand)] text-white text-xs font-bold cursor-pointer">${svgIcon('printer', 'w-3.5 h-3.5')}<span>حفظ وطباعة</span></button>
-                      <button type="button" onclick="toggleInlineBroadcast(false)" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold cursor-pointer">إلغاء</button>
+                      <button onclick="formatInlineBroadcast()" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold cursor-pointer">تنسيق سطر فاضي بعد الطالب</button>
+                      <button onclick="saveInlineBroadcast(${sel.id}, false)" class="px-3 py-1.5 rounded-xl border border-teal-700 text-teal-800 text-xs font-bold cursor-pointer">حفظ</button>
+                      <button onclick="saveInlineBroadcast(${sel.id}, true)" class="px-3.5 py-1.5 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">حفظ وطباعة</button>
+                      <button onclick="toggleInlineBroadcast(false)" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold cursor-pointer">إلغاء</button>
                     ` : `
-                      ${canEditBrc ? `<button type="button" onclick="toggleInlineBroadcast(true)" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-xs font-bold cursor-pointer">${svgIcon('edit', 'w-3.5 h-3.5')}<span>تعديل قبل الطباعة</span></button>` : ''}
-                      ${canEditBrc ? `<button type="button" onclick="openEditBroadcast(${sel.id})" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold cursor-pointer">تعديل البيانات</button>` : ''}
-                      ${(state.user.role === 'president' || state.user.role === 'vice_president') && sel.status === 'pending_approval' ? `<button type="button" onclick="approveBroadcast(${sel.id}, '${esc(sel.title)}')" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--brand)] text-white text-xs font-bold cursor-pointer">${svgIcon('check', 'w-3.5 h-3.5')}<span>اعتماد البث</span></button>` : ''}
-                      ${canEditBrc ? `<button type="button" onclick="deleteBroadcast(${sel.id}, '${esc(sel.title)}')" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold cursor-pointer">${svgIcon('trash', 'w-3.5 h-3.5')}<span>حذف</span></button>` : ''}
+                      ${canEditBrc ? `<button onclick="toggleInlineBroadcast(true)" class="px-3 py-1.5 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">تعديل قبل الطباعة</button>` : ''}
+                      ${canEditBrc ? `<button onclick="openEditBroadcast(${sel.id})" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold cursor-pointer">تعديل البيانات</button>` : ''}
+                      ${(state.user.role === 'president' || state.user.role === 'vice_president') && sel.status === 'pending_approval' ? `<button onclick="approveBroadcast(${sel.id}, '${esc(sel.title)}')" class="px-3 py-1.5 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">اعتماد البث</button>` : ''}
+                      ${canEditBrc ? `<button onclick="deleteBroadcast(${sel.id}, '${esc(sel.title)}')" class="px-3 py-1.5 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold cursor-pointer">حذف</button>` : ''}
                     `}
                   </div>
                 </div>
                 ${state.inlineBroadcastEdit ? `
                   <div class="space-y-3 text-sm">
-                    <div><label class="block text-xs font-bold text-[var(--brand)] mb-1">1. المقدمة</label><textarea id="inBIntro" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.intro)}</textarea></div>
-                    <div><label class="block text-xs font-bold text-[var(--brand)] mb-1">2. القرآن الكريم</label><textarea id="inBQuran" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.quran)}</textarea></div>
-                    <div><label class="block text-xs font-bold text-[var(--brand)] mb-1">3. الحديث الشريف</label><textarea id="inBHadith" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.hadith)}</textarea></div>
-                    <div><label class="block text-xs font-bold text-[var(--brand)] mb-1">4. كلمة الصباح</label><textarea id="inBWord" rows="4" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.morningWord)}</textarea></div>
-                    <div><label class="block text-xs font-bold text-[var(--brand)] mb-1">5. هل تعلم</label><textarea id="inBDyk" rows="4" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.didYouKnow)}</textarea></div>
-                    <div><label class="block text-xs font-bold text-[var(--brand)] mb-1">6. الخاتمة</label><textarea id="inBClose" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.closing)}</textarea></div>
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">1. المقدمة</label><textarea id="inBIntro" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.intro)}</textarea></div>
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">2. القرآن الكريم</label><textarea id="inBQuran" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.quran)}</textarea></div>
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">3. الحديث الشريف</label><textarea id="inBHadith" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.hadith)}</textarea></div>
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">4. كلمة الصباح</label><textarea id="inBWord" rows="4" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.morningWord)}</textarea></div>
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">5. هل تعلم</label><textarea id="inBDyk" rows="4" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.didYouKnow)}</textarea></div>
+                    <div><label class="block text-xs font-bold text-teal-800 mb-1">6. الخاتمة</label><textarea id="inBClose" rows="3" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">${esc(sel.segments?.closing)}</textarea></div>
                   </div>
                 ` : `
                   <div class="space-y-3 text-sm">
-                    <div><div class="text-xs font-bold text-[var(--brand)]">1. المقدمة</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.intro)}</p></div>
-                    <div><div class="text-xs font-bold text-[var(--brand)]">2. القرآن الكريم</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.quran)}</p></div>
-                    <div><div class="text-xs font-bold text-[var(--brand)]">3. الحديث الشريف</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.hadith)}</p></div>
-                    <div><div class="text-xs font-bold text-[var(--brand)]">4. كلمة الصباح</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.morningWord)}</p></div>
-                    <div><div class="text-xs font-bold text-[var(--brand)]">5. هل تعلم</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.didYouKnow)}</p></div>
-                    <div><div class="text-xs font-bold text-[var(--brand)]">6. الخاتمة</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.closing)}</p></div>
+                    <div><div class="text-xs font-bold text-teal-800">1. المقدمة</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.intro)}</p></div>
+                    <div><div class="text-xs font-bold text-teal-800">2. القرآن الكريم</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.quran)}</p></div>
+                    <div><div class="text-xs font-bold text-teal-800">3. الحديث الشريف</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.hadith)}</p></div>
+                    <div><div class="text-xs font-bold text-teal-800">4. كلمة الصباح</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.morningWord)}</p></div>
+                    <div><div class="text-xs font-bold text-teal-800">5. هل تعلم</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.didYouKnow)}</p></div>
+                    <div><div class="text-xs font-bold text-teal-800">6. الخاتمة</div><p class="whitespace-pre-wrap leading-relaxed">${esc(sel.segments?.closing)}</p></div>
                   </div>
                 `}
-              ` : emptyStateHtml('radio', 'اختر إذاعة لعرض فقراتها')}
+              ` : `<p class="text-sm text-slate-500">لا توجد إذاعات</p>`}
             </div>
           </div>
         </div>
@@ -1033,20 +619,16 @@
 
     function renderDirectory() {
       if (!hasAllSixPerms(state.user)) {
-        return emptyStateHtml('lock', 'صلاحية مقيدة', 'الاطلاع على قسم «الأفراد والصلاحيات» متاح فقط لمن يمتلك الصلاحيات الست كاملة.');
+        return `<div class="luxury-card p-10 text-center space-y-2"><h3 class="font-bold text-base">صلاحية مقيدة</h3><p class="text-sm text-slate-500">الاطلاع على قسم «الأفراد والصلاحيات» متاح فقط لمن يمتلك الصلاحيات الست كاملة.</p></div>`;
       }
       const isSupremeActor = isSupreme(state.user);
       const canDelete = isSupremeActor || state.user.role === 'president';
       const genCode = Math.floor(100000 + Math.random() * 900000);
-      const isCreateUserBusy = state.busyKey === 'create_user';
       return `
         <div class="space-y-6">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 class="text-xl font-bold">الأفراد والصلاحيات</h2>
-              <p class="text-sm text-slate-500">تعديل شامل لبيانات الأفراد، رموز الدخول، النقاط، الرتب، والصلاحيات التفصيلية لكل عضو</p>
-            </div>
-            ${badgeHtml(state.data.users.length + ' مسجل', 'gold')}
+          <div>
+            <h2 class="text-xl font-bold">الأفراد والصلاحيات</h2>
+            <p class="text-sm text-slate-500">تعديل شامل لبيانات الأفراد، رموز الدخول، النقاط، الرتب، والصلاحيات التفصيلية لكل عضو</p>
           </div>
           <form onsubmit="createUser(event)" class="luxury-card p-5 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
             <input id="uName" required placeholder="الاسم الكامل" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
@@ -1068,10 +650,7 @@
             </select>
             <div class="flex gap-2">
               <input id="uGrade" placeholder="الصف (ثاني متوسط)" class="flex-1 min-w-0 h-10 px-3 rounded-xl border border-slate-300 text-sm" />
-              <button type="submit" ${isCreateUserBusy ? 'disabled' : ''} class="h-10 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-70 text-white text-xs font-bold shrink-0 inline-flex items-center gap-1 cursor-pointer">
-                ${isCreateUserBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('plus', 'w-3.5 h-3.5')}
-                <span>إضافة</span>
-              </button>
+              <button type="submit" class="h-10 px-4 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold shrink-0 cursor-pointer">إضافة</button>
             </div>
           </form>
 
@@ -1089,13 +668,8 @@
                   return `
                     <tr class="hover:bg-slate-50/70">
                       <td class="py-3 px-4">
-                        <div class="flex items-center gap-2.5">
-                          ${avatarHtml(u.fullName, 'sm')}
-                          <div>
-                            <div class="font-semibold flex items-center gap-1.5 flex-wrap">${esc(u.fullName)}${!u.isActive ? badgeHtml('موقوف', 'danger') : ''}</div>
-                            <div class="text-xs text-slate-500 mt-0.5">${esc(u.gradeOrDept || u.memberCode)}${permCnt > 0 ? ` · <span class="text-[var(--brand)] font-semibold">${permCnt} صلاحيات</span>` : ''}</div>
-                          </div>
-                        </div>
+                        <div class="font-semibold">${esc(u.fullName)}${!u.isActive ? ' <span class="text-xs text-red-700">· موقوف</span>' : ''}</div>
+                        <div class="text-xs text-slate-500">${esc(u.gradeOrDept || u.memberCode)}${permCnt > 0 ? ` · <span class="text-teal-800">${permCnt} صلاحيات</span>` : ''}</div>
                       </td>
                       <td class="py-3 px-4">
                         ${canControlTarget ? `
@@ -1105,17 +679,17 @@
                             <option value="vice_president" ${u.role === 'vice_president' ? 'selected' : ''}>نائب الرئيس</option>
                             ${isSupremeActor ? `<option value="president" ${u.role === 'president' ? 'selected' : ''}>رئيس النشاط</option>` : ''}
                           </select>
-                        ` : `<div class="flex items-center gap-1.5 flex-wrap"><span class="text-xs font-semibold">${esc(ROLE_LABELS[u.role])}</span>${targetIsSup ? badgeHtml('الرئيس المؤسس', 'gold') : ''}</div>`}
+                        ` : `<span class="text-xs font-semibold">${esc(ROLE_LABELS[u.role])}${targetIsSup ? ' · <span class="text-teal-800">الرئيس المؤسس</span>' : ''}</span>`}
                       </td>
                       <td class="py-3 px-4 text-xs text-slate-600">${esc(UNIT_LABELS[u.unit] || u.unit)}</td>
                       <td class="py-3 px-4 text-xs font-mono tabular-nums">${esc(u.phone || '—')}</td>
                       <td class="py-3 px-4 text-xs font-mono tabular-nums font-bold">${esc(u.loginCode || '—')}</td>
-                      <td class="py-3 px-4 font-mono tabular-nums font-bold text-[var(--brand)]">${u.points}</td>
-                      <td class="py-3 px-4">${u.phone ? `<a href="${waUrl(u)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-xs font-semibold">${svgIcon('send', 'w-3 h-3')}<span>إرسال الأداء</span></a>` : '—'}</td>
+                      <td class="py-3 px-4 font-mono tabular-nums font-bold text-teal-800">${u.points}</td>
+                      <td class="py-3 px-4">${u.phone ? `<a href="${waUrl(u)}" target="_blank" rel="noopener noreferrer" class="inline-block px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold">إرسال الأداء</a>` : '—'}</td>
                       <td class="py-3 px-4 whitespace-nowrap">
                         <div class="inline-flex items-center gap-1.5">
-                          ${rowEditable ? `<button type="button" onclick="openEditUser(${u.id})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold cursor-pointer">${svgIcon('edit', 'w-3 h-3')}<span>تعديل شامل</span></button>` : ''}
-                          ${canControlTarget ? `<button type="button" onclick="toggleActive(${u.id}, '${esc(u.fullName)}', ${!u.isActive})" class="px-2 py-1 rounded-lg border border-slate-200 text-xs cursor-pointer">${u.isActive ? 'إيقاف' : 'تفعيل'}</button>${canDelete ? `<button type="button" onclick="deleteUser(${u.id}, '${esc(u.fullName)}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-red-200 text-xs text-red-700 hover:bg-red-50 cursor-pointer">${svgIcon('trash', 'w-3 h-3')}<span>حذف</span></button>` : ''}` : (!rowEditable ? '—' : '')}
+                          ${rowEditable ? `<button onclick="openEditUser(${u.id})" class="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold cursor-pointer">تعديل شامل</button>` : ''}
+                          ${canControlTarget ? `<button onclick="toggleActive(${u.id}, '${esc(u.fullName)}', ${!u.isActive})" class="px-2 py-1 rounded-lg border border-slate-200 text-xs cursor-pointer">${u.isActive ? 'إيقاف' : 'تفعيل'}</button>${canDelete ? `<button onclick="deleteUser(${u.id}, '${esc(u.fullName)}')" class="px-2 py-1 rounded-lg border border-red-200 text-xs text-red-700 hover:bg-red-50 cursor-pointer">حذف</button>` : ''}` : (!rowEditable ? '—' : '')}
                         </div>
                       </td>
                     </tr>
@@ -1136,150 +710,119 @@
               <h2 class="text-xl font-bold">تقديم طلاب النشاط</h2>
               <p class="text-sm text-slate-500">قبول الإنجازات مع تحديد النقاط المضافة، ومتابعة الشكاوى والاقتراحات</p>
             </div>
-            <div class="flex border-b border-slate-200 text-xs font-semibold">
-              <button type="button" onclick="setSubTab('achievements')" class="px-3.5 py-2 border-b-2 transition-colors cursor-pointer ${state.subTab === 'achievements' ? 'border-[var(--brand)] text-[var(--brand)] font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'}">الإنجازات (${state.data.submissions.length})</button>
-              <button type="button" onclick="setSubTab('complaints')" class="px-3.5 py-2 border-b-2 transition-colors cursor-pointer ${state.subTab === 'complaints' ? 'border-[var(--brand)] text-[var(--brand)] font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'}">الشكاوى (${state.data.complaints.length})</button>
-              <button type="button" onclick="setSubTab('suggestions')" class="px-3.5 py-2 border-b-2 transition-colors cursor-pointer ${state.subTab === 'suggestions' ? 'border-[var(--brand)] text-[var(--brand)] font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'}">الاقتراحات (${state.data.suggestions.length})</button>
+            <div class="flex gap-1 p-1 bg-slate-200/75 rounded-xl text-xs font-semibold">
+              <button onclick="setSubTab('achievements')" class="px-3 py-1.5 rounded-lg ${state.subTab === 'achievements' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">الإنجازات (${state.data.submissions.length})</button>
+              <button onclick="setSubTab('complaints')" class="px-3 py-1.5 rounded-lg ${state.subTab === 'complaints' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">الشكاوى (${state.data.complaints.length})</button>
+              <button onclick="setSubTab('suggestions')" class="px-3 py-1.5 rounded-lg ${state.subTab === 'suggestions' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">الاقتراحات (${state.data.suggestions.length})</button>
             </div>
           </div>
 
-          <div class="animate-tab-enter">
-            ${state.subTab === 'achievements' ? `
-              <div class="luxury-card divide-y divide-slate-200/70">
-                ${state.data.submissions.length === 0 ? `<div class="p-6">${emptyStateHtml('award', 'لا توجد إنجازات مرفوعة حالياً', 'ستظهر هنا إنجازات الطلاب فور رفعها لمراجعتها ومنحهم النقاط.')}</div>` : state.data.submissions.map((s) => {
-                  const st = SUB_STATUS[s.status] || SUB_STATUS.pending;
-                  return `
-                    <div class="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                      <div class="flex items-start gap-3">
-                        ${avatarHtml(s.studentName, 'md')}
-                        <div>
-                          <div class="font-bold flex items-center gap-2 flex-wrap"><span>${esc(s.title)}</span>${badgeHtml(st[0], st[1])}</div>
-                          <div class="text-xs text-slate-500 mt-1">الطالب: ${esc(s.studentName)} · ${esc(UNIT_LABELS[s.unit] || s.unit)} · ${esc(s.activityDate)}</div>
-                          ${s.details ? `<p class="text-sm text-slate-700 mt-2">${esc(s.details)}</p>` : ''}
-                          ${s.status === 'approved' ? `<div class="mt-2">${badgeHtml('النقاط الممنوحة: +' + s.awardedPoints, 'gold')}</div>` : ''}
-                        </div>
-                      </div>
-                      ${s.status === 'pending' ? `
-                        <div class="flex flex-wrap items-center gap-2">
-                          <input id="pts-${s.id}" type="number" min="0" value="10" class="w-20 h-9 px-2 rounded-lg border border-slate-300 text-xs font-mono" />
-                          <input id="note-${s.id}" placeholder="ملاحظة (اختياري)" class="h-9 px-3 rounded-lg border border-slate-300 text-xs" />
-                          <button type="button" onclick="reviewSub(${s.id}, 'approved', '${esc(s.studentName)}', '${esc(s.title)}')" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-xs font-bold cursor-pointer">${svgIcon('check', 'w-3.5 h-3.5')}<span>تم (إضافة النقاط)</span></button>
-                          <button type="button" onclick="reviewSub(${s.id}, 'rejected', '${esc(s.studentName)}', '${esc(s.title)}')" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold cursor-pointer">${svgIcon('x', 'w-3.5 h-3.5')}<span>رفض</span></button>
-                        </div>
-                      ` : ''}
+          ${state.subTab === 'achievements' ? `
+            <div class="luxury-card divide-y divide-slate-200/70">
+              ${state.data.submissions.length === 0 ? `<div class="p-10 text-center text-sm text-slate-500">لا توجد إنجازات مرفوعة بعد</div>` : state.data.submissions.map((s) => `
+                <div class="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div>
+                    <div class="font-bold">${esc(s.title)} · <span class="text-xs ${(SUB_STATUS[s.status] || SUB_STATUS.pending)[1]}">${(SUB_STATUS[s.status] || SUB_STATUS.pending)[0]}</span></div>
+                    <div class="text-xs text-slate-500 mt-1">الطالب: ${esc(s.studentName)} · ${esc(UNIT_LABELS[s.unit] || s.unit)} · ${esc(s.activityDate)}</div>
+                    ${s.details ? `<p class="text-sm text-slate-700 mt-2">${esc(s.details)}</p>` : ''}
+                    ${s.status === 'approved' ? `<div class="text-xs font-bold text-emerald-700 mt-1">النقاط الممنوحة: +${s.awardedPoints}</div>` : ''}
+                  </div>
+                  ${s.status === 'pending' ? `
+                    <div class="flex flex-wrap items-center gap-2">
+                      <input id="pts-${s.id}" type="number" min="0" value="10" class="w-20 h-9 px-2 rounded-lg border border-slate-300 text-xs font-mono" />
+                      <input id="note-${s.id}" placeholder="ملاحظة (اختياري)" class="h-9 px-3 rounded-lg border border-slate-300 text-xs" />
+                      <button onclick="reviewSub(${s.id}, 'approved', '${esc(s.studentName)}', '${esc(s.title)}')" class="px-3 py-2 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">تم (إضافة النقاط)</button>
+                      <button onclick="reviewSub(${s.id}, 'rejected', '${esc(s.studentName)}', '${esc(s.title)}')" class="px-3 py-2 rounded-xl border border-red-200 text-red-700 text-xs font-bold cursor-pointer">رفض</button>
                     </div>
-                  `;
-                }).join('')}
-              </div>
-            ` : ''}
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
 
-            ${state.subTab === 'complaints' ? `
-              <div class="luxury-card divide-y divide-slate-200/70">
-                ${state.data.complaints.length === 0 ? `<div class="p-6">${emptyStateHtml('inbox', 'ما فيه شكاوى حالياً', 'جميع الأمور مستقرة ولا توجد شكاوى مسجلة للمتابعة.')}</div>` : state.data.complaints.map((c) => {
-                  const st = CMP_STATUS[c.status] || CMP_STATUS.new;
-                  return `
-                    <div class="p-5 flex flex-col lg:flex-row justify-between gap-4">
-                      <div class="flex items-start gap-3">
-                        ${avatarHtml(c.targetStudentName, 'md')}
-                        <div>
-                          <div class="font-bold flex items-center gap-2 flex-wrap"><span>شكوى على: ${esc(c.targetStudentName)}</span>${badgeHtml(st[0], st[1])}</div>
-                          <div class="text-xs text-slate-500 mt-1">مقدم الشكوى: ${esc(c.reporterName)} · السبب: ${esc(c.reason)}</div>
-                          ${c.details ? `<p class="text-sm text-slate-700 mt-2">${esc(c.details)}</p>` : ''}
-                        </div>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <input id="cmp-${c.id}" value="${esc(c.adminResponse || '')}" placeholder="رد الإدارة" class="h-9 px-3 rounded-lg border border-slate-300 text-xs" />
-                        <button type="button" onclick="replyComplaint(${c.id}, '${esc(c.targetStudentName)}')" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer">${svgIcon('check', 'w-3.5 h-3.5')}<span>تمت المعالجة</span></button>
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            ` : ''}
+          ${state.subTab === 'complaints' ? `
+            <div class="luxury-card divide-y divide-slate-200/70">
+              ${state.data.complaints.length === 0 ? `<div class="p-10 text-center text-sm text-slate-500">لا توجد شكاوى</div>` : state.data.complaints.map((c) => `
+                <div class="p-5 flex flex-col lg:flex-row justify-between gap-4">
+                  <div>
+                    <div class="font-bold">شكوى على: ${esc(c.targetStudentName)} · <span class="text-xs ${(CMP_STATUS[c.status] || CMP_STATUS.new)[1]}">${(CMP_STATUS[c.status] || CMP_STATUS.new)[0]}</span></div>
+                    <div class="text-xs text-slate-500 mt-1">مقدم الشكوى: ${esc(c.reporterName)} · السبب: ${esc(c.reason)}</div>
+                    ${c.details ? `<p class="text-sm text-slate-700 mt-2">${esc(c.details)}</p>` : ''}
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input id="cmp-${c.id}" value="${esc(c.adminResponse || '')}" placeholder="رد الإدارة" class="h-9 px-3 rounded-lg border border-slate-300 text-xs" />
+                    <button onclick="replyComplaint(${c.id}, '${esc(c.targetStudentName)}')" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold cursor-pointer">تمت المعالجة</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
 
-            ${state.subTab === 'suggestions' ? `
-              <div class="luxury-card divide-y divide-slate-200/70">
-                ${state.data.suggestions.length === 0 ? `<div class="p-6">${emptyStateHtml('lightbulb', 'لا توجد اقتراحات حالياً', 'عندما يشارك الطلاب أفكارهم لتطوير الأنشطة ستظهر هنا للمراجعة.')}</div>` : state.data.suggestions.map((g) => {
-                  const st = SUG_STATUS[g.status] || SUG_STATUS.new;
-                  return `
-                    <div class="p-5 flex flex-col lg:flex-row justify-between gap-4">
-                      <div class="flex items-start gap-3">
-                        ${avatarHtml(g.studentName, 'md')}
-                        <div>
-                          <div class="font-bold flex items-center gap-2 flex-wrap"><span>${esc(g.title)}</span>${badgeHtml(st[0], st[1])}</div>
-                          <div class="text-xs text-slate-500 mt-1">من الطالب: ${esc(g.studentName)}</div>
-                          ${g.details ? `<p class="text-sm text-slate-700 mt-2">${esc(g.details)}</p>` : ''}
-                        </div>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <input id="sug-${g.id}" value="${esc(g.adminResponse || '')}" placeholder="رد الإدارة" class="h-9 px-3 rounded-lg border border-slate-300 text-xs" />
-                        <button type="button" onclick="replySuggestion(${g.id}, 'adopted', '${esc(g.title)}')" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-xs font-bold cursor-pointer">${svgIcon('check', 'w-3.5 h-3.5')}<span>اعتماد الاقتراح</span></button>
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            ` : ''}
-          </div>
+          ${state.subTab === 'suggestions' ? `
+            <div class="luxury-card divide-y divide-slate-200/70">
+              ${state.data.suggestions.length === 0 ? `<div class="p-10 text-center text-sm text-slate-500">لا توجد اقتراحات</div>` : state.data.suggestions.map((g) => `
+                <div class="p-5 flex flex-col lg:flex-row justify-between gap-4">
+                  <div>
+                    <div class="font-bold">${esc(g.title)} · <span class="text-xs ${(SUG_STATUS[g.status] || SUG_STATUS.new)[1]}">${(SUG_STATUS[g.status] || SUG_STATUS.new)[0]}</span></div>
+                    <div class="text-xs text-slate-500 mt-1">من الطالب: ${esc(g.studentName)}</div>
+                    ${g.details ? `<p class="text-sm text-slate-700 mt-2">${esc(g.details)}</p>` : ''}
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input id="sug-${g.id}" value="${esc(g.adminResponse || '')}" placeholder="رد الإدارة" class="h-9 px-3 rounded-lg border border-slate-300 text-xs" />
+                    <button onclick="replySuggestion(${g.id}, 'adopted', '${esc(g.title)}')" class="px-3 py-2 rounded-xl bg-teal-800 text-white text-xs font-bold cursor-pointer">اعتماد الاقتراح</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
         </div>
       `;
     }
 
     function renderStudentPortal() {
       const mySubs = state.data.submissions;
-      const approvedList = mySubs.filter((s) => s.status === 'approved');
-      const pendingList = mySubs.filter((s) => s.status === 'pending');
+      const approvedCnt = mySubs.filter((s) => s.status === 'approved').length;
+      const pendingCnt = mySubs.filter((s) => s.status === 'pending').length;
 
       if (state.tab === 'member_stats') {
         return `
           <div class="space-y-6">
-            <div class="flex items-center gap-3">
-              ${avatarHtml(state.user.fullName, 'lg')}
-              <div><h2 class="text-xl font-bold">إحصائياتي — أهلاً يا ${esc(state.user.fullName)}</h2><p class="text-sm text-slate-500">${esc(state.user.gradeOrDept || '')} · ${esc(UNIT_LABELS[state.user.unit] || '')}</p></div>
-            </div>
+            <div><h2 class="text-xl font-bold">إحصائياتي — أهلاً يا ${esc(state.user.fullName)}</h2><p class="text-sm text-slate-500">${esc(state.user.gradeOrDept || '')} · ${esc(UNIT_LABELS[state.user.unit] || '')}</p></div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              ${kpiCardHtml({ title: 'مجموع نقاطي', value: state.user.points, delta: computeWeeklyDelta(approvedList), iconName: 'award', iconTone: 'brand' })}
-              ${kpiCardHtml({ title: 'إنجازات مقبولة', value: approvedList.length, delta: computeWeeklyDelta(approvedList), iconName: 'checkCircle', iconTone: 'gold' })}
-              ${kpiCardHtml({ title: 'بانتظار الإدارة', value: pendingList.length, delta: computeWeeklyDelta(pendingList), iconName: 'bell', iconTone: 'warning' })}
+              <div class="luxury-card luxury-card-interactive p-5"><div class="text-xs text-slate-500">مجموع نقاطي</div><div class="text-3xl font-bold text-teal-800 font-mono tabular-nums mt-2">${state.user.points}</div></div>
+              <div class="luxury-card luxury-card-interactive p-5"><div class="text-xs text-slate-500">إنجازات مقبولة</div><div class="text-3xl font-bold text-emerald-700 font-mono tabular-nums mt-2">${approvedCnt}</div></div>
+              <div class="luxury-card luxury-card-interactive p-5"><div class="text-xs text-slate-500">بانتظار الإدارة</div><div class="text-3xl font-bold text-amber-700 font-mono tabular-nums mt-2">${pendingCnt}</div></div>
             </div>
             <section class="luxury-card p-6 space-y-3">
-              <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-full bg-[var(--brand-soft)] text-[var(--brand)] border border-[var(--brand-border)] flex items-center justify-center">${svgIcon('bell', 'w-4 h-4')}</span><h3 class="font-bold">تنبيهات الإدارة</h3></div>
-              ${state.data.directives.length === 0 ? emptyStateHtml('bell', 'لا توجد تنبيهات من الإدارة حالياً') : state.data.directives.map((d) => `<div class="border-t border-slate-100 pt-3"><div class="font-semibold text-sm">${esc(d.title)}</div><p class="text-sm text-slate-600 mt-0.5">${esc(d.content)}</p></div>`).join('')}
+              <h3 class="font-bold">تنبيهات الإدارة</h3>
+              ${state.data.directives.map((d) => `<div class="border-t border-slate-100 pt-2"><div class="font-semibold text-sm">${esc(d.title)}</div><p class="text-sm text-slate-600">${esc(d.content)}</p></div>`).join('')}
             </section>
           </div>
         `;
       }
 
       if (state.tab === 'member_achievements') {
-        const isAchBusy = state.busyKey === 'submit_ach';
         return `
           <div class="space-y-6">
             <div><h2 class="text-xl font-bold">تقديم إنجاز</h2><p class="text-sm text-slate-500">اكتب الإنجاز الذي قمت به ليراجعه الرئيس أو النائب ويمنحك النقاط</p></div>
             <form onsubmit="submitAchievement(event)" class="luxury-card p-6 space-y-3 max-w-2xl">
               <input id="achTitle" required placeholder="ماذا أنجزت؟ (مثال: المشاركة في تنظيم الطابور)" class="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm" />
               <textarea id="achDetails" rows="3" placeholder="تفاصيل الإنجاز (اختياري)" class="w-full p-3 rounded-xl border border-slate-300 text-sm"></textarea>
-              <button type="submit" ${isAchBusy ? 'disabled' : ''} class="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-70 text-white text-xs font-bold cursor-pointer">
-                ${isAchBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('send', 'w-3.5 h-3.5')}
-                <span>رفع الإنجاز للإدارة</span>
-              </button>
+              <button type="submit" class="px-5 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">رفع الإنجاز للإدارة</button>
             </form>
             <div class="luxury-card divide-y divide-slate-200/70">
-              ${mySubs.length === 0 ? `<div class="p-6">${emptyStateHtml('award', 'لم ترفع إنجازات بعد', 'شاركنا إنجازاتك في النشاط ليتم اعتمادها وإضافة نقاطها.')}</div>` : mySubs.map((s) => {
-                const st = SUB_STATUS[s.status] || SUB_STATUS.pending;
-                return `
-                  <div class="p-4 flex justify-between items-center gap-3">
-                    <div><div class="font-bold text-sm">${esc(s.title)}</div>${s.adminNote ? `<div class="text-xs text-slate-500 mt-0.5">رد الإدارة: ${esc(s.adminNote)}</div>` : ''}</div>
-                    <div class="flex items-center gap-2 shrink-0">${badgeHtml(st[0] + (s.status === 'approved' ? ` (+${s.awardedPoints} نقطة)` : ''), st[1])}</div>
-                  </div>
-                `;
-              }).join('')}
+              ${mySubs.length === 0 ? `<div class="p-8 text-center text-sm text-slate-500">لم ترفع إنجازات بعد</div>` : mySubs.map((s) => `
+                <div class="p-4 flex justify-between items-center">
+                  <div><div class="font-bold text-sm">${esc(s.title)}</div>${s.adminNote ? `<div class="text-xs text-slate-500 mt-0.5">رد الإدارة: ${esc(s.adminNote)}</div>` : ''}</div>
+                  <div class="text-xs font-bold ${(SUB_STATUS[s.status] || SUB_STATUS.pending)[1]}">${(SUB_STATUS[s.status] || SUB_STATUS.pending)[0]}${s.status === 'approved' ? ` (+${s.awardedPoints} نقطة)` : ''}</div>
+                </div>
+              `).join('')}
             </div>
           </div>
         `;
       }
 
       if (state.tab === 'member_complaints') {
-        const isCmpBusy = state.busyKey === 'submit_cmp';
         return `
           <div class="space-y-6">
             <div><h2 class="text-xl font-bold">تقديم شكوى</h2><p class="text-sm text-slate-500">تصل الشكوى للإدارة فقط بسرية تامة</p></div>
@@ -1287,48 +830,35 @@
               <input id="cmpTarget" required placeholder="اسم الطالب المشكو عليه" class="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm" />
               <input id="cmpReason" required placeholder="سبب الشكوى" class="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm" />
               <textarea id="cmpDetails" rows="3" placeholder="تفاصيل إضافية" class="w-full p-3 rounded-xl border border-slate-300 text-sm"></textarea>
-              <button type="submit" ${isCmpBusy ? 'disabled' : ''} class="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white text-xs font-bold cursor-pointer">
-                ${isCmpBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('send', 'w-3.5 h-3.5')}
-                <span>إرسال الشكوى للإدارة</span>
-              </button>
+              <button type="submit" class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer">إرسال الشكوى للإدارة</button>
             </form>
             <div class="luxury-card divide-y divide-slate-200/70">
-              ${state.data.complaints.length === 0 ? `<div class="p-6">${emptyStateHtml('inbox', 'ما فيه شكاوى حالياً', 'الشكاوى التي ترفعها للإدارة ستظهر هنا مع متابعة حالتها.')}</div>` : state.data.complaints.map((c) => {
-                const st = CMP_STATUS[c.status] || CMP_STATUS.new;
-                return `
-                  <div class="p-4 flex justify-between items-center gap-3">
-                    <div><div class="font-bold text-sm">على: ${esc(c.targetStudentName)} — ${esc(c.reason)}</div>${c.adminResponse ? `<div class="text-xs text-[var(--brand)] mt-0.5">رد الإدارة: ${esc(c.adminResponse)}</div>` : ''}</div>
-                    ${badgeHtml(st[0], st[1])}
-                  </div>
-                `;
-              }).join('')}
+              ${state.data.complaints.map((c) => `
+                <div class="p-4 flex justify-between items-center">
+                  <div><div class="font-bold text-sm">على: ${esc(c.targetStudentName)} — ${esc(c.reason)}</div>${c.adminResponse ? `<div class="text-xs text-teal-800 mt-0.5">رد الإدارة: ${esc(c.adminResponse)}</div>` : ''}</div>
+                  <span class="text-xs font-bold ${(CMP_STATUS[c.status] || CMP_STATUS.new)[1]}">${(CMP_STATUS[c.status] || CMP_STATUS.new)[0]}</span>
+                </div>
+              `).join('')}
             </div>
           </div>
         `;
       }
 
-      const isSugBusy = state.busyKey === 'submit_sug';
       return `
         <div class="space-y-6">
           <div><h2 class="text-xl font-bold">الاقتراحات</h2><p class="text-sm text-slate-500">شاركنا أفكارك واقتراحاتك لتطوير الأنشطة</p></div>
           <form onsubmit="submitSuggestion(event)" class="luxury-card p-6 space-y-3 max-w-2xl">
             <input id="sugTitle" required placeholder="فكرة الاقتراح" class="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm" />
             <textarea id="sugDetails" rows="3" placeholder="شرح بسيط للفكرة" class="w-full p-3 rounded-xl border border-slate-300 text-sm"></textarea>
-            <button type="submit" ${isSugBusy ? 'disabled' : ''} class="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-70 text-white text-xs font-bold cursor-pointer">
-              ${isSugBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('lightbulb', 'w-3.5 h-3.5')}
-              <span>إرسال الاقتراح</span>
-            </button>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">إرسال الاقتراح</button>
           </form>
           <div class="luxury-card divide-y divide-slate-200/70">
-            ${state.data.suggestions.length === 0 ? `<div class="p-6">${emptyStateHtml('lightbulb', 'لا توجد اقتراحات مرسلة بعد', 'شاركنا أي فكرة أو مقترح يثري برامج النشاط الطلابي.')}</div>` : state.data.suggestions.map((g) => {
-              const st = SUG_STATUS[g.status] || SUG_STATUS.new;
-              return `
-                <div class="p-4 flex justify-between items-center gap-3">
-                  <div><div class="font-bold text-sm">${esc(g.title)}</div>${g.adminResponse ? `<div class="text-xs text-[var(--brand)] mt-0.5">رد الإدارة: ${esc(g.adminResponse)}</div>` : ''}</div>
-                  ${badgeHtml(st[0], st[1])}
-                </div>
-              `;
-            }).join('')}
+            ${state.data.suggestions.map((g) => `
+              <div class="p-4 flex justify-between items-center">
+                <div><div class="font-bold text-sm">${esc(g.title)}</div>${g.adminResponse ? `<div class="text-xs text-teal-800 mt-0.5">رد الإدارة: ${esc(g.adminResponse)}</div>` : ''}</div>
+                <span class="text-xs font-bold ${(SUG_STATUS[g.status] || SUG_STATUS.new)[1]}">${(SUG_STATUS[g.status] || SUG_STATUS.new)[0]}</span>
+              </div>
+            `).join('')}
           </div>
         </div>
       `;
@@ -1345,21 +875,17 @@
           const canAccessDir = hasAllSixPerms(state.user);
           const isSupremeActor = isSupreme(state.user);
           const perms = effectivePerms(u);
-          const isSaveUserBusy = state.busyKey === 'save_user';
           modals.push(`
             <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 backdrop-blur-xs p-4 overflow-y-auto animate-backdrop-enter" onclick="closeEditUser()">
               <div onclick="event.stopPropagation()" class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-6 space-y-4 my-8 shadow-2xl animate-modal-enter">
                 <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div class="flex items-center gap-3">
-                    ${avatarHtml(u.fullName, 'md')}
-                    <div>
-                      <h3 class="text-lg font-bold">تعديل شامل: ${esc(u.fullName)}</h3>
-                      <p class="text-xs text-slate-500">${esc(u.memberCode)} · ${esc(ROLE_LABELS[u.role])}</p>
-                    </div>
+                  <div>
+                    <h3 class="text-lg font-bold">تعديل شامل: ${esc(u.fullName)}</h3>
+                    <p class="text-xs text-slate-500">${esc(u.memberCode)} · ${esc(ROLE_LABELS[u.role])}</p>
                   </div>
-                  <button type="button" onclick="closeEditUser()" class="px-2.5 py-1 rounded-lg text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">إغلاق</button>
+                  <button onclick="closeEditUser()" class="px-2.5 py-1 rounded-lg text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">إغلاق</button>
                 </div>
-                ${targetIsSup ? `<div class="p-3 rounded-xl bg-[var(--accent-soft)] border border-[var(--accent-border)] text-xs font-medium text-[#8a6510]">رتبة الرئيس المؤسس عبدالرحمن نسيم وصلاحياته الكاملة محمية وثابتة؛ يمكنك تعديل الاسم والجوال ورمز الدخول والنقاط.</div>` : ''}
+                ${targetIsSup ? `<div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-medium text-amber-900">رتبة الرئيس المؤسس عبدالرحمن نسيم وصلاحياته الكاملة محمية وثابتة؛ يمكنك تعديل الاسم والجوال ورمز الدخول والنقاط.</div>` : ''}
                 <form onsubmit="saveUserEdits(event, ${u.id})" class="space-y-3.5">
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><label class="block text-xs font-semibold text-slate-700 mb-1">الاسم الكامل</label><input id="edUName" required value="${esc(u.fullName)}" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
@@ -1402,7 +928,7 @@
                       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         ${ALL_PERMS.map((p) => `
                           <label class="flex items-start gap-2 p-2.5 rounded-xl border border-slate-200 text-xs cursor-pointer hover:bg-slate-50">
-                            <input type="checkbox" class="edPermCheck mt-0.5 accent-[var(--brand)]" value="${p.key}" ${perms.includes(p.key) ? 'checked' : ''} />
+                            <input type="checkbox" class="edPermCheck mt-0.5 accent-teal-800" value="${p.key}" ${perms.includes(p.key) ? 'checked' : ''} />
                             <div><div class="font-semibold">${esc(p.label)}</div><div class="text-[11px] text-slate-500">${esc(p.desc)}</div></div>
                           </label>
                         `).join('')}
@@ -1411,10 +937,7 @@
                   ` : ''}
                   <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
                     <button type="button" onclick="closeEditUser()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold cursor-pointer">إلغاء</button>
-                    <button type="submit" ${isSaveUserBusy ? 'disabled' : ''} class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-70 text-white text-xs font-bold cursor-pointer">
-                      ${isSaveUserBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('check', 'w-3.5 h-3.5')}
-                      <span>حفظ كافة التعديلات</span>
-                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">حفظ كافة التعديلات</button>
                   </div>
                 </form>
               </div>
@@ -1426,13 +949,12 @@
       if (state.editingBroadcastId) {
         const b = state.data.broadcasts.find((x) => x.id === state.editingBroadcastId);
         if (b) {
-          const isSaveBrcBusy = state.busyKey === 'save_broadcast';
           modals.push(`
             <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 backdrop-blur-xs p-4 overflow-y-auto animate-backdrop-enter" onclick="closeEditBroadcast()">
               <div onclick="event.stopPropagation()" class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-6 space-y-4 my-8 shadow-2xl animate-modal-enter">
                 <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                   <h3 class="text-lg font-bold">تعديل نص وبيانات الإذاعة</h3>
-                  <button type="button" onclick="closeEditBroadcast()" class="px-2.5 py-1 rounded-lg text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">إغلاق</button>
+                  <button onclick="closeEditBroadcast()" class="px-2.5 py-1 rounded-lg text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">إغلاق</button>
                 </div>
                 <form onsubmit="saveBroadcastEdits(event, ${b.id})" class="space-y-3">
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1454,10 +976,7 @@
                   </div>
                   <div class="flex justify-end gap-2 pt-2">
                     <button type="button" onclick="closeEditBroadcast()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold cursor-pointer">إلغاء</button>
-                    <button type="submit" ${isSaveBrcBusy ? 'disabled' : ''} class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-70 text-white text-xs font-bold cursor-pointer">
-                      ${isSaveBrcBusy ? svgIcon('spinner', 'w-3.5 h-3.5 animate-spin') : svgIcon('check', 'w-3.5 h-3.5')}
-                      <span>حفظ التعديلات</span>
-                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">حفظ التعديلات</button>
                   </div>
                 </form>
               </div>
@@ -1468,19 +987,13 @@
 
       if (state.confirmOpts) {
         const c = state.confirmOpts;
-        const toneBtn = c.tone === 'danger' ? 'bg-red-700 hover:bg-red-800' : (c.tone === 'amber' ? 'bg-[var(--accent)] hover:bg-[#a6811d]' : 'bg-[var(--brand)] hover:bg-[var(--brand-hover)]');
-        const toneIcon = c.tone === 'danger' ? 'bg-red-50 text-red-700 border-red-200' : (c.tone === 'amber' ? 'bg-[var(--accent-soft)] text-[#8a6510] border-[var(--accent-border)]' : 'bg-[var(--brand-soft)] text-[var(--brand)] border-[var(--brand-border)]');
+        const toneBtn = c.tone === 'danger' ? 'bg-red-700 hover:bg-red-800' : (c.tone === 'amber' ? 'bg-amber-700 hover:bg-amber-800' : 'bg-teal-800 hover:bg-teal-900');
         modals.push(`
           <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/55 backdrop-blur-xs animate-backdrop-enter" onclick="resolveConfirm(false)">
             <div onclick="event.stopPropagation()" role="alertdialog" aria-modal="true" class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-modal-enter">
               <div class="p-6 space-y-3">
-                <div class="flex items-start gap-3">
-                  <span class="w-10 h-10 rounded-full border flex items-center justify-center shrink-0 ${toneIcon}">${svgIcon(c.tone === 'danger' ? 'alert' : 'shield', 'w-5 h-5')}</span>
-                  <div>
-                    <h3 class="text-base font-bold text-slate-900">${esc(c.title)}</h3>
-                    <p class="text-sm text-slate-600 leading-relaxed mt-1">${esc(c.message)}</p>
-                  </div>
-                </div>
+                <h3 class="text-base font-bold text-slate-900">${esc(c.title)}</h3>
+                <p class="text-sm text-slate-600 leading-relaxed">${esc(c.message)}</p>
                 ${c.detail ? `<div class="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-700">${esc(c.detail)}</div>` : ''}
               </div>
               <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
@@ -1498,21 +1011,13 @@
     function render() {
       const root = document.getElementById('app');
       if (!state.user) {
-        if (state.bootstrapping) {
-          root.innerHTML = `<div class="min-h-screen bg-[var(--canvas)] p-6 sm:p-10 max-w-7xl mx-auto">${skeletonHtml()}</div>`;
-        } else {
-          root.innerHTML = renderLogin();
-        }
+        root.innerHTML = renderLogin();
         renderModalRoot();
-        renderToasts();
         return;
       }
-
       const nav = navItemsFor(state.user);
       let body = '';
-      if (state.bootstrapping && !state.data.users.length) {
-        body = skeletonHtml();
-      } else if (state.tab === 'overview') body = renderOverview();
+      if (state.tab === 'overview') body = renderOverview();
       else if (state.tab === 'reports') body = renderReports();
       else if (state.tab === 'broadcasts') body = renderBroadcasts();
       else if (state.tab === 'directory') body = renderDirectory();
@@ -1520,74 +1025,49 @@
       else body = renderStudentPortal();
 
       root.innerHTML = `
-        <div class="min-h-screen flex bg-[var(--canvas)] print-reset">
+        <div class="min-h-screen flex bg-[#f5f7fa]">
           <aside class="hidden lg:flex w-64 shrink-0 bg-[#0b1618] text-white flex-col border-l border-white/10 no-print">
-            <div class="p-5 space-y-3">
-              <div class="flex items-center gap-3">
-                ${moeLogoHtml('md')}
-                <div>
-                  <div class="text-xs text-[var(--accent-border)] font-bold">منظومة النشاط الطلابي</div>
-                  <div class="text-[11px] text-slate-400 mt-0.5">الإدارة العامة للتعليم</div>
-                </div>
-              </div>
-              <div class="gold-divider"></div>
-              <div class="flex items-center gap-2.5 pt-1">
-                ${avatarHtml(state.user.fullName, 'sm')}
-                <div class="min-w-0">
-                  <div class="font-bold text-sm truncate">${esc(state.user.fullName)}</div>
-                  <div class="text-xs text-slate-400">${esc(ROLE_LABELS[state.user.role])}</div>
-                </div>
-              </div>
+            <div class="p-5 border-b border-white/10">
+              <div class="text-xs text-amber-200/80 font-bold">منظومة النشاط الطلابي</div>
+              <div class="font-bold text-sm mt-1">${esc(state.user.fullName)}</div>
+              <div class="text-xs text-slate-400">${esc(ROLE_LABELS[state.user.role])}</div>
             </div>
-            <div class="gold-divider mx-4"></div>
             <nav class="flex-1 p-3 space-y-1.5">
               ${nav.map((n) => `
-                <button type="button" onclick="setTab('${n.id}')" class="relative w-full flex items-center gap-2.5 text-right px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${state.tab === n.id ? 'bg-gradient-to-l from-[var(--brand)] to-[var(--brand-hover)] text-white shadow-sm' : 'text-slate-300 hover:bg-white/[0.06]'}">
-                  ${state.tab === n.id ? `<span aria-hidden="true" class="w-1 h-5 rounded-full bg-[var(--accent)] shrink-0"></span>` : ''}
-                  ${svgIcon(n.icon, 'w-4 h-4 shrink-0 opacity-90')}
-                  <span class="truncate">${esc(n.label)}</span>
-                </button>
+                <button onclick="setTab('${n.id}')" class="w-full text-right px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${state.tab === n.id ? 'bg-gradient-to-l from-teal-700 to-teal-800 text-white shadow-sm' : 'text-slate-300 hover:bg-white/[0.06]'}">${esc(n.label)}</button>
               `).join('')}
             </nav>
             <div class="p-4 border-t border-white/10">
-              <button type="button" onclick="logout()" class="w-full py-2.5 rounded-xl border border-white/15 bg-white/[0.03] hover:bg-red-950/50 text-xs font-bold text-slate-200 inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
-                ${svgIcon('logout', 'w-3.5 h-3.5')}
-                <span>تسجيل الخروج</span>
-              </button>
+              <button onclick="logout()" class="w-full py-2.5 rounded-xl border border-white/15 bg-white/[0.03] hover:bg-red-950/50 text-xs font-bold text-slate-200 cursor-pointer transition-colors">تسجيل الخروج</button>
             </div>
           </aside>
-          <div class="flex-1 min-w-0 flex flex-col print-reset">
+          <div class="flex-1 min-w-0 flex flex-col">
             <header class="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 flex items-center justify-between gap-2 no-print">
               <div class="flex lg:hidden gap-1 overflow-x-auto">
-                ${nav.map((n) => `<button type="button" onclick="setTab('${n.id}')" class="px-2.5 py-1.5 border-b-2 text-xs font-bold whitespace-nowrap ${state.tab === n.id ? 'border-[var(--brand)] text-[var(--brand)]' : 'border-transparent text-slate-600'}">${esc(n.label)}</button>`).join('')}
+                ${nav.map((n) => `<button onclick="setTab('${n.id}')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${state.tab === n.id ? 'bg-teal-800 text-white' : 'bg-slate-100 text-slate-700'}">${esc(n.label)}</button>`).join('')}
               </div>
-              <div class="hidden lg:flex items-center gap-2 text-sm font-bold text-slate-800">
-                <span class="w-2 h-2 rounded-full bg-[var(--accent)]"></span>
-                <span>${esc((nav.find((n) => n.id === state.tab) || {}).label || '')}</span>
-              </div>
+              <div class="hidden lg:block text-sm font-bold text-slate-800">${esc((nav.find((n) => n.id === state.tab) || {}).label || '')}</div>
               <div class="flex items-center gap-2 shrink-0">
-                <button type="button" onclick="refreshWorkspace()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] hover:border-[var(--brand-border)] text-xs font-bold cursor-pointer transition-colors">
-                  ${svgIcon('refresh', 'w-3.5 h-3.5 ' + (state.loading ? 'animate-spin' : ''))}
-                  <span>تحديث</span>
-                </button>
-                <button type="button" onclick="logout()" class="lg:hidden px-3 py-1.5 rounded-xl border border-red-200 text-xs font-bold text-red-700 cursor-pointer">خروج</button>
+                <button onclick="refreshWorkspace()" class="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold cursor-pointer">تحديث</button>
+                <button onclick="logout()" class="lg:hidden px-3 py-1.5 rounded-xl border border-red-200 text-xs font-bold text-red-700 cursor-pointer">خروج</button>
               </div>
             </header>
-            <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-4 print-reset">
-              <div class="animate-tab-enter print-reset">${body}</div>
+            <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-4">
+              ${state.error ? `<div class="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-red-700">${esc(state.error)}</div>` : ''}
+              ${state.okMsg ? `<div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700">${esc(state.okMsg)}</div>` : ''}
+              <div class="animate-section-enter">${body}</div>
             </main>
           </div>
         </div>
       `;
       renderModalRoot();
-      renderToasts();
     }
 
-    window.setPortal = (p) => { state.portalType = p; render(); };
+    window.setPortal = (p) => { state.portalType = p; state.error = ''; render(); };
     window.setTab = (t) => {
       if (t === 'directory' && !hasAllSixPerms(state.user)) return;
       if (t === 'broadcasts' && !hasPerm(state.user, 'manage_broadcasts')) return;
-      state.tab = t; render();
+      state.tab = t; state.error = ''; state.okMsg = ''; render();
     };
     window.setReportTab = (t) => { state.reportTab = t; render(); };
     window.setSubTab = (t) => { state.subTab = t; render(); };
@@ -1610,7 +1090,6 @@
         const el = document.getElementById(id);
         if (el) el.value = formatStudentLine(el.value);
       });
-      showToast('تم تنسيق السطور بعد أسماء الطلاب بنجاح', 'success');
     };
     window.saveInlineBroadcast = async (id, printAfter) => {
       const body = {
@@ -1632,13 +1111,12 @@
       });
       if (!ok) return;
       state.inlineBroadcastEdit = false;
-      await runAction(() => api('/api/broadcasts/' + id, { method: 'PATCH', body: JSON.stringify(body) }), 'تم تحديث الإذاعة بنجاح', 'save_inline_broadcast');
+      await runAction(() => api('/api/broadcasts/' + id, { method: 'PATCH', body: JSON.stringify(body) }), 'تم تحديث الإذاعة بنجاح');
       if (printAfter) setTimeout(() => window.print(), 250);
     };
 
     window.selectReport = (id) => { state.selectedReportId = id; render(); };
     window.toEngDigits = (v) => String(v || '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-    window.formatEngDateHtml = (v) => toEngDigits(v || '—').split(/([0-9]+(?:[\/\-.:][0-9]+)*)/g).map((part) => (/^[0-9]+(?:[\/\-.:][0-9]+)*$/.test(part) ? `<span class="english-date-font">${esc(part)}</span>` : esc(part))).join('');
     window.syncRepDraft = (k, v) => { state.reportDraft[k] = k === 'executionDate' ? toEngDigits(v) : v; };
     window.toggleRepAdvanced = () => { state.showRepAdvanced = !state.showRepAdvanced; render(); };
     window.toggleReportBuilder = () => {
@@ -1658,7 +1136,8 @@
       const files = Array.from(e.target.files || []);
       const remaining = Math.max(0, 4 - state.reportDraft.images.length);
       if (remaining === 0) {
-        showToast('الحد الأقصى للشواهد هو 4 صور فقط كما في القالب الرسمي', 'error');
+        state.error = 'الحد الأقصى للشواهد هو 4 صور فقط كما في القالب الرسمي';
+        render();
         return;
       }
       for (const f of files.slice(0, remaining)) {
@@ -1687,9 +1166,8 @@
     };
     window.generateReportDraft = async () => {
       const title = (state.reportDraft.title || '').trim();
-      if (!title) { showToast('اكتب اسم البرنامج أولاً لتوليد المجال وخطوات التنفيذ والأهداف', 'error'); return; }
-      state.busyKey = 'gen_report';
-      render();
+      if (!title) { state.error = 'اكتب اسم البرنامج أولاً لتوليد المجال وخطوات التنفيذ والأهداف'; render(); return; }
+      state.error = ''; state.okMsg = 'جاري توليد المجال وخطوات التنفيذ والأهداف من اسم البرنامج...'; render();
       try {
         const gen = await api('/api/reports/generate', {
           method: 'POST',
@@ -1701,13 +1179,9 @@
         state.reportDraft.stepsText = (gen.steps || []).join('\n');
         state.reportDraft.objectivesText = (gen.objectives || []).join('\n');
         state.showRepAdvanced = true;
-        showToast(`تم استنتاج المجال («${gen.field}») وتوليد خطوات التنفيذ والأهداف`, 'success');
-      } catch (err) {
-        showToast(err.message, 'error');
-      } finally {
-        state.busyKey = null;
+        state.okMsg = `تم استنتاج المجال («${gen.field}») وتوليد خطوات التنفيذ والأهداف من اسم البرنامج`;
         render();
-      }
+      } catch (err) { state.okMsg = ''; state.error = err.message; render(); }
     };
     window.editProgramReport = (id) => {
       const rep = (state.data.programReports || []).find((x) => x.id === id);
@@ -1727,52 +1201,42 @@
     window.submitProgramReport = async (e) => {
       e.preventDefault();
       const d = state.reportDraft;
-      state.busyKey = 'save_report';
-      render();
-      try {
-        let steps = d.stepsText.split('\n').map((s) => s.trim()).filter(Boolean);
-        let objectives = d.objectivesText.split('\n').map((s) => s.trim()).filter(Boolean);
-        let field = d.field.trim();
-        let count = d.beneficiariesCount.trim();
-        if (!steps.length || !objectives.length || !field) {
-          const gen = await api('/api/reports/generate', { method: 'POST', body: JSON.stringify({ title: d.title, executors: d.executors, executionDate: d.executionDate }) });
-          if (!field) field = gen.field;
-          if (!count) count = gen.beneficiariesCount;
-          if (!steps.length) steps = gen.steps;
-          if (!objectives.length) objectives = gen.objectives;
-        }
-        const clippedImgs = (d.images || []).slice(0, 4);
-        state.busyKey = null;
-        render();
-        const ok = await openConfirm({
-          title: state.editingReportId ? 'تأكيد تعديل التقرير' : 'تأكيد إنشاء التقرير',
-          message: `هل تريد حفظ تقرير «${d.title}» (${field}) مع ${clippedImgs.length} شواهد مصورة؟`,
-          confirmLabel: 'نعم، حفظ التقرير',
-        });
-        if (!ok) return;
-        const payload = {
-          schoolName: d.schoolName.trim() || 'مدرسة الحديبية المتوسطة',
-          title: d.title.trim(), field: field,
-          executors: d.executors.trim(), executionDate: d.executionDate.trim(),
-          beneficiaries: d.beneficiaries.trim() || 'الطلاب', beneficiariesCount: count || 'اقل من 70 طالب',
-          steps, objectives, images: clippedImgs,
-        };
-        const editId = state.editingReportId;
-        state.editingReportId = null;
-        state.showReportBuilder = false;
-        state.showRepAdvanced = false;
-        await runAction(async () => {
-          const res = editId
-            ? await api('/api/reports/' + editId, { method: 'PATCH', body: JSON.stringify(payload) })
-            : await api('/api/reports', { method: 'POST', body: JSON.stringify(payload) });
-          state.selectedReportId = res.report.id;
-          state.reportDraft = { ...state.reportDraft, title: '', field: '', beneficiariesCount: '', stepsText: '', objectivesText: '', images: [] };
-        }, editId ? 'تم تحديث التقرير بنجاح' : 'تم إنشاء التقرير وحفظه بنجاح', 'save_report');
-      } catch (err) {
-        state.busyKey = null;
-        showToast(err.message, 'error');
-        render();
+      let steps = d.stepsText.split('\n').map((s) => s.trim()).filter(Boolean);
+      let objectives = d.objectivesText.split('\n').map((s) => s.trim()).filter(Boolean);
+      let field = d.field.trim();
+      let count = d.beneficiariesCount.trim();
+      if (!steps.length || !objectives.length || !field) {
+        const gen = await api('/api/reports/generate', { method: 'POST', body: JSON.stringify({ title: d.title, executors: d.executors, executionDate: d.executionDate }) });
+        if (!field) field = gen.field;
+        if (!count) count = gen.beneficiariesCount;
+        if (!steps.length) steps = gen.steps;
+        if (!objectives.length) objectives = gen.objectives;
       }
+      const clippedImgs = (d.images || []).slice(0, 4);
+      const ok = await openConfirm({
+        title: state.editingReportId ? 'تأكيد تعديل التقرير' : 'تأكيد إنشاء التقرير',
+        message: `هل تريد حفظ تقرير «${d.title}» (${field}) مع ${clippedImgs.length} شواهد مصورة؟`,
+        confirmLabel: 'نعم، حفظ التقرير',
+      });
+      if (!ok) return;
+      const payload = {
+        schoolName: d.schoolName.trim() || 'مدرسة الحديبية المتوسطة',
+        title: d.title.trim(), field: field,
+        executors: d.executors.trim(), executionDate: d.executionDate.trim(),
+        beneficiaries: d.beneficiaries.trim() || 'الطلاب', beneficiariesCount: count || 'اقل من 70 طالب',
+        steps, objectives, images: clippedImgs,
+      };
+      const editId = state.editingReportId;
+      state.editingReportId = null;
+      state.showReportBuilder = false;
+      state.showRepAdvanced = false;
+      await runAction(async () => {
+        const res = editId
+          ? await api('/api/reports/' + editId, { method: 'PATCH', body: JSON.stringify(payload) })
+          : await api('/api/reports', { method: 'POST', body: JSON.stringify(payload) });
+        state.selectedReportId = res.report.id;
+        state.reportDraft = { ...state.reportDraft, title: '', field: '', beneficiariesCount: '', stepsText: '', objectivesText: '', images: [] };
+      }, editId ? 'تم تحديث التقرير بنجاح' : 'تم إنشاء التقرير وحفظه بنجاح');
     };
     window.deleteProgramReport = async (id, title) => {
       const ok = await openConfirm({ title: 'تأكيد حذف التقرير', message: `هل أنت متأكد من حذف تقرير «${title}»؟`, confirmLabel: 'نعم، حذف', tone: 'danger' });
@@ -1796,41 +1260,36 @@
       if (!ok) return;
       setToken('');
       state.user = null;
-      showToast('تم تسجيل الخروج بنجاح', 'info');
+      state.error = '';
+      state.okMsg = '';
       render();
     };
 
     window.submitLogin = async (e) => {
       e.preventDefault();
-      state.busyKey = 'login';
-      render();
+      state.error = '';
       try {
-        const rawCode = document.getElementById('loginCodeInput').value;
-        const code = toEngDigits(rawCode).replace(/\s+/g, '').trim();
+        const code = document.getElementById('loginCodeInput').value;
         const res = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ code, portalType: state.portalType }) });
         setToken(res.token);
         state.user = res.user;
         state.tab = isMgmt(res.user.role) ? 'overview' : 'member_stats';
-        showToast('أهلاً بك، ' + res.user.fullName, 'success');
-        state.busyKey = null;
         await refreshWorkspace();
       } catch (err) {
-        state.busyKey = null;
-        showToast(err.message, 'error');
+        state.error = err.message;
         render();
       }
     };
 
-    async function runAction(fn, okText, busyKey = null) {
-      if (busyKey) { state.busyKey = busyKey; render(); }
+    async function runAction(fn, okText) {
+      state.error = '';
+      state.okMsg = '';
       try {
         await fn();
-        state.busyKey = null;
-        if (okText) showToast(okText, 'success');
+        if (okText) state.okMsg = okText;
         await refreshWorkspace();
       } catch (err) {
-        state.busyKey = null;
-        showToast(err.message, 'error');
+        state.error = err.message;
         render();
       }
     }
@@ -1852,7 +1311,7 @@
         confirmLabel: 'نعم، إضافة الحساب',
       });
       if (!ok) return;
-      runAction(() => api('/api/users', { method: 'POST', body: JSON.stringify(body) }), 'تمت إضافة الحساب بنجاح', 'create_user');
+      runAction(() => api('/api/users', { method: 'POST', body: JSON.stringify(body) }), 'تمت إضافة الحساب بنجاح');
     };
 
     window.saveUserEdits = async (e, id) => {
@@ -1881,7 +1340,7 @@
       });
       if (!ok) return;
       state.editingUserId = null;
-      runAction(() => api('/api/users/' + id, { method: 'PATCH', body: JSON.stringify(body) }), 'تم حفظ التعديلات بنجاح', 'save_user');
+      runAction(() => api('/api/users/' + id, { method: 'PATCH', body: JSON.stringify(body) }), 'تم حفظ التعديلات بنجاح');
     };
 
     window.changeUserRole = async (id, name, role) => {
@@ -1927,7 +1386,7 @@
         confirmLabel: 'نعم، نشر التنبيه',
       });
       if (!ok) return;
-      runAction(() => api('/api/directives', { method: 'POST', body: JSON.stringify({ title, content }) }), 'تم نشر التنبيه بنجاح', 'create_directive');
+      runAction(() => api('/api/directives', { method: 'POST', body: JSON.stringify({ title, content }) }), 'تم نشر التنبيه');
     };
 
     window.deleteDirective = async (id, title) => {
@@ -1952,7 +1411,7 @@
         confirmLabel: 'نعم، إضافة البرنامج',
       });
       if (!ok) return;
-      runAction(() => api('/api/activities', { method: 'POST', body: JSON.stringify({ title, category, eventDate, unit }) }), 'تمت إضافة البرنامج بنجاح', 'create_activity');
+      runAction(() => api('/api/activities', { method: 'POST', body: JSON.stringify({ title, category, eventDate, unit }) }), 'تمت إضافة البرنامج');
     };
 
     window.deleteActivity = async (id, title) => {
@@ -1979,7 +1438,7 @@
         tone: pointsDelta < 0 ? 'amber' : 'primary',
       });
       if (!ok) return;
-      runAction(() => api('/api/discipline', { method: 'POST', body: JSON.stringify({ userId, pointsDelta, note }) }), 'تم تسجيل الملاحظة بنجاح', 'create_discipline');
+      runAction(() => api('/api/discipline', { method: 'POST', body: JSON.stringify({ userId, pointsDelta, note }) }), 'تم تسجيل الملاحظة');
     };
 
     window.deleteDiscipline = async (id, name) => {
@@ -1995,8 +1454,9 @@
 
     window.generateBroadcast = async () => {
       const topic = document.getElementById('aiTopic').value.trim();
-      if (!topic) { showToast('يرجى كتابة موضوع الإذاعة أولاً', 'error'); return; }
-      state.busyKey = 'gen_broadcast';
+      if (!topic) { state.error = 'يرجى كتابة موضوع الإذاعة أولاً'; render(); return; }
+      state.error = '';
+      state.okMsg = 'جاري إعداد الإذاعة عبر Groq...';
       render();
       try {
         const gen = await api('/api/broadcasts/generate', { method: 'POST', body: JSON.stringify({ title: topic }) });
@@ -2011,12 +1471,11 @@
           }),
         });
         state.selectedBroadcastId = created.broadcast.id;
-        state.busyKey = null;
-        showToast('تم توليد الإذاعة وحفظها بنجاح', 'success');
+        state.okMsg = 'تم توليد الإذاعة وحفظها بنجاح';
         await refreshWorkspace();
       } catch (err) {
-        state.busyKey = null;
-        showToast(err.message, 'error');
+        state.okMsg = '';
+        state.error = err.message;
         render();
       }
     };
@@ -2033,7 +1492,7 @@
         confirmLabel: 'نعم، حفظ الإذاعة',
       });
       if (!ok) return;
-      runAction(() => api('/api/broadcasts', { method: 'POST', body: JSON.stringify({ title, airDate, airTime, segments: { morningWord } }) }), 'تم حفظ الإذاعة بنجاح', 'create_broadcast');
+      runAction(() => api('/api/broadcasts', { method: 'POST', body: JSON.stringify({ title, airDate, airTime, segments: { morningWord } }) }), 'تم حفظ الإذاعة');
     };
 
     window.saveBroadcastEdits = async (e, id) => {
@@ -2060,7 +1519,7 @@
       });
       if (!ok) return;
       state.editingBroadcastId = null;
-      runAction(() => api('/api/broadcasts/' + id, { method: 'PATCH', body: JSON.stringify(body) }), 'تم تحديث الإذاعة بنجاح', 'save_broadcast');
+      runAction(() => api('/api/broadcasts/' + id, { method: 'PATCH', body: JSON.stringify(body) }), 'تم تحديث الإذاعة بنجاح');
     };
 
     window.approveBroadcast = async (id, title) => {
@@ -2132,7 +1591,7 @@
         confirmLabel: 'نعم، رفع الإنجاز',
       });
       if (!ok) return;
-      runAction(() => api('/api/submissions', { method: 'POST', body: JSON.stringify({ title, details }) }), 'تم رفع الإنجاز للإدارة', 'submit_ach');
+      runAction(() => api('/api/submissions', { method: 'POST', body: JSON.stringify({ title, details }) }), 'تم رفع الإنجاز للإدارة');
     };
 
     window.submitComplaint = async (e) => {
@@ -2148,7 +1607,7 @@
         tone: 'amber',
       });
       if (!ok) return;
-      runAction(() => api('/api/complaints', { method: 'POST', body: JSON.stringify({ targetStudentName, reason, details }) }), 'تم إرسال الشكوى بنجاح', 'submit_cmp');
+      runAction(() => api('/api/complaints', { method: 'POST', body: JSON.stringify({ targetStudentName, reason, details }) }), 'تم إرسال الشكوى');
     };
 
     window.submitSuggestion = async (e) => {
@@ -2162,7 +1621,7 @@
         confirmLabel: 'نعم، تقديم الاقتراح',
       });
       if (!ok) return;
-      runAction(() => api('/api/suggestions', { method: 'POST', body: JSON.stringify({ title, details }) }), 'تم إرسال الاقتراح بنجاح', 'submit_sug');
+      runAction(() => api('/api/suggestions', { method: 'POST', body: JSON.stringify({ title, details }) }), 'تم إرسال الاقتراح');
     };
 
     window.addEventListener('keydown', (e) => {
