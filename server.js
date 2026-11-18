@@ -79,157 +79,6 @@ const mapCertificate = (r) => ({
   createdAt: r.created_at ? new Date(r.created_at).toISOString() : (r.createdAt || undefined),
 });
 
-app.get('/api/certificates', requireAuth, async (req, res) => {
-  try {
-    await ensureReady();
-    const viewer = req.user;
-    if (!isNeon) {
-      const list = readLocal().certificates || [];
-      return res.json({
-        certificates: isMgmt(viewer.role) ? list : list.filter((c) => c.studentId === viewer.id),
-      });
-    }
-    const p = getPool();
-    const r = isMgmt(viewer.role)
-      ? await p.query('SELECT * FROM certificates ORDER BY id DESC')
-      : await p.query('SELECT * FROM certificates WHERE student_id=$1 ORDER BY id DESC', [viewer.id]);
-    res.json({ certificates: r.rows.map(mapCertificate) });
-  } catch {
-    res.status(500).json({ error: 'تعذر جلب الشهادات' });
-  }
-});
-
-app.post('/api/certificates', requireAuth, requireMgmt, async (req, res) => {
-  try {
-    await ensureReady();
-    const u = req.user;
-    const b = req.body || {};
-    const recipientName = String(b.recipientName || '').trim();
-    const reason = String(b.reason || '').trim();
-    const issueDate = String(b.issueDate || '').trim();
-    if (!recipientName || !reason || !issueDate) {
-      return res.status(400).json({ error: 'يرجى إدخال اسم المكرّم ونص الشهادة وتاريخ الإصدار' });
-    }
-    const tpl = ALLOWED_CERT_TEMPLATES.includes(b.templateStyle) ? b.templateStyle : 'emerald_gold';
-    const itemInput = {
-      studentId: b.studentId ? Number(b.studentId) : null,
-      recipientName,
-      gradeOrTitle: String(b.gradeOrTitle || '').trim(),
-      certificateType: String(b.certificateType || '').trim() || 'شهادة شكر وتقدير',
-      reason,
-      schoolName: String(b.schoolName || '').trim() || 'مدرسة الحديبية المتوسطة',
-      issuerTitle: String(b.issuerTitle || '').trim() || 'رئيس النشاط الطلابي',
-      issuerName: String(b.issuerName || '').trim() || u.fullName,
-      principalName: String(b.principalName || '').trim(),
-      issueDate,
-      templateStyle: tpl,
-      createdById: u.id,
-      createdByName: u.fullName,
-    };
-    if (!isNeon) {
-      const db = readLocal();
-      db.counters = db.counters || {};
-      db.counters.certificates = (db.counters.certificates || 0) + 1;
-      db.certificates = db.certificates || [];
-      const created = { id: db.counters.certificates, ...itemInput, createdAt: new Date().toISOString() };
-      db.certificates.unshift(created);
-      writeLocal(db);
-      return res.status(201).json({ certificate: created });
-    }
-    const r = await getPool().query(
-      `INSERT INTO certificates (student_id, recipient_name, grade_or_title, certificate_type, reason, school_name, issuer_title, issuer_name, principal_name, issue_date, template_style, created_by_id, created_by_name)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-      [
-        itemInput.studentId, itemInput.recipientName, itemInput.gradeOrTitle, itemInput.certificateType,
-        itemInput.reason, itemInput.schoolName, itemInput.issuerTitle, itemInput.issuerName,
-        itemInput.principalName, itemInput.issueDate, itemInput.templateStyle, itemInput.createdById, itemInput.createdByName,
-      ]
-    );
-    res.status(201).json({ certificate: mapCertificate(r.rows[0]) });
-  } catch (e) {
-    res.status(500).json({ error: e.message || 'تعذر إصدار الشهادة' });
-  }
-});
-
-app.patch('/api/certificates/:id', requireAuth, requireMgmt, async (req, res) => {
-  try {
-    await ensureReady();
-    const id = Number(req.params.id);
-    const b = req.body || {};
-    if (!isNeon) {
-      const db = readLocal();
-      const idx = (db.certificates || []).findIndex((c) => c.id === id);
-      if (idx === -1) return res.status(404).json({ error: 'الشهادة غير موجودة' });
-      const cur = db.certificates[idx];
-      db.certificates[idx] = {
-        ...cur,
-        ...(b.studentId !== undefined ? { studentId: b.studentId ? Number(b.studentId) : null } : {}),
-        ...(b.recipientName !== undefined && String(b.recipientName).trim() ? { recipientName: String(b.recipientName).trim() } : {}),
-        ...(b.gradeOrTitle !== undefined ? { gradeOrTitle: String(b.gradeOrTitle).trim() } : {}),
-        ...(b.certificateType !== undefined && String(b.certificateType).trim() ? { certificateType: String(b.certificateType).trim() } : {}),
-        ...(b.reason !== undefined && String(b.reason).trim() ? { reason: String(b.reason).trim() } : {}),
-        ...(b.schoolName !== undefined ? { schoolName: String(b.schoolName).trim() || 'مدرسة الحديبية المتوسطة' } : {}),
-        ...(b.issuerTitle !== undefined ? { issuerTitle: String(b.issuerTitle).trim() || 'رئيس النشاط الطلابي' } : {}),
-        ...(b.issuerName !== undefined ? { issuerName: String(b.issuerName).trim() } : {}),
-        ...(b.principalName !== undefined ? { principalName: String(b.principalName).trim() } : {}),
-        ...(b.issueDate !== undefined && String(b.issueDate).trim() ? { issueDate: String(b.issueDate).trim() } : {}),
-        ...(ALLOWED_CERT_TEMPLATES.includes(b.templateStyle) ? { templateStyle: b.templateStyle } : {}),
-      };
-      writeLocal(db);
-      return res.json({ certificate: db.certificates[idx] });
-    }
-    const p = getPool();
-    const curRes = await p.query('SELECT * FROM certificates WHERE id=$1', [id]);
-    if (curRes.rowCount === 0) return res.status(404).json({ error: 'الشهادة غير موجودة' });
-    const cur = mapCertificate(curRes.rows[0]);
-    const next = {
-      ...cur,
-      ...(b.studentId !== undefined ? { studentId: b.studentId ? Number(b.studentId) : null } : {}),
-      ...(b.recipientName !== undefined && String(b.recipientName).trim() ? { recipientName: String(b.recipientName).trim() } : {}),
-      ...(b.gradeOrTitle !== undefined ? { gradeOrTitle: String(b.gradeOrTitle).trim() } : {}),
-      ...(b.certificateType !== undefined && String(b.certificateType).trim() ? { certificateType: String(b.certificateType).trim() } : {}),
-      ...(b.reason !== undefined && String(b.reason).trim() ? { reason: String(b.reason).trim() } : {}),
-      ...(b.schoolName !== undefined ? { schoolName: String(b.schoolName).trim() || 'مدرسة الحديبية المتوسطة' } : {}),
-      ...(b.issuerTitle !== undefined ? { issuerTitle: String(b.issuerTitle).trim() || 'رئيس النشاط الطلابي' } : {}),
-      ...(b.issuerName !== undefined ? { issuerName: String(b.issuerName).trim() } : {}),
-      ...(b.principalName !== undefined ? { principalName: String(b.principalName).trim() } : {}),
-      ...(b.issueDate !== undefined && String(b.issueDate).trim() ? { issueDate: String(b.issueDate).trim() } : {}),
-      ...(ALLOWED_CERT_TEMPLATES.includes(b.templateStyle) ? { templateStyle: b.templateStyle } : {}),
-    };
-    const r = await p.query(
-      `UPDATE certificates SET student_id=$1, recipient_name=$2, grade_or_title=$3, certificate_type=$4, reason=$5, school_name=$6, issuer_title=$7, issuer_name=$8, principal_name=$9, issue_date=$10, template_style=$11 WHERE id=$12 RETURNING *`,
-      [
-        next.studentId, next.recipientName, next.gradeOrTitle, next.certificateType,
-        next.reason, next.schoolName, next.issuerTitle, next.issuerName,
-        next.principalName, next.issueDate, next.templateStyle, id,
-      ]
-    );
-    res.json({ certificate: mapCertificate(r.rows[0]) });
-  } catch {
-    res.status(500).json({ error: 'تعذر تحديث الشهادة' });
-  }
-});
-
-app.delete('/api/certificates/:id', requireAuth, requireMgmt, async (req, res) => {
-  try {
-    await ensureReady();
-    const id = Number(req.params.id);
-    if (!isNeon) {
-      const db = readLocal();
-      const before = (db.certificates || []).length;
-      db.certificates = (db.certificates || []).filter((c) => c.id !== id);
-      if (db.certificates.length === before) return res.status(404).json({ error: 'الشهادة غير موجودة' });
-      writeLocal(db);
-      return res.json({ ok: true });
-    }
-    const r = await getPool().query('DELETE FROM certificates WHERE id=$1 RETURNING id', [id]);
-    if (r.rowCount === 0) return res.status(404).json({ error: 'الشهادة غير موجودة' });
-    res.json({ ok: true });
-  } catch {
-    res.status(500).json({ error: 'تعذر حذف الشهادة' });
-  }
-});
-
 function formatBroadcastSegmentSpacing(text) {
   const normalized = String(text ?? '').replace(/\r\n/g, '\n').trim();
   if (!normalized) return '';
@@ -893,10 +742,10 @@ async function requireAuth(req, res, next) {
   }
 }
 
-const requireMgmt = (req, res, next) => {
+function requireMgmt(req, res, next) {
   if (!req.user || !isMgmt(req.user.role)) return res.status(403).json({ error: 'صلاحية للإدارة فقط' });
   next();
-};
+}
 
 app.get('/api/health', async (_req, res) => {
   try {
@@ -1963,6 +1812,157 @@ app.delete('/api/reports/:id', requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'تعذر حذف التقرير' });
+  }
+});
+
+app.get('/api/certificates', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const viewer = req.user;
+    if (!isNeon) {
+      const list = readLocal().certificates || [];
+      return res.json({
+        certificates: isMgmt(viewer.role) ? list : list.filter((c) => c.studentId === viewer.id),
+      });
+    }
+    const p = getPool();
+    const r = isMgmt(viewer.role)
+      ? await p.query('SELECT * FROM certificates ORDER BY id DESC')
+      : await p.query('SELECT * FROM certificates WHERE student_id=$1 ORDER BY id DESC', [viewer.id]);
+    res.json({ certificates: r.rows.map(mapCertificate) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب الشهادات' });
+  }
+});
+
+app.post('/api/certificates', requireAuth, requireMgmt, async (req, res) => {
+  try {
+    await ensureReady();
+    const u = req.user;
+    const b = req.body || {};
+    const recipientName = String(b.recipientName || '').trim();
+    const reason = String(b.reason || '').trim();
+    const issueDate = String(b.issueDate || '').trim();
+    if (!recipientName || !reason || !issueDate) {
+      return res.status(400).json({ error: 'يرجى إدخال اسم المكرّم ونص الشهادة وتاريخ الإصدار' });
+    }
+    const tpl = ALLOWED_CERT_TEMPLATES.includes(b.templateStyle) ? b.templateStyle : 'emerald_gold';
+    const itemInput = {
+      studentId: b.studentId ? Number(b.studentId) : null,
+      recipientName,
+      gradeOrTitle: String(b.gradeOrTitle || '').trim(),
+      certificateType: String(b.certificateType || '').trim() || 'شهادة شكر وتقدير',
+      reason,
+      schoolName: String(b.schoolName || '').trim() || 'مدرسة الحديبية المتوسطة',
+      issuerTitle: String(b.issuerTitle || '').trim() || 'رئيس النشاط الطلابي',
+      issuerName: String(b.issuerName || '').trim() || u.fullName,
+      principalName: String(b.principalName || '').trim(),
+      issueDate,
+      templateStyle: tpl,
+      createdById: u.id,
+      createdByName: u.fullName,
+    };
+    if (!isNeon) {
+      const db = readLocal();
+      db.counters = db.counters || {};
+      db.counters.certificates = (db.counters.certificates || 0) + 1;
+      db.certificates = db.certificates || [];
+      const created = { id: db.counters.certificates, ...itemInput, createdAt: new Date().toISOString() };
+      db.certificates.unshift(created);
+      writeLocal(db);
+      return res.status(201).json({ certificate: created });
+    }
+    const r = await getPool().query(
+      `INSERT INTO certificates (student_id, recipient_name, grade_or_title, certificate_type, reason, school_name, issuer_title, issuer_name, principal_name, issue_date, template_style, created_by_id, created_by_name)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      [
+        itemInput.studentId, itemInput.recipientName, itemInput.gradeOrTitle, itemInput.certificateType,
+        itemInput.reason, itemInput.schoolName, itemInput.issuerTitle, itemInput.issuerName,
+        itemInput.principalName, itemInput.issueDate, itemInput.templateStyle, itemInput.createdById, itemInput.createdByName,
+      ]
+    );
+    res.status(201).json({ certificate: mapCertificate(r.rows[0]) });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'تعذر إصدار الشهادة' });
+  }
+});
+
+app.patch('/api/certificates/:id', requireAuth, requireMgmt, async (req, res) => {
+  try {
+    await ensureReady();
+    const id = Number(req.params.id);
+    const b = req.body || {};
+    if (!isNeon) {
+      const db = readLocal();
+      const idx = (db.certificates || []).findIndex((c) => c.id === id);
+      if (idx === -1) return res.status(404).json({ error: 'الشهادة غير موجودة' });
+      const cur = db.certificates[idx];
+      db.certificates[idx] = {
+        ...cur,
+        ...(b.studentId !== undefined ? { studentId: b.studentId ? Number(b.studentId) : null } : {}),
+        ...(b.recipientName !== undefined && String(b.recipientName).trim() ? { recipientName: String(b.recipientName).trim() } : {}),
+        ...(b.gradeOrTitle !== undefined ? { gradeOrTitle: String(b.gradeOrTitle).trim() } : {}),
+        ...(b.certificateType !== undefined && String(b.certificateType).trim() ? { certificateType: String(b.certificateType).trim() } : {}),
+        ...(b.reason !== undefined && String(b.reason).trim() ? { reason: String(b.reason).trim() } : {}),
+        ...(b.schoolName !== undefined ? { schoolName: String(b.schoolName).trim() || 'مدرسة الحديبية المتوسطة' } : {}),
+        ...(b.issuerTitle !== undefined ? { issuerTitle: String(b.issuerTitle).trim() || 'رئيس النشاط الطلابي' } : {}),
+        ...(b.issuerName !== undefined ? { issuerName: String(b.issuerName).trim() } : {}),
+        ...(b.principalName !== undefined ? { principalName: String(b.principalName).trim() } : {}),
+        ...(b.issueDate !== undefined && String(b.issueDate).trim() ? { issueDate: String(b.issueDate).trim() } : {}),
+        ...(ALLOWED_CERT_TEMPLATES.includes(b.templateStyle) ? { templateStyle: b.templateStyle } : {}),
+      };
+      writeLocal(db);
+      return res.json({ certificate: db.certificates[idx] });
+    }
+    const p = getPool();
+    const curRes = await p.query('SELECT * FROM certificates WHERE id=$1', [id]);
+    if (curRes.rowCount === 0) return res.status(404).json({ error: 'الشهادة غير موجودة' });
+    const cur = mapCertificate(curRes.rows[0]);
+    const next = {
+      ...cur,
+      ...(b.studentId !== undefined ? { studentId: b.studentId ? Number(b.studentId) : null } : {}),
+      ...(b.recipientName !== undefined && String(b.recipientName).trim() ? { recipientName: String(b.recipientName).trim() } : {}),
+      ...(b.gradeOrTitle !== undefined ? { gradeOrTitle: String(b.gradeOrTitle).trim() } : {}),
+      ...(b.certificateType !== undefined && String(b.certificateType).trim() ? { certificateType: String(b.certificateType).trim() } : {}),
+      ...(b.reason !== undefined && String(b.reason).trim() ? { reason: String(b.reason).trim() } : {}),
+      ...(b.schoolName !== undefined ? { schoolName: String(b.schoolName).trim() || 'مدرسة الحديبية المتوسطة' } : {}),
+      ...(b.issuerTitle !== undefined ? { issuerTitle: String(b.issuerTitle).trim() || 'رئيس النشاط الطلابي' } : {}),
+      ...(b.issuerName !== undefined ? { issuerName: String(b.issuerName).trim() } : {}),
+      ...(b.principalName !== undefined ? { principalName: String(b.principalName).trim() } : {}),
+      ...(b.issueDate !== undefined && String(b.issueDate).trim() ? { issueDate: String(b.issueDate).trim() } : {}),
+      ...(ALLOWED_CERT_TEMPLATES.includes(b.templateStyle) ? { templateStyle: b.templateStyle } : {}),
+    };
+    const r = await p.query(
+      `UPDATE certificates SET student_id=$1, recipient_name=$2, grade_or_title=$3, certificate_type=$4, reason=$5, school_name=$6, issuer_title=$7, issuer_name=$8, principal_name=$9, issue_date=$10, template_style=$11 WHERE id=$12 RETURNING *`,
+      [
+        next.studentId, next.recipientName, next.gradeOrTitle, next.certificateType,
+        next.reason, next.schoolName, next.issuerTitle, next.issuerName,
+        next.principalName, next.issueDate, next.templateStyle, id,
+      ]
+    );
+    res.json({ certificate: mapCertificate(r.rows[0]) });
+  } catch {
+    res.status(500).json({ error: 'تعذر تحديث الشهادة' });
+  }
+});
+
+app.delete('/api/certificates/:id', requireAuth, requireMgmt, async (req, res) => {
+  try {
+    await ensureReady();
+    const id = Number(req.params.id);
+    if (!isNeon) {
+      const db = readLocal();
+      const before = (db.certificates || []).length;
+      db.certificates = (db.certificates || []).filter((c) => c.id !== id);
+      if (db.certificates.length === before) return res.status(404).json({ error: 'الشهادة غير موجودة' });
+      writeLocal(db);
+      return res.json({ ok: true });
+    }
+    const r = await getPool().query('DELETE FROM certificates WHERE id=$1 RETURNING id', [id]);
+    if (r.rowCount === 0) return res.status(404).json({ error: 'الشهادة غير موجودة' });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'تعذر حذف الشهادة' });
   }
 });
 
