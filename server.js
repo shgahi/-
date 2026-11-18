@@ -377,14 +377,56 @@ async function runGroqJsonPrompt(systemPrompt, userPrompt) {
   return JSON.parse(jsonMatch ? jsonMatch[0] : rawContent);
 }
 
+function normalizeLoginCode(raw) {
+  return String(raw ?? '')
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/\s+/g, '')
+    .trim();
+}
+
+function buildPgPoolConfig(rawUrl) {
+  const cleaned = String(rawUrl || '')
+    .trim()
+    .replace(/^psql\s+/i, '')
+    .replace(/^['"]|['"]$/g, '')
+    .trim();
+  try {
+    const parsed = new URL(cleaned);
+    const sslmode = (parsed.searchParams.get('sslmode') || '').toLowerCase();
+    const isLocalHost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    parsed.searchParams.delete('sslmode');
+    parsed.searchParams.delete('uselibpqcompat');
+    parsed.searchParams.delete('channel_binding');
+    const ssl =
+      sslmode === 'disable' || isLocalHost
+        ? false
+        : sslmode === 'verify-full'
+          ? { rejectUnauthorized: true }
+          : { rejectUnauthorized: false };
+    return {
+      connectionString: parsed.toString(),
+      ssl,
+      max: 10,
+      connectionTimeoutMillis: 15000,
+    };
+  } catch {
+    const disableSsl = cleaned.includes('sslmode=disable');
+    return {
+      connectionString: cleaned,
+      ssl: disableSsl ? false : { rejectUnauthorized: false },
+      max: 10,
+      connectionTimeoutMillis: 15000,
+    };
+  }
+}
+
 let pool = null;
 function getPool() {
   if (!pool && DATABASE_URL) {
-    pool = new Pool({
-      connectionString: DATABASE_URL,
-      ssl: DATABASE_URL.includes('localhost') || DATABASE_URL.includes('127.0.0.1')
-        ? false
-        : { rejectUnauthorized: false },
+    pool = new Pool(buildPgPoolConfig(DATABASE_URL));
+    pool.on('error', (err) => {
+      console.error('Unexpected PostgreSQL pool error:', err);
     });
   }
   return pool;
@@ -397,6 +439,7 @@ function createInitialData() {
     counters: {
       users: 2,
       activities: 2,
+      tasks: 0,
       broadcasts: 1,
       discipline: 0,
       directives: 1,
@@ -416,6 +459,7 @@ function createInitialData() {
         passwordHash: adminHash,
         role: 'president',
         unit: 'command',
+        title: 'رئيس النشاط الطلابي',
         phone: '0551001001',
         gradeOrDept: 'الإدارة العليا',
         points: 100,
@@ -433,6 +477,7 @@ function createInitialData() {
         passwordHash: adminHash,
         role: 'vice_president',
         unit: 'command',
+        title: 'نائب رئيس النشاط الطلابي',
         phone: '0551001002',
         gradeOrDept: 'الإدارة العليا',
         points: 96,
@@ -452,9 +497,14 @@ function createInitialData() {
         eventDate: '2026-11-22',
         eventTime: '09:30',
         location: 'المسرح المدرسي',
+        targetAudience: 'جميع الطلاب',
         status: 'approved',
         officerReady: true,
+        officerNote: '',
+        createdById: 1,
         createdByName: 'عبدالرحمن نسيم',
+        approvedByName: 'عبدالرحمن نسيم',
+        participantsCount: 0,
         createdAt: now,
       },
       {
@@ -466,12 +516,18 @@ function createInitialData() {
         eventDate: '2026-11-24',
         eventTime: '09:45',
         location: 'الملعب الرئيسي',
+        targetAudience: 'جميع الطلاب',
         status: 'approved',
         officerReady: true,
+        officerNote: '',
+        createdById: 2,
         createdByName: 'خالد رحيم',
+        approvedByName: 'عبدالرحمن نسيم',
+        participantsCount: 0,
         createdAt: now,
       },
     ],
+    tasks: [],
     broadcasts: [
       {
         id: 1,
@@ -483,6 +539,7 @@ function createInitialData() {
         supervisorName: 'إدارة النشاط الطلابي',
         status: 'approved',
         officerChecked: true,
+        reviewNote: 'معتمدة مباشرة',
         segments: {
           intro: 'بسم الله الرحمن الرحيم، والصلاة والسلام على أشرف الأنبياء والمرسلين.\nمديرنا الفاضل، معلمينا الكرام، زملائي الطلاب، السلام عليكم ورحمة الله وبركاته.\nأهلاً بكم في إذاعتنا الصباحية عن الانضباط والهمة العالية.',
           quran: 'خير ما نبدأ به إذاعتنا آيات عطرة من القرآن الكريم، يتلوها على مسامعكم الطالب............\n\n﴿وَالْعَصْرِ * إِنَّ الْإِنسَانَ لَفِي خُسْرٍ * إِلَّا الَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ وَتَوَاصَوْا بِالْحَقِّ وَتَوَاصَوْا بِالصَّبْرِ﴾.',
@@ -502,8 +559,10 @@ function createInitialData() {
         content: 'نرحب بجميع الطلاب المسجلين في النشاط لرفع إنجازاتهم واقتراحاتهم عبر المنصة ليتم تقييمها واحتساب نقاطها.',
         targetUnit: 'all',
         priority: 'normal',
+        issuedById: 1,
         issuedByName: 'عبدالرحمن نسيم',
         issuedByRole: 'president',
+        acknowledgedByIds: [1],
         createdAt: now,
       },
     ],
@@ -522,11 +581,55 @@ function readLocal() {
     return initial;
   }
   const parsed = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  parsed.users = (parsed.users || []).map((u) => ({ ...u, badges: parseBadgesJson(u.badges) }));
+  parsed.counters = {
+    users: 0,
+    activities: 0,
+    tasks: 0,
+    broadcasts: 0,
+    discipline: 0,
+    directives: 0,
+    submissions: 0,
+    complaints: 0,
+    suggestions: 0,
+    programReports: 0,
+    certificates: 0,
+    ...(parsed.counters || {}),
+  };
+  parsed.users = (parsed.users || []).map((u) => ({
+    title: '',
+    ...u,
+    badges: parseBadgesJson(u.badges),
+  }));
+  parsed.activities = (parsed.activities || []).map((a) => ({
+    targetAudience: '',
+    officerNote: '',
+    createdById: 1,
+    approvedByName: null,
+    participantsCount: 0,
+    ...a,
+  }));
+  parsed.tasks = parsed.tasks || [];
+  parsed.broadcasts = (parsed.broadcasts || []).map((b) => ({
+    reviewNote: '',
+    ...b,
+  }));
+  parsed.disciplineLogs = (parsed.disciplineLogs || []).map((d) => ({
+    recordedById: 1,
+    ...d,
+  }));
+  parsed.directives = (parsed.directives || []).map((d) => ({
+    issuedById: 1,
+    ...d,
+    acknowledgedByIds: Array.isArray(d.acknowledgedByIds) ? d.acknowledgedByIds : [],
+  }));
+  parsed.submissions = parsed.submissions || [];
+  parsed.complaints = parsed.complaints || [];
+  parsed.suggestions = parsed.suggestions || [];
   parsed.programReports = (parsed.programReports || []).map((r) => ({
     ...r,
     departmentName: r.departmentName || 'النشاط الطلابي',
   }));
+  parsed.certificates = parsed.certificates || [];
   return parsed;
 }
 
@@ -553,6 +656,7 @@ async function ensureReady() {
           password_hash TEXT NOT NULL,
           role TEXT NOT NULL,
           unit TEXT NOT NULL,
+          title TEXT NOT NULL DEFAULT '',
           phone TEXT NOT NULL DEFAULT '',
           grade_or_dept TEXT NOT NULL DEFAULT '',
           points INTEGER NOT NULL DEFAULT 0,
@@ -561,6 +665,7 @@ async function ensureReady() {
           badges_json TEXT NOT NULL DEFAULT '[]',
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
         ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS badges_json TEXT NOT NULL DEFAULT '[]';
         CREATE TABLE IF NOT EXISTS activities (
@@ -572,9 +677,33 @@ async function ensureReady() {
           event_date TEXT NOT NULL,
           event_time TEXT NOT NULL,
           location TEXT NOT NULL DEFAULT '',
+          target_audience TEXT NOT NULL DEFAULT '',
           status TEXT NOT NULL DEFAULT 'approved',
           officer_ready BOOLEAN NOT NULL DEFAULT FALSE,
+          officer_note TEXT NOT NULL DEFAULT '',
+          created_by_id INTEGER NOT NULL DEFAULT 1,
           created_by_name TEXT NOT NULL DEFAULT '',
+          approved_by_name TEXT,
+          participants_count INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        ALTER TABLE activities ADD COLUMN IF NOT EXISTS target_audience TEXT NOT NULL DEFAULT '';
+        ALTER TABLE activities ADD COLUMN IF NOT EXISTS officer_note TEXT NOT NULL DEFAULT '';
+        ALTER TABLE activities ADD COLUMN IF NOT EXISTS created_by_id INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE activities ADD COLUMN IF NOT EXISTS approved_by_name TEXT;
+        ALTER TABLE activities ADD COLUMN IF NOT EXISTS participants_count INTEGER NOT NULL DEFAULT 0;
+        CREATE TABLE IF NOT EXISTS tasks (
+          id SERIAL PRIMARY KEY,
+          title TEXT NOT NULL,
+          unit TEXT NOT NULL,
+          activity_id INTEGER,
+          assigned_to_id INTEGER,
+          assigned_to_name TEXT NOT NULL DEFAULT '',
+          created_by_name TEXT NOT NULL,
+          due_date TEXT NOT NULL,
+          priority TEXT NOT NULL DEFAULT 'normal',
+          status TEXT NOT NULL DEFAULT 'pending',
+          notes TEXT NOT NULL DEFAULT '',
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         CREATE TABLE IF NOT EXISTS broadcasts (
@@ -587,9 +716,11 @@ async function ensureReady() {
           supervisor_name TEXT NOT NULL DEFAULT 'الإدارة',
           status TEXT NOT NULL DEFAULT 'pending_approval',
           officer_checked BOOLEAN NOT NULL DEFAULT FALSE,
+          review_note TEXT NOT NULL DEFAULT '',
           segments JSONB NOT NULL DEFAULT '{}'::jsonb,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS review_note TEXT NOT NULL DEFAULT '';
         CREATE TABLE IF NOT EXISTS discipline_logs (
           id SERIAL PRIMARY KEY,
           user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -599,20 +730,26 @@ async function ensureReady() {
           category TEXT NOT NULL,
           points_delta INTEGER NOT NULL DEFAULT 0,
           note TEXT NOT NULL,
+          recorded_by_id INTEGER NOT NULL DEFAULT 1,
           recorded_by_name TEXT NOT NULL,
           log_date TEXT NOT NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE discipline_logs ADD COLUMN IF NOT EXISTS recorded_by_id INTEGER NOT NULL DEFAULT 1;
         CREATE TABLE IF NOT EXISTS directives (
           id SERIAL PRIMARY KEY,
           title TEXT NOT NULL,
           content TEXT NOT NULL,
           target_unit TEXT NOT NULL DEFAULT 'all',
           priority TEXT NOT NULL DEFAULT 'normal',
+          issued_by_id INTEGER NOT NULL DEFAULT 1,
           issued_by_name TEXT NOT NULL,
           issued_by_role TEXT NOT NULL,
+          acknowledged_by_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE directives ADD COLUMN IF NOT EXISTS issued_by_id INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE directives ADD COLUMN IF NOT EXISTS acknowledged_by_ids JSONB NOT NULL DEFAULT '[]'::jsonb;
         CREATE TABLE IF NOT EXISTS submissions (
           id SERIAL PRIMARY KEY,
           student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -690,30 +827,30 @@ async function ensureReady() {
         const seed = createInitialData();
         for (const u of seed.users) {
           await p.query(
-            `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, phone, grade_or_dept, points, is_active, permissions)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)`,
-            [u.memberCode, u.loginCode, u.username, u.fullName, u.passwordHash, u.role, u.unit, u.phone, u.gradeOrDept, u.points, u.isActive, JSON.stringify(u.permissions)]
+            `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, title, phone, grade_or_dept, points, is_active, permissions)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)`,
+            [u.memberCode, u.loginCode, u.username, u.fullName, u.passwordHash, u.role, u.unit, u.title || '', u.phone, u.gradeOrDept, u.points, u.isActive, JSON.stringify(u.permissions)]
           );
         }
         for (const a of seed.activities) {
           await p.query(
-            `INSERT INTO activities (title, unit, category, description, event_date, event_time, location, status, officer_ready, created_by_name)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-            [a.title, a.unit, a.category, a.description, a.eventDate, a.eventTime, a.location, a.status, a.officerReady, a.createdByName]
+            `INSERT INTO activities (title, unit, category, description, event_date, event_time, location, target_audience, status, officer_ready, officer_note, created_by_id, created_by_name, approved_by_name, participants_count)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+            [a.title, a.unit, a.category, a.description, a.eventDate, a.eventTime, a.location, a.targetAudience, a.status, a.officerReady, a.officerNote, a.createdById, a.createdByName, a.approvedByName, a.participantsCount]
           );
         }
         for (const b of seed.broadcasts) {
           await p.query(
-            `INSERT INTO broadcasts (title, air_date, air_time, theme, presenters, supervisor_name, status, officer_checked, segments)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)`,
-            [b.title, b.airDate, b.airTime, b.theme, b.presenters, b.supervisorName, b.status, b.officerChecked, JSON.stringify(b.segments)]
+            `INSERT INTO broadcasts (title, air_date, air_time, theme, presenters, supervisor_name, status, officer_checked, review_note, segments)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)`,
+            [b.title, b.airDate, b.airTime, b.theme, b.presenters, b.supervisorName, b.status, b.officerChecked, b.reviewNote || '', JSON.stringify(b.segments)]
           );
         }
         for (const d of seed.directives) {
           await p.query(
-            `INSERT INTO directives (title, content, target_unit, priority, issued_by_name, issued_by_role)
-             VALUES ($1,$2,$3,$4,$5,$6)`,
-            [d.title, d.content, d.targetUnit, d.priority, d.issuedByName, d.issuedByRole]
+            `INSERT INTO directives (title, content, target_unit, priority, issued_by_id, issued_by_name, issued_by_role, acknowledged_by_ids)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)`,
+            [d.title, d.content, d.targetUnit, d.priority, d.issuedById || 1, d.issuedByName, d.issuedByRole, JSON.stringify(d.acknowledgedByIds || [1])]
           );
         }
       }
@@ -731,6 +868,7 @@ const mapUser = (r) => ({
   passwordHash: r.password_hash,
   role: r.role,
   unit: r.unit,
+  title: r.title || '',
   phone: r.phone,
   gradeOrDept: r.grade_or_dept,
   points: Number(r.points || 0),
@@ -740,6 +878,147 @@ const mapUser = (r) => ({
     : DEFAULT_ROLE_PERMISSIONS[r.role] || [],
   badges: parseBadgesJson(r.badges_json ?? r.badges),
   createdAt: new Date(r.created_at).toISOString(),
+});
+
+const mapActivity = (r) => ({
+  id: r.id,
+  title: r.title,
+  unit: r.unit,
+  category: r.category,
+  description: r.description || '',
+  eventDate: r.event_date,
+  eventTime: r.event_time,
+  location: r.location || '',
+  targetAudience: r.target_audience || '',
+  status: r.status,
+  officerReady: Boolean(r.officer_ready),
+  officerNote: r.officer_note || '',
+  createdById: Number(r.created_by_id || 0),
+  createdByName: r.created_by_name || '',
+  approvedByName: r.approved_by_name || null,
+  participantsCount: Number(r.participants_count || 0),
+  createdAt: r.created_at ? new Date(r.created_at).toISOString() : undefined,
+});
+
+const mapTask = (r) => ({
+  id: r.id,
+  title: r.title,
+  unit: r.unit,
+  activityId: r.activity_id !== null && r.activity_id !== undefined ? Number(r.activity_id) : null,
+  assignedToId: r.assigned_to_id !== null && r.assigned_to_id !== undefined ? Number(r.assigned_to_id) : null,
+  assignedToName: r.assigned_to_name || '',
+  createdByName: r.created_by_name || '',
+  dueDate: r.due_date,
+  priority: r.priority || 'normal',
+  status: r.status || 'pending',
+  notes: r.notes || '',
+  createdAt: r.created_at ? new Date(r.created_at).toISOString() : undefined,
+});
+
+const mapBroadcast = (r) => ({
+  id: r.id,
+  title: r.title,
+  airDate: r.air_date,
+  airTime: r.air_time,
+  theme: r.theme || '',
+  presenters: r.presenters || '',
+  supervisorName: r.supervisor_name || '',
+  status: r.status,
+  officerChecked: Boolean(r.officer_checked),
+  reviewNote: r.review_note || '',
+  segments: r.segments || {},
+  createdAt: r.created_at ? new Date(r.created_at).toISOString() : undefined,
+});
+
+const mapDiscipline = (r) => ({
+  id: r.id,
+  userId: r.user_id,
+  userName: r.user_name,
+  userCode: r.user_code,
+  unit: r.unit,
+  category: r.category,
+  pointsDelta: Number(r.points_delta || 0),
+  note: r.note || '',
+  recordedById: Number(r.recorded_by_id || 0),
+  recordedByName: r.recorded_by_name || '',
+  logDate: r.log_date,
+  createdAt: r.created_at ? new Date(r.created_at).toISOString() : undefined,
+});
+
+const mapDirective = (r) => {
+  let ack = r.acknowledged_by_ids;
+  if (typeof ack === 'string') {
+    try { ack = JSON.parse(ack); } catch { ack = []; }
+  }
+  return {
+    id: r.id,
+    title: r.title,
+    content: r.content,
+    targetUnit: r.target_unit || 'all',
+    priority: r.priority || 'normal',
+    issuedById: Number(r.issued_by_id || 0),
+    issuedByName: r.issued_by_name || '',
+    issuedByRole: r.issued_by_role || 'president',
+    acknowledgedByIds: Array.isArray(ack) ? ack : [],
+    createdAt: r.created_at ? new Date(r.created_at).toISOString() : undefined,
+  };
+};
+
+const mapSubmission = (r) => ({
+  id: r.id,
+  studentId: r.student_id,
+  studentName: r.student_name,
+  studentCode: r.student_code,
+  unit: r.unit,
+  title: r.title,
+  details: r.details || '',
+  activityDate: r.activity_date,
+  status: r.status,
+  awardedPoints: Number(r.awarded_points || 0),
+  adminNote: r.admin_note || '',
+  reviewedByName: r.reviewed_by_name || null,
+  createdAt: r.created_at ? new Date(r.created_at).toISOString() : undefined,
+});
+
+const mapComplaint = (r) => ({
+  id: r.id,
+  reporterId: r.reporter_id,
+  reporterName: r.reporter_name,
+  targetStudentName: r.target_student_name,
+  reason: r.reason,
+  details: r.details || '',
+  status: r.status,
+  adminResponse: r.admin_response || '',
+  createdAt: r.created_at ? new Date(r.created_at).toISOString() : undefined,
+});
+
+const mapSuggestion = (r) => ({
+  id: r.id,
+  studentId: r.student_id,
+  studentName: r.student_name,
+  title: r.title,
+  details: r.details || '',
+  status: r.status,
+  adminResponse: r.admin_response || '',
+  createdAt: r.created_at ? new Date(r.created_at).toISOString() : undefined,
+});
+
+const mapProgramReport = (r) => ({
+  id: r.id,
+  schoolName: r.school_name,
+  departmentName: r.department_name || 'النشاط الطلابي',
+  title: r.title,
+  field: r.field,
+  executors: r.executors,
+  executionDate: r.execution_date,
+  beneficiaries: r.beneficiaries,
+  beneficiariesCount: r.beneficiaries_count,
+  steps: Array.isArray(r.steps) ? r.steps : [],
+  objectives: Array.isArray(r.objectives) ? r.objectives : [],
+  images: Array.isArray(r.images) ? r.images : [],
+  createdById: Number(r.created_by_id || 0),
+  createdByName: r.created_by_name || '',
+  createdAt: r.created_at ? new Date(r.created_at).toISOString() : undefined,
 });
 
 const sanitizeUser = (u, viewer = null) => {
@@ -770,11 +1049,21 @@ const sanitizeUser = (u, viewer = null) => {
 
 async function findUserByLoginCode(code) {
   await ensureReady();
-  const clean = String(code || '').trim();
+  const clean = normalizeLoginCode(code);
+  if (!clean) return null;
   if (!isNeon) {
-    return readLocal().users.find((u) => u.loginCode === clean) || null;
+    return (
+      readLocal().users.find(
+        (u) =>
+          normalizeLoginCode(u.loginCode) === clean ||
+          String(u.memberCode || '').toLowerCase() === clean.toLowerCase()
+      ) || null
+    );
   }
-  const r = await getPool().query('SELECT * FROM users WHERE login_code = $1 LIMIT 1', [clean]);
+  const r = await getPool().query(
+    'SELECT * FROM users WHERE TRIM(login_code) = $1 OR LOWER(TRIM(member_code)) = LOWER($1) LIMIT 1',
+    [clean]
+  );
   return r.rows[0] ? mapUser(r.rows[0]) : null;
 }
 
@@ -906,54 +1195,121 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
     const myRank = leaderboard.find((e) => e.id === viewer.id)?.rank ?? null;
     res.json({
       users: uR.rows.map((r) => sanitizeUser(mapUser(r), viewer)),
-      activities: aR.rows.map((r) => ({
-        id: r.id, title: r.title, unit: r.unit, category: r.category, description: r.description,
-        eventDate: r.event_date, eventTime: r.event_time, location: r.location, status: r.status,
-        officerReady: r.officer_ready, createdByName: r.created_by_name,
-      })),
-      broadcasts: bR.rows.map((r) => ({
-        id: r.id, title: r.title, airDate: r.air_date, airTime: r.air_time, theme: r.theme,
-        presenters: r.presenters, supervisorName: r.supervisor_name, status: r.status,
-        officerChecked: r.officer_checked, segments: r.segments || {},
-      })),
-      disciplineLogs: disR.rows.map((r) => ({
-        id: r.id, userId: r.user_id, userName: r.user_name, userCode: r.user_code, unit: r.unit,
-        category: r.category, pointsDelta: r.points_delta, note: r.note,
-        recordedByName: r.recorded_by_name, logDate: r.log_date,
-      })),
-      directives: dirR.rows.map((r) => ({
-        id: r.id, title: r.title, content: r.content, targetUnit: r.target_unit,
-        priority: r.priority, issuedByName: r.issued_by_name, issuedByRole: r.issued_by_role,
-      })),
-      submissions: subR.rows.map((r) => ({
-        id: r.id, studentId: r.student_id, studentName: r.student_name, studentCode: r.student_code,
-        unit: r.unit, title: r.title, details: r.details, activityDate: r.activity_date,
-        status: r.status, awardedPoints: r.awarded_points, adminNote: r.admin_note,
-        reviewedByName: r.reviewed_by_name,
-      })),
-      complaints: cmpR.rows.map((r) => ({
-        id: r.id, reporterId: r.reporter_id, reporterName: r.reporter_name,
-        targetStudentName: r.target_student_name, reason: r.reason, details: r.details,
-        status: r.status, adminResponse: r.admin_response,
-      })),
-      suggestions: sugR.rows.map((r) => ({
-        id: r.id, studentId: r.student_id, studentName: r.student_name, title: r.title,
-        details: r.details, status: r.status, adminResponse: r.admin_response,
-      })),
-      programReports: repR.rows.map((r) => ({
-        id: r.id, schoolName: r.school_name, departmentName: r.department_name || 'النشاط الطلابي',
-        title: r.title, field: r.field, executors: r.executors,
-        executionDate: r.execution_date, beneficiaries: r.beneficiaries, beneficiariesCount: r.beneficiaries_count,
-        steps: Array.isArray(r.steps) ? r.steps : [],
-        objectives: Array.isArray(r.objectives) ? r.objectives : [],
-        images: Array.isArray(r.images) ? r.images : [],
-        createdById: r.created_by_id, createdByName: r.created_by_name,
-      })),
+      activities: aR.rows.map(mapActivity),
+      broadcasts: bR.rows.map(mapBroadcast),
+      disciplineLogs: disR.rows.map(mapDiscipline),
+      directives: dirR.rows.map(mapDirective),
+      submissions: subR.rows.map(mapSubmission),
+      complaints: cmpR.rows.map(mapComplaint),
+      suggestions: sugR.rows.map(mapSuggestion),
+      programReports: repR.rows.map(mapProgramReport),
       certificates: certR.rows.map(mapCertificate),
       leaderboard: { entries: leaderboard, myRank, totalRanked: leaderboard.length, updatedAt: new Date().toISOString() },
     });
   } catch {
     res.status(500).json({ error: 'تعذر تحميل البيانات' });
+  }
+});
+
+app.get('/api/dashboard/overview', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const viewer = req.user;
+    const canSeeBroadcasts = hasPerm(viewer, 'manage_broadcasts');
+    let users, activities, tasks, broadcasts, disciplineLogs, directives, submissions, complaints, suggestions;
+
+    if (!isNeon) {
+      const db = readLocal();
+      users = db.users;
+      activities = db.activities;
+      tasks = db.tasks || [];
+      broadcasts = db.broadcasts;
+      disciplineLogs = db.disciplineLogs;
+      directives = db.directives;
+      submissions = db.submissions;
+      complaints = db.complaints;
+      suggestions = db.suggestions;
+    } else {
+      const p = getPool();
+      const [uR, aR, tR, bR, disR, dirR, subR, cmpR, sugR] = await Promise.all([
+        p.query('SELECT * FROM users ORDER BY id ASC'),
+        p.query('SELECT * FROM activities ORDER BY event_date ASC, id DESC'),
+        p.query('SELECT * FROM tasks ORDER BY id DESC'),
+        canSeeBroadcasts ? p.query('SELECT * FROM broadcasts ORDER BY air_date ASC, id DESC') : Promise.resolve({ rows: [] }),
+        p.query('SELECT * FROM discipline_logs ORDER BY id DESC'),
+        p.query('SELECT * FROM directives ORDER BY id DESC'),
+        p.query('SELECT * FROM submissions ORDER BY id DESC'),
+        p.query('SELECT * FROM complaints ORDER BY id DESC'),
+        p.query('SELECT * FROM suggestions ORDER BY id DESC'),
+      ]);
+      users = uR.rows.map(mapUser);
+      activities = aR.rows.map(mapActivity);
+      tasks = tR.rows.map(mapTask);
+      broadcasts = bR.rows.map(mapBroadcast);
+      disciplineLogs = disR.rows.map(mapDiscipline);
+      directives = dirR.rows.map(mapDirective);
+      submissions = subR.rows.map(mapSubmission);
+      complaints = cmpR.rows.map(mapComplaint);
+      suggestions = sugR.rows.map(mapSuggestion);
+    }
+
+    const activeMembersCount = users.filter((u) => u.isActive && !isMgmt(u.role)).length;
+    const managementCount = users.filter((u) => u.isActive && isMgmt(u.role)).length;
+    const pendingActivities = activities.filter((a) => a.status === 'pending_approval');
+    const pendingBroadcasts = canSeeBroadcasts
+      ? broadcasts.filter((b) => b.status === 'pending_approval')
+      : [];
+
+    res.json({
+      stats: {
+        totalUsers: users.length,
+        activeMembersCount,
+        managementCount,
+        activity1Count: activities.filter((a) => a.unit === 'activity_1').length,
+        activity2Count: activities.filter((a) => a.unit === 'activity_2').length,
+        broadcastsCount: canSeeBroadcasts ? broadcasts.length : 0,
+        pendingApprovalsCount: pendingActivities.length + pendingBroadcasts.length,
+        openTasksCount: tasks.filter((t) => t.status !== 'completed').length,
+        pendingSubmissionsCount: submissions.filter((s) => s.status === 'pending').length,
+        openComplaintsCount: complaints.filter((c) => c.status !== 'resolved').length,
+        newSuggestionsCount: suggestions.filter((s) => s.status === 'new').length,
+      },
+      pendingActivities,
+      pendingBroadcasts,
+      upcomingBroadcasts: canSeeBroadcasts ? broadcasts.slice(0, 4) : [],
+      recentDirectives: directives.slice(0, 5),
+      myTasks: tasks.filter((t) => t.assignedToId === viewer.id || t.unit === viewer.unit).slice(0, 6),
+      recentDiscipline: !isMgmt(viewer.role)
+        ? disciplineLogs.filter((d) => d.userId === viewer.id).slice(0, 5)
+        : disciplineLogs.slice(0, 6),
+    });
+  } catch {
+    res.status(500).json({ error: 'تعذر تحميل ملخص المنظومة' });
+  }
+});
+
+app.get('/api/users', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const viewer = req.user;
+    const canSeeUsers =
+      hasAllSixPerms(viewer) ||
+      isMgmt(viewer.role) ||
+      hasPerm(viewer, 'manage_activities') ||
+      hasPerm(viewer, 'manage_discipline');
+
+    if (!isNeon) {
+      const db = readLocal();
+      const visibleUsers = canSeeUsers ? db.users : db.users.filter((u) => u.id === viewer.id);
+      return res.json({ users: visibleUsers.map((u) => sanitizeUser(u, viewer)) });
+    }
+    const p = getPool();
+    const r = canSeeUsers
+      ? await p.query('SELECT * FROM users ORDER BY id ASC')
+      : await p.query('SELECT * FROM users WHERE id=$1', [viewer.id]);
+    res.json({ users: r.rows.map((row) => sanitizeUser(mapUser(row), viewer)) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب قائمة الأفراد والقيادات' });
   }
 });
 
@@ -964,7 +1320,7 @@ app.post('/api/users', requireAuth, async (req, res) => {
     if (!hasAllSixPerms(actor)) {
       return res.status(403).json({ error: 'الوصول إلى الأفراد والصلاحيات يتطلب امتلاك الصلاحيات الست كاملة' });
     }
-    const { fullName, loginCode, role, unit, phone, gradeOrDept, permissions } = req.body || {};
+    const { fullName, loginCode, role, unit, title, phone, gradeOrDept, memberCode, username: requestedUsername, permissions } = req.body || {};
     const targetRole = ALLOWED_ROLES.includes(role) ? role : 'member';
 
     if (targetRole === 'president' && !isSupremePresident(actor)) {
@@ -974,29 +1330,32 @@ app.post('/api/users', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'يرجى إدخال الاسم الكامل ورقم الجوال ورمز الدخول' });
     }
 
-    const cleanCode = String(loginCode).trim();
+    const cleanCode = normalizeLoginCode(loginCode);
+    if (!cleanCode) return res.status(400).json({ error: 'يرجى إدخال رمز دخول صالح' });
     const rand = Math.floor(1000 + Math.random() * 9000);
-    const memberCode = `${isMgmt(targetRole) ? 'ADM' : 'STD'}-${rand}`;
-    const username = `user_${cleanCode}`.toLowerCase();
+    const code = String(memberCode || '').trim() || `${isMgmt(targetRole) ? 'ADM' : 'STD'}-${rand}`;
+    const reqUser = String(requestedUsername || '').trim().toLowerCase();
+    const username = (reqUser && reqUser !== 'president') ? reqUser : `user_${cleanCode}`.toLowerCase();
     const hash = bcrypt.hashSync(cleanCode, 10);
     const targetUnit = unit || 'activity_1';
     const parsedPerms = sanitizePermissions(permissions) || DEFAULT_ROLE_PERMISSIONS[targetRole];
 
     if (!isNeon) {
       const db = readLocal();
-      if (db.users.some((u) => u.loginCode === cleanCode)) {
+      if (db.users.some((u) => normalizeLoginCode(u.loginCode) === cleanCode)) {
         return res.status(400).json({ error: 'رمز الدخول مستخدم مسبقاً' });
       }
       db.counters.users += 1;
       const created = {
         id: db.counters.users,
-        memberCode,
+        memberCode: code,
         loginCode: cleanCode,
         username,
         fullName: fullName.trim(),
         passwordHash: hash,
         role: targetRole,
         unit: targetUnit,
+        title: String(title || '').trim(),
         phone: phone.trim(),
         gradeOrDept: String(gradeOrDept || '').trim(),
         points: isMgmt(targetRole) ? 90 : 0,
@@ -1010,16 +1369,16 @@ app.post('/api/users', requireAuth, async (req, res) => {
       return res.status(201).json({ user: sanitizeUser(created) });
     }
 
-    const exists = await getPool().query('SELECT 1 FROM users WHERE login_code=$1', [cleanCode]);
+    const exists = await getPool().query('SELECT 1 FROM users WHERE TRIM(login_code)=$1', [cleanCode]);
     if (exists.rowCount > 0) return res.status(400).json({ error: 'رمز الدخول مستخدم مسبقاً' });
 
     const r = await getPool().query(
-      `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, phone, grade_or_dept, points, is_active, permissions, badges_json)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11::jsonb,'[]') RETURNING *`,
+      `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, title, phone, grade_or_dept, points, is_active, permissions, badges_json)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,TRUE,$12::jsonb,'[]') RETURNING *`,
       [
-        memberCode, cleanCode, username, fullName.trim(), hash, targetRole, targetUnit,
-        phone.trim(), String(gradeOrDept || '').trim(), isMgmt(targetRole) ? 90 : 0,
-        JSON.stringify(parsedPerms),
+        code, cleanCode, username, fullName.trim(), hash, targetRole, targetUnit,
+        String(title || '').trim(), phone.trim(), String(gradeOrDept || '').trim(),
+        isMgmt(targetRole) ? 90 : 0, JSON.stringify(parsedPerms),
       ]
     );
     res.status(201).json({ user: sanitizeUser(mapUser(r.rows[0])) });
@@ -1040,7 +1399,7 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
     const target = await findUserById(id);
     if (!target) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    const { fullName, loginCode, role, unit, phone, gradeOrDept, points, isActive, permissions } = req.body || {};
+    const { fullName, loginCode, role, unit, title, phone, gradeOrDept, points, isActive, permissions } = req.body || {};
     const actorIsSupreme = isSupremePresident(actor);
     const targetIsSupreme = isSupremePresident(target);
 
@@ -1066,7 +1425,7 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
 
     let cleanCode;
     if (loginCode !== undefined) {
-      cleanCode = String(loginCode).trim();
+      cleanCode = normalizeLoginCode(loginCode);
       if (!cleanCode) return res.status(400).json({ error: 'رمز الدخول لا يمكن أن يكون فارغاً' });
       const existingCode = await findUserByLoginCode(cleanCode);
       if (existingCode && existingCode.id !== id) {
@@ -1089,6 +1448,7 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
       const u = db.users[idx];
       if (fullName !== undefined && String(fullName).trim()) u.fullName = String(fullName).trim();
       if (cleanCode !== undefined) u.loginCode = cleanCode;
+      if (title !== undefined) u.title = String(title).trim();
       if (phone !== undefined) u.phone = String(phone).trim();
       if (gradeOrDept !== undefined) u.gradeOrDept = String(gradeOrDept).trim();
       if (safePoints !== undefined) u.points = safePoints;
@@ -1110,17 +1470,19 @@ app.patch('/api/users/:id', requireAuth, async (req, res) => {
         login_code = COALESCE($2, login_code),
         role = COALESCE($3, role),
         unit = COALESCE($4, unit),
-        phone = COALESCE($5, phone),
-        grade_or_dept = COALESCE($6, grade_or_dept),
-        points = COALESCE($7, points),
-        is_active = COALESCE($8, is_active),
-        permissions = COALESCE($9::jsonb, permissions)
-       WHERE id = $10 RETURNING *`,
+        title = COALESCE($5, title),
+        phone = COALESCE($6, phone),
+        grade_or_dept = COALESCE($7, grade_or_dept),
+        points = COALESCE($8, points),
+        is_active = COALESCE($9, is_active),
+        permissions = COALESCE($10::jsonb, permissions)
+       WHERE id = $11 RETURNING *`,
       [
         fullName !== undefined && String(fullName).trim() ? String(fullName).trim() : null,
         cleanCode ?? null,
         !targetIsSupreme && role !== undefined ? role : null,
         !targetIsSupreme && unit !== undefined ? unit : null,
+        title !== undefined ? String(title).trim() : null,
         phone !== undefined ? String(phone).trim() : null,
         gradeOrDept !== undefined ? String(gradeOrDept).trim() : null,
         safePoints ?? null,
@@ -1165,13 +1527,32 @@ app.delete('/api/users/:id', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/submissions', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const u = req.user;
+    const canReviewSubs = isMgmt(u.role) || hasPerm(u, 'review_submissions');
+    if (!isNeon) {
+      const db = readLocal();
+      const list = canReviewSubs ? db.submissions : db.submissions.filter((s) => s.studentId === u.id);
+      return res.json({ submissions: list });
+    }
+    const r = canReviewSubs
+      ? await getPool().query('SELECT * FROM submissions ORDER BY id DESC')
+      : await getPool().query('SELECT * FROM submissions WHERE student_id=$1 ORDER BY id DESC', [u.id]);
+    res.json({ submissions: r.rows.map(mapSubmission) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب تقديمات الطلاب' });
+  }
+});
+
 app.post('/api/submissions', requireAuth, async (req, res) => {
   try {
     await ensureReady();
     const u = req.user;
-    const { title, details, unit } = req.body || {};
+    const { title, details, unit, activityDate: rawActivityDate } = req.body || {};
     if (!String(title || '').trim()) return res.status(400).json({ error: 'يرجى كتابة عنوان الإنجاز' });
-    const activityDate = new Date().toISOString().slice(0, 10);
+    const activityDate = String(rawActivityDate || '').trim() || new Date().toISOString().slice(0, 10);
     const subUnit = unit || u.unit || 'activity_1';
 
     if (!isNeon) {
@@ -1181,6 +1562,7 @@ app.post('/api/submissions', requireAuth, async (req, res) => {
         id: db.counters.submissions, studentId: u.id, studentName: u.fullName, studentCode: u.memberCode,
         unit: subUnit, title: title.trim(), details: String(details || '').trim(), activityDate,
         status: 'pending', awardedPoints: 0, adminNote: '', reviewedByName: null,
+        createdAt: new Date().toISOString(),
       };
       db.submissions.unshift(item);
       writeLocal(db);
@@ -1191,14 +1573,7 @@ app.post('/api/submissions', requireAuth, async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
       [u.id, u.fullName, u.memberCode, subUnit, title.trim(), String(details || '').trim(), activityDate]
     );
-    const row = r.rows[0];
-    res.status(201).json({
-      submission: {
-        id: row.id, studentId: row.student_id, studentName: row.student_name, studentCode: row.student_code,
-        unit: row.unit, title: row.title, details: row.details, activityDate: row.activity_date,
-        status: row.status, awardedPoints: row.awarded_points, adminNote: row.admin_note, reviewedByName: row.reviewed_by_name,
-      },
-    });
+    res.status(201).json({ submission: mapSubmission(r.rows[0]) });
   } catch {
     res.status(500).json({ error: 'تعذر إرسال الإنجاز' });
   }
@@ -1246,16 +1621,28 @@ app.patch('/api/submissions/:id', requireAuth, async (req, res) => {
     if (diff !== 0) {
       await p.query('UPDATE users SET points = GREATEST(0, points + $1) WHERE id=$2', [diff, prev.student_id]);
     }
-    const row = r.rows[0];
-    res.json({
-      submission: {
-        id: row.id, studentId: row.student_id, studentName: row.student_name, studentCode: row.student_code,
-        unit: row.unit, title: row.title, details: row.details, activityDate: row.activity_date,
-        status: row.status, awardedPoints: row.awarded_points, adminNote: row.admin_note, reviewedByName: row.reviewed_by_name,
-      },
-    });
+    res.json({ submission: mapSubmission(r.rows[0]) });
   } catch {
     res.status(500).json({ error: 'تعذر مراجعة الإنجاز' });
+  }
+});
+
+app.get('/api/complaints', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const u = req.user;
+    const canReview = isMgmt(u.role) || hasPerm(u, 'review_submissions');
+    if (!isNeon) {
+      const db = readLocal();
+      const list = canReview ? db.complaints : db.complaints.filter((c) => c.reporterId === u.id);
+      return res.json({ complaints: list });
+    }
+    const r = canReview
+      ? await getPool().query('SELECT * FROM complaints ORDER BY id DESC')
+      : await getPool().query('SELECT * FROM complaints WHERE reporter_id=$1 ORDER BY id DESC', [u.id]);
+    res.json({ complaints: r.rows.map(mapComplaint) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب الشكاوى' });
   }
 });
 
@@ -1274,6 +1661,7 @@ app.post('/api/complaints', requireAuth, async (req, res) => {
         id: db.counters.complaints, reporterId: u.id, reporterName: u.fullName,
         targetStudentName: targetStudentName.trim(), reason: reason.trim(),
         details: String(details || '').trim(), status: 'new', adminResponse: '',
+        createdAt: new Date().toISOString(),
       };
       db.complaints.unshift(item);
       writeLocal(db);
@@ -1284,7 +1672,7 @@ app.post('/api/complaints', requireAuth, async (req, res) => {
        VALUES ($1,$2,$3,$4,$5) RETURNING *`,
       [u.id, u.fullName, targetStudentName.trim(), reason.trim(), String(details || '').trim()]
     );
-    res.status(201).json({ complaint: r.rows[0] });
+    res.status(201).json({ complaint: mapComplaint(r.rows[0]) });
   } catch {
     res.status(500).json({ error: 'تعذر إرسال الشكوى' });
   }
@@ -1311,9 +1699,29 @@ app.patch('/api/complaints/:id', requireAuth, async (req, res) => {
       'UPDATE complaints SET status=$1, admin_response=$2 WHERE id=$3 RETURNING *',
       [status || 'resolved', String(adminResponse || '').trim(), id]
     );
-    res.json({ complaint: r.rows[0] });
+    if (r.rowCount === 0) return res.status(404).json({ error: 'الشكوى غير موجودة' });
+    res.json({ complaint: mapComplaint(r.rows[0]) });
   } catch {
     res.status(500).json({ error: 'تعذر تحديث الشكوى' });
+  }
+});
+
+app.get('/api/suggestions', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const u = req.user;
+    const canReview = isMgmt(u.role) || hasPerm(u, 'review_submissions');
+    if (!isNeon) {
+      const db = readLocal();
+      const list = canReview ? db.suggestions : db.suggestions.filter((s) => s.studentId === u.id);
+      return res.json({ suggestions: list });
+    }
+    const r = canReview
+      ? await getPool().query('SELECT * FROM suggestions ORDER BY id DESC')
+      : await getPool().query('SELECT * FROM suggestions WHERE student_id=$1 ORDER BY id DESC', [u.id]);
+    res.json({ suggestions: r.rows.map(mapSuggestion) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب الاقتراحات' });
   }
 });
 
@@ -1329,6 +1737,7 @@ app.post('/api/suggestions', requireAuth, async (req, res) => {
       const item = {
         id: db.counters.suggestions, studentId: u.id, studentName: u.fullName,
         title: title.trim(), details: String(details || '').trim(), status: 'new', adminResponse: '',
+        createdAt: new Date().toISOString(),
       };
       db.suggestions.unshift(item);
       writeLocal(db);
@@ -1338,7 +1747,7 @@ app.post('/api/suggestions', requireAuth, async (req, res) => {
       'INSERT INTO suggestions (student_id, student_name, title, details) VALUES ($1,$2,$3,$4) RETURNING *',
       [u.id, u.fullName, title.trim(), String(details || '').trim()]
     );
-    res.status(201).json({ suggestion: r.rows[0] });
+    res.status(201).json({ suggestion: mapSuggestion(r.rows[0]) });
   } catch {
     res.status(500).json({ error: 'تعذر إرسال الاقتراح' });
   }
@@ -1365,7 +1774,8 @@ app.patch('/api/suggestions/:id', requireAuth, async (req, res) => {
       'UPDATE suggestions SET status=$1, admin_response=$2 WHERE id=$3 RETURNING *',
       [status || 'reviewed', String(adminResponse || '').trim(), id]
     );
-    res.json({ suggestion: r.rows[0] });
+    if (r.rowCount === 0) return res.status(404).json({ error: 'الاقتراح غير موجود' });
+    res.json({ suggestion: mapSuggestion(r.rows[0]) });
   } catch {
     res.status(500).json({ error: 'تعذر تحديث الاقتراح' });
   }
@@ -1426,15 +1836,33 @@ app.post('/api/broadcasts/generate', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/broadcasts', requireAuth, async (req, res) => {
+  try {
+    if (!hasPerm(req.user, 'manage_broadcasts')) {
+      return res.status(403).json({ error: 'الاطلاع على الإذاعات مخصص لأصحاب صلاحية الإذاعة فقط' });
+    }
+    await ensureReady();
+    if (!isNeon) {
+      return res.json({ broadcasts: readLocal().broadcasts });
+    }
+    const r = await getPool().query('SELECT * FROM broadcasts ORDER BY air_date ASC, id DESC');
+    res.json({ broadcasts: r.rows.map(mapBroadcast) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب جدول الإذاعات' });
+  }
+});
+
 app.post('/api/broadcasts', requireAuth, async (req, res) => {
   try {
     if (!hasPerm(req.user, 'manage_broadcasts')) {
       return res.status(403).json({ error: 'إضافة الإذاعات مخصصة لأصحاب صلاحية الإذاعة فقط' });
-      }
+    }
     await ensureReady();
     const { title, airDate, airTime, theme, presenters, segments } = req.body || {};
     if (!title || !airDate || !airTime) return res.status(400).json({ error: 'يرجى إدخال عنوان الإذاعة والتاريخ والوقت' });
-    const status = (req.user.role === 'president' || req.user.role === 'vice_president') ? 'approved' : 'pending_approval';
+    const autoApprove = req.user.role === 'president' || req.user.role === 'vice_president';
+    const status = autoApprove ? 'approved' : 'pending_approval';
+    const reviewNote = autoApprove ? 'معتمدة مباشرة' : 'بانتظار مراجعة واعتماد القيادة';
     const segs = {
       intro: segments?.intro || 'بسم الله الرحمن الرحيم، نبدأ معكم إذاعتنا الصباحية.',
       quran: segments?.quran || 'آيات عطرة من القرآن الكريم.',
@@ -1449,18 +1877,20 @@ app.post('/api/broadcasts', requireAuth, async (req, res) => {
       const item = {
         id: db.counters.broadcasts, title: title.trim(), airDate, airTime,
         theme: theme || 'عام', presenters: presenters || req.user.fullName,
-        supervisorName: 'الإدارة', status, officerChecked: false, segments: segs,
+        supervisorName: isMgmt(req.user.role) ? req.user.fullName : 'الإدارة',
+        status, officerChecked: false, reviewNote, segments: segs,
+        createdAt: new Date().toISOString(),
       };
       db.broadcasts.unshift(item);
       writeLocal(db);
       return res.status(201).json({ broadcast: item });
     }
     const r = await getPool().query(
-      `INSERT INTO broadcasts (title, air_date, air_time, theme, presenters, supervisor_name, status, segments)
-       VALUES ($1,$2,$3,$4,$5,'الإدارة',$6,$7::jsonb) RETURNING *`,
-      [title.trim(), airDate, airTime, theme || 'عام', presenters || req.user.fullName, status, JSON.stringify(segs)]
+      `INSERT INTO broadcasts (title, air_date, air_time, theme, presenters, supervisor_name, status, review_note, segments)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) RETURNING *`,
+      [title.trim(), airDate, airTime, theme || 'عام', presenters || req.user.fullName, isMgmt(req.user.role) ? req.user.fullName : 'الإدارة', status, reviewNote, JSON.stringify(segs)]
     );
-    res.status(201).json({ broadcast: r.rows[0] });
+    res.status(201).json({ broadcast: mapBroadcast(r.rows[0]) });
   } catch {
     res.status(500).json({ error: 'تعذر حفظ الإذاعة' });
   }
@@ -1474,7 +1904,7 @@ app.patch('/api/broadcasts/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'ليس لديك صلاحية تعديل الإذاعة' });
     }
     const id = Number(req.params.id);
-    const { title, airDate, airTime, theme, presenters, status, officerChecked, segments } = req.body || {};
+    const { title, airDate, airTime, theme, presenters, status, officerChecked, reviewNote, segments } = req.body || {};
 
     if (!isNeon) {
       const db = readLocal();
@@ -1487,6 +1917,7 @@ app.patch('/api/broadcasts/:id', requireAuth, async (req, res) => {
       if (presenters !== undefined) item.presenters = String(presenters).trim();
       if (status !== undefined) item.status = status;
       if (officerChecked !== undefined) item.officerChecked = Boolean(officerChecked);
+      if (reviewNote !== undefined) item.reviewNote = String(reviewNote).trim();
       if (segments && typeof segments === 'object') {
         item.segments = { ...(item.segments || {}), ...segments };
       }
@@ -1508,8 +1939,9 @@ app.patch('/api/broadcasts/:id', requireAuth, async (req, res) => {
         presenters = COALESCE($5, presenters),
         status = COALESCE($6, status),
         officer_checked = COALESCE($7, officer_checked),
-        segments = COALESCE($8::jsonb, segments)
-       WHERE id=$9 RETURNING *`,
+        review_note = COALESCE($8, review_note),
+        segments = COALESCE($9::jsonb, segments)
+       WHERE id=$10 RETURNING *`,
       [
         title !== undefined ? String(title).trim() : null,
         airDate ?? null,
@@ -1518,11 +1950,12 @@ app.patch('/api/broadcasts/:id', requireAuth, async (req, res) => {
         presenters !== undefined ? String(presenters).trim() : null,
         status ?? null,
         officerChecked !== undefined ? Boolean(officerChecked) : null,
+        reviewNote !== undefined ? String(reviewNote).trim() : null,
         mergedSegs ? JSON.stringify(mergedSegs) : null,
         id,
       ]
     );
-    res.json({ broadcast: r.rows[0] });
+    res.json({ broadcast: mapBroadcast(r.rows[0]) });
   } catch {
     res.status(500).json({ error: 'تعذر تحديث الإذاعة' });
   }
@@ -1548,34 +1981,134 @@ app.delete('/api/broadcasts/:id', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/activities', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const unit = req.query.unit === 'activity_1' || req.query.unit === 'activity_2' ? req.query.unit : undefined;
+    if (!isNeon) {
+      const list = readLocal().activities;
+      return res.json({ activities: unit ? list.filter((a) => a.unit === unit) : list });
+    }
+    const r = unit
+      ? await getPool().query('SELECT * FROM activities WHERE unit=$1 ORDER BY event_date ASC, id DESC', [unit])
+      : await getPool().query('SELECT * FROM activities ORDER BY event_date ASC, id DESC');
+    res.json({ activities: r.rows.map(mapActivity) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب الأنشطة' });
+  }
+});
+
 app.post('/api/activities', requireAuth, async (req, res) => {
   try {
-    if (!hasPerm(req.user, 'manage_activities')) {
+    if (!hasPerm(req.user, 'manage_activities') && !isMgmt(req.user.role)) {
       return res.status(403).json({ error: 'ليس لديك صلاحية إضافة البرامج والأنشطة' });
     }
     await ensureReady();
-    const { title, unit, category, description, eventDate, eventTime, location } = req.body || {};
+    const { title, unit, category, description, eventDate, eventTime, location, targetAudience, participantsCount } = req.body || {};
     if (!title || !unit || !eventDate) return res.status(400).json({ error: 'يرجى إكمال بيانات البرنامج' });
+    const autoApprove = isMgmt(req.user.role);
+    const status = autoApprove ? 'approved' : 'pending_approval';
+    const safeTime = eventTime || '09:30';
+    const safeLoc = location || 'المدرسة';
+    const safeAud = targetAudience || 'جميع الطلاب';
+    const safeCnt = Number(participantsCount || 0);
+    const approvedBy = autoApprove ? req.user.fullName : null;
+
     if (!isNeon) {
       const db = readLocal();
       db.counters.activities += 1;
       const item = {
         id: db.counters.activities, title: title.trim(), unit, category: category || 'عام',
-        description: description || '', eventDate, eventTime: eventTime || '09:30',
-        location: location || 'المدرسة', status: 'approved', officerReady: true, createdByName: req.user.fullName,
+        description: description || '', eventDate, eventTime: safeTime,
+        location: safeLoc, targetAudience: safeAud, status,
+        officerReady: autoApprove, officerNote: '', createdById: req.user.id,
+        createdByName: req.user.fullName, approvedByName: approvedBy,
+        participantsCount: safeCnt, createdAt: new Date().toISOString(),
       };
       db.activities.unshift(item);
       writeLocal(db);
       return res.status(201).json({ activity: item });
     }
     const r = await getPool().query(
-      `INSERT INTO activities (title, unit, category, description, event_date, event_time, location, status, officer_ready, created_by_name)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'approved',TRUE,$8) RETURNING *`,
-      [title.trim(), unit, category || 'عام', description || '', eventDate, eventTime || '09:30', location || 'المدرسة', req.user.fullName]
+      `INSERT INTO activities (title, unit, category, description, event_date, event_time, location, target_audience, status, officer_ready, officer_note, created_by_id, created_by_name, approved_by_name, participants_count)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'',$11,$12,$13,$14) RETURNING *`,
+      [title.trim(), unit, category || 'عام', description || '', eventDate, safeTime, safeLoc, safeAud, status, autoApprove, req.user.id, req.user.fullName, approvedBy, safeCnt]
     );
-    res.status(201).json({ activity: r.rows[0] });
+    res.status(201).json({ activity: mapActivity(r.rows[0]) });
   } catch {
     res.status(500).json({ error: 'تعذر إضافة البرنامج' });
+  }
+});
+
+app.patch('/api/activities/:id', requireAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    if (!isMgmt(user.role) && !hasPerm(user, 'manage_activities')) {
+      return res.status(403).json({ error: 'ليس لديك صلاحية تعديل هذا البرنامج' });
+    }
+    await ensureReady();
+    const id = Number(req.params.id);
+    const body = req.body || {};
+
+    if (!isNeon) {
+      const db = readLocal();
+      const idx = db.activities.findIndex((a) => a.id === id);
+      if (idx === -1) return res.status(404).json({ error: 'البرنامج غير موجود' });
+      const item = { ...db.activities[idx] };
+      if (body.title !== undefined) item.title = String(body.title).trim();
+      if (body.category !== undefined) item.category = String(body.category).trim();
+      if (body.description !== undefined) item.description = String(body.description).trim();
+      if (body.eventDate !== undefined) item.eventDate = body.eventDate;
+      if (body.eventTime !== undefined) item.eventTime = body.eventTime;
+      if (body.location !== undefined) item.location = String(body.location).trim();
+      if (body.targetAudience !== undefined) item.targetAudience = String(body.targetAudience).trim();
+      if (body.status !== undefined) {
+        item.status = body.status;
+        if (body.status === 'approved') item.approvedByName = user.fullName;
+      }
+      if (body.officerReady !== undefined) item.officerReady = Boolean(body.officerReady);
+      if (body.officerNote !== undefined) item.officerNote = String(body.officerNote).trim();
+      if (body.participantsCount !== undefined) item.participantsCount = Number(body.participantsCount || 0);
+      db.activities[idx] = item;
+      writeLocal(db);
+      return res.json({ activity: item });
+    }
+
+    const r = await getPool().query(
+      `UPDATE activities SET
+        title = COALESCE($1, title),
+        category = COALESCE($2, category),
+        description = COALESCE($3, description),
+        event_date = COALESCE($4, event_date),
+        event_time = COALESCE($5, event_time),
+        location = COALESCE($6, location),
+        target_audience = COALESCE($7, target_audience),
+        status = COALESCE($8, status),
+        officer_ready = COALESCE($9, officer_ready),
+        officer_note = COALESCE($10, officer_note),
+        approved_by_name = COALESCE($11, approved_by_name),
+        participants_count = COALESCE($12, participants_count)
+       WHERE id=$13 RETURNING *`,
+      [
+        body.title !== undefined ? String(body.title).trim() : null,
+        body.category !== undefined ? String(body.category).trim() : null,
+        body.description !== undefined ? String(body.description).trim() : null,
+        body.eventDate ?? null,
+        body.eventTime ?? null,
+        body.location !== undefined ? String(body.location).trim() : null,
+        body.targetAudience !== undefined ? String(body.targetAudience).trim() : null,
+        body.status ?? null,
+        body.officerReady !== undefined ? Boolean(body.officerReady) : null,
+        body.officerNote !== undefined ? String(body.officerNote).trim() : null,
+        body.status === 'approved' ? user.fullName : null,
+        body.participantsCount !== undefined ? Number(body.participantsCount || 0) : null,
+        id,
+      ]
+    );
+    if (r.rowCount === 0) return res.status(404).json({ error: 'البرنامج غير موجود' });
+    res.json({ activity: mapActivity(r.rows[0]) });
+  } catch {
+    res.status(500).json({ error: 'تعذر تحديث البرنامج' });
   }
 });
 
@@ -1599,17 +2132,170 @@ app.delete('/api/activities/:id', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/tasks', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const unit = req.query.unit ? String(req.query.unit) : undefined;
+    if (!isNeon) {
+      const list = readLocal().tasks || [];
+      return res.json({ tasks: unit ? list.filter((t) => t.unit === unit) : list });
+    }
+    const r = unit
+      ? await getPool().query('SELECT * FROM tasks WHERE unit=$1 ORDER BY id DESC', [unit])
+      : await getPool().query('SELECT * FROM tasks ORDER BY id DESC');
+    res.json({ tasks: r.rows.map(mapTask) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب المهام' });
+  }
+});
+
+app.post('/api/tasks', requireAuth, requireMgmt, async (req, res) => {
+  try {
+    await ensureReady();
+    const { title, unit, activityId, assignedToId, dueDate, priority, notes } = req.body || {};
+    if (!title || !unit || !dueDate) return res.status(400).json({ error: 'يرجى كتابة عنوان المهمة والقسم وتاريخ التسليم' });
+    let assignedToName = 'غير محدد';
+    if (assignedToId) {
+      const assignee = await findUserById(Number(assignedToId));
+      if (assignee) assignedToName = assignee.fullName;
+    }
+    if (!isNeon) {
+      const db = readLocal();
+      db.counters.tasks = (db.counters.tasks || 0) + 1;
+      db.tasks = db.tasks || [];
+      const task = {
+        id: db.counters.tasks,
+        title: String(title).trim(),
+        unit,
+        activityId: activityId ?? null,
+        assignedToId: assignedToId ? Number(assignedToId) : null,
+        assignedToName,
+        createdByName: req.user.fullName,
+        dueDate,
+        priority: priority || 'normal',
+        status: 'pending',
+        notes: String(notes || '').trim(),
+        createdAt: new Date().toISOString(),
+      };
+      db.tasks.unshift(task);
+      writeLocal(db);
+      return res.status(201).json({ task });
+    }
+    const r = await getPool().query(
+      `INSERT INTO tasks (title, unit, activity_id, assigned_to_id, assigned_to_name, created_by_name, due_date, priority, status, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9) RETURNING *`,
+      [String(title).trim(), unit, activityId ?? null, assignedToId ? Number(assignedToId) : null, assignedToName, req.user.fullName, dueDate, priority || 'normal', String(notes || '').trim()]
+    );
+    res.status(201).json({ task: mapTask(r.rows[0]) });
+  } catch {
+    res.status(500).json({ error: 'تعذر إنشاء المهمة' });
+  }
+});
+
+app.patch('/api/tasks/:id', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const user = req.user;
+    const id = Number(req.params.id);
+    const { status, title, dueDate, priority, notes } = req.body || {};
+
+    if (!isNeon) {
+      const db = readLocal();
+      const idx = (db.tasks || []).findIndex((t) => t.id === id);
+      if (idx === -1) return res.status(404).json({ error: 'المهمة غير موجودة' });
+      const existing = db.tasks[idx];
+      if (!isMgmt(user.role)) {
+        if (existing.assignedToId !== user.id && existing.unit !== user.unit) {
+          return res.status(403).json({ error: 'هذه المهمة غير مسندة إليك' });
+        }
+        existing.status = status || existing.status;
+      } else {
+        if (status) existing.status = status;
+        if (title) existing.title = String(title).trim();
+        if (dueDate) existing.dueDate = dueDate;
+        if (priority) existing.priority = priority;
+        if (notes !== undefined) existing.notes = String(notes).trim();
+      }
+      writeLocal(db);
+      return res.json({ task: existing });
+    }
+
+    const p = getPool();
+    const curR = await p.query('SELECT * FROM tasks WHERE id=$1', [id]);
+    if (curR.rowCount === 0) return res.status(404).json({ error: 'المهمة غير موجودة' });
+    const existing = mapTask(curR.rows[0]);
+    if (!isMgmt(user.role)) {
+      if (existing.assignedToId !== user.id && existing.unit !== user.unit) {
+        return res.status(403).json({ error: 'هذه المهمة غير مسندة إليك' });
+      }
+      const r = await p.query('UPDATE tasks SET status=$1 WHERE id=$2 RETURNING *', [status || existing.status, id]);
+      return res.json({ task: mapTask(r.rows[0]) });
+    }
+    const r = await p.query(
+      `UPDATE tasks SET
+        status = COALESCE($1, status),
+        title = COALESCE($2, title),
+        due_date = COALESCE($3, due_date),
+        priority = COALESCE($4, priority),
+        notes = COALESCE($5, notes)
+       WHERE id=$6 RETURNING *`,
+      [status ?? null, title ? String(title).trim() : null, dueDate ?? null, priority ?? null, notes !== undefined ? String(notes).trim() : null, id]
+    );
+    res.json({ task: mapTask(r.rows[0]) });
+  } catch {
+    res.status(500).json({ error: 'تعذر تحديث المهمة' });
+  }
+});
+
+app.delete('/api/tasks/:id', requireAuth, requireMgmt, async (req, res) => {
+  try {
+    await ensureReady();
+    const id = Number(req.params.id);
+    if (!isNeon) {
+      const db = readLocal();
+      const before = (db.tasks || []).length;
+      db.tasks = (db.tasks || []).filter((t) => t.id !== id);
+      if (db.tasks.length === before) return res.status(404).json({ error: 'المهمة غير موجودة' });
+      writeLocal(db);
+      return res.json({ ok: true });
+    }
+    const r = await getPool().query('DELETE FROM tasks WHERE id=$1', [id]);
+    if (r.rowCount === 0) return res.status(404).json({ error: 'المهمة غير موجودة' });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'تعذر حذف المهمة' });
+  }
+});
+
+app.get('/api/discipline', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const u = req.user;
+    const canSeeAll = isMgmt(u.role) || hasPerm(u, 'manage_discipline');
+    if (!isNeon) {
+      const logs = readLocal().disciplineLogs;
+      return res.json({ logs: canSeeAll ? logs : logs.filter((d) => d.userId === u.id) });
+    }
+    const r = canSeeAll
+      ? await getPool().query('SELECT * FROM discipline_logs ORDER BY id DESC')
+      : await getPool().query('SELECT * FROM discipline_logs WHERE user_id=$1 ORDER BY id DESC', [u.id]);
+    res.json({ logs: r.rows.map(mapDiscipline) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب سجلات الانضباط' });
+  }
+});
+
 app.post('/api/discipline', requireAuth, async (req, res) => {
   try {
     if (!hasPerm(req.user, 'manage_discipline')) {
       return res.status(403).json({ error: 'ليس لديك صلاحية تسجيل الانضباط والنقاط' });
     }
     await ensureReady();
-    const { userId, category, pointsDelta, note } = req.body || {};
+    const { userId, category, pointsDelta, note, logDate: rawLogDate } = req.body || {};
     const target = await findUserById(userId);
     if (!target || !note) return res.status(400).json({ error: 'يرجى اختيار الطالب وكتابة الملاحظة' });
     const delta = Number(pointsDelta || 0);
-    const logDate = new Date().toISOString().slice(0, 10);
+    const logDate = String(rawLogDate || '').trim() || new Date().toISOString().slice(0, 10);
 
     if (!isNeon) {
       const db = readLocal();
@@ -1617,7 +2303,7 @@ app.post('/api/discipline', requireAuth, async (req, res) => {
       const item = {
         id: db.counters.discipline, userId: target.id, userName: target.fullName, userCode: target.memberCode,
         unit: target.unit, category: category || 'commendation', pointsDelta: delta, note: note.trim(),
-        recordedByName: req.user.fullName, logDate,
+        recordedById: req.user.id, recordedByName: req.user.fullName, logDate, createdAt: new Date().toISOString(),
       };
       db.disciplineLogs.unshift(item);
       const u = db.users.find((x) => x.id === target.id);
@@ -1627,12 +2313,12 @@ app.post('/api/discipline', requireAuth, async (req, res) => {
     }
     const p = getPool();
     const r = await p.query(
-      `INSERT INTO discipline_logs (user_id, user_name, user_code, unit, category, points_delta, note, recorded_by_name, log_date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [target.id, target.fullName, target.memberCode, target.unit, category || 'commendation', delta, note.trim(), req.user.fullName, logDate]
+      `INSERT INTO discipline_logs (user_id, user_name, user_code, unit, category, points_delta, note, recorded_by_id, recorded_by_name, log_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [target.id, target.fullName, target.memberCode, target.unit, category || 'commendation', delta, note.trim(), req.user.id, req.user.fullName, logDate]
     );
     await p.query('UPDATE users SET points = GREATEST(0, points + $1) WHERE id=$2', [delta, target.id]);
-    res.status(201).json({ log: r.rows[0] });
+    res.status(201).json({ log: mapDiscipline(r.rows[0]) });
   } catch {
     res.status(500).json({ error: 'تعذر تسجيل الملاحظة' });
   }
@@ -1666,33 +2352,75 @@ app.delete('/api/discipline/:id', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/directives', requireAuth, async (_req, res) => {
+  try {
+    await ensureReady();
+    if (!isNeon) {
+      return res.json({ directives: readLocal().directives });
+    }
+    const r = await getPool().query('SELECT * FROM directives ORDER BY id DESC');
+    res.json({ directives: r.rows.map(mapDirective) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب التوجيهات' });
+  }
+});
+
 app.post('/api/directives', requireAuth, async (req, res) => {
   try {
     if (!hasPerm(req.user, 'issue_directives')) {
       return res.status(403).json({ error: 'ليس لديك صلاحية إصدار التوجيهات' });
     }
     await ensureReady();
-    const { title, content, priority } = req.body || {};
+    const { title, content, targetUnit, priority } = req.body || {};
     if (!title || !content) return res.status(400).json({ error: 'يرجى كتابة العنوان والنص' });
+    const safeUnit = targetUnit || 'all';
+    const ack = [req.user.id];
     if (!isNeon) {
       const db = readLocal();
       db.counters.directives += 1;
       const item = {
-        id: db.counters.directives, title: title.trim(), content: content.trim(), targetUnit: 'all',
-        priority: priority || 'normal', issuedByName: req.user.fullName, issuedByRole: req.user.role,
+        id: db.counters.directives, title: title.trim(), content: content.trim(), targetUnit: safeUnit,
+        priority: priority || 'normal', issuedById: req.user.id, issuedByName: req.user.fullName,
+        issuedByRole: req.user.role, acknowledgedByIds: ack, createdAt: new Date().toISOString(),
       };
       db.directives.unshift(item);
       writeLocal(db);
       return res.status(201).json({ directive: item });
     }
     const r = await getPool().query(
-      `INSERT INTO directives (title, content, target_unit, priority, issued_by_name, issued_by_role)
-       VALUES ($1,$2,'all',$3,$4,$5) RETURNING *`,
-      [title.trim(), content.trim(), priority || 'normal', req.user.fullName, req.user.role]
+      `INSERT INTO directives (title, content, target_unit, priority, issued_by_id, issued_by_name, issued_by_role, acknowledged_by_ids)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb) RETURNING *`,
+      [title.trim(), content.trim(), safeUnit, priority || 'normal', req.user.id, req.user.fullName, req.user.role, JSON.stringify(ack)]
     );
-    res.status(201).json({ directive: r.rows[0] });
+    res.status(201).json({ directive: mapDirective(r.rows[0]) });
   } catch {
     res.status(500).json({ error: 'تعذر نشر التوجيه' });
+  }
+});
+
+app.post('/api/directives/:id/ack', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const id = Number(req.params.id);
+    const uid = req.user.id;
+    if (!isNeon) {
+      const db = readLocal();
+      const dir = db.directives.find((d) => d.id === id);
+      if (!dir) return res.status(404).json({ error: 'التوجيه غير موجود' });
+      dir.acknowledgedByIds = Array.isArray(dir.acknowledgedByIds) ? dir.acknowledgedByIds : [];
+      if (!dir.acknowledgedByIds.includes(uid)) dir.acknowledgedByIds.push(uid);
+      writeLocal(db);
+      return res.json({ directive: dir });
+    }
+    const p = getPool();
+    const curR = await p.query('SELECT * FROM directives WHERE id=$1', [id]);
+    if (curR.rowCount === 0) return res.status(404).json({ error: 'التوجيه غير موجود' });
+    const mapped = mapDirective(curR.rows[0]);
+    const nextAck = mapped.acknowledgedByIds.includes(uid) ? mapped.acknowledgedByIds : [...mapped.acknowledgedByIds, uid];
+    const r = await p.query('UPDATE directives SET acknowledged_by_ids=$1::jsonb WHERE id=$2 RETURNING *', [JSON.stringify(nextAck), id]);
+    res.json({ directive: mapDirective(r.rows[0]) });
+  } catch {
+    res.status(500).json({ error: 'تعذر تأكيد الاطلاع' });
   }
 });
 
@@ -1713,6 +2441,22 @@ app.delete('/api/directives/:id', requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'تعذر حذف التوجيه' });
+  }
+});
+
+app.get('/api/reports', requireAuth, async (req, res) => {
+  try {
+    if (!isMgmt(req.user.role) && !hasPerm(req.user, 'manage_activities')) {
+      return res.status(403).json({ error: 'الاطلاع على تقارير البرامج مخصص للإدارة فقط' });
+    }
+    await ensureReady();
+    if (!isNeon) {
+      return res.json({ reports: readLocal().programReports || [] });
+    }
+    const r = await getPool().query('SELECT * FROM program_reports ORDER BY id DESC');
+    res.json({ reports: r.rows.map(mapProgramReport) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب تقارير البرامج' });
   }
 });
 
@@ -2134,9 +2878,25 @@ app.delete('/api/users/:id/badges/:badgeId', requireAuth, requireMgmt, async (re
   }
 });
 
+app.get(['/app.js', '/assets/app.js'], (_req, res) => {
+  res.sendFile(path.join(__dirname, 'app.js'));
+});
+
+app.get(['/app.css', '/assets/app.css'], (_req, res) => {
+  res.sendFile(path.join(__dirname, 'app.css'));
+});
+
 app.get(['/moe-logo.png', '/assets/moe-logo.png'], (_req, res) => {
   res.sendFile(path.join(__dirname, 'moe-logo.png'));
 });
+
+app.get(['/portal_hero_scene_1794824065167.jpg', '/src/assets/images/portal_hero_scene_1794824065167.jpg'], (_req, res) => {
+  res.sendFile(path.join(__dirname, 'portal_hero_scene_1794824065167.jpg'));
+});
+
+app.use('/assets', express.static(path.join(__dirname, 'assets'), {
+  maxAge: '7d',
+}));
 
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
