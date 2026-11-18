@@ -163,6 +163,16 @@
     const CMP_STATUS = { new: ['جديدة', 'text-amber-700'], reviewing: ['قيد المتابعة', 'text-sky-700'], resolved: ['تمت المعالجة', 'text-emerald-700'] };
     const SUG_STATUS = { new: ['جديد', 'text-amber-700'], reviewed: ['تمت المراجعة', 'text-sky-700'], adopted: ['معتمد للتنفيذ', 'text-emerald-700'] };
     const BRC_STATUS = { pending_approval: ['بانتظار الاعتماد', 'text-amber-700'], approved: ['معتمدة للبث', 'text-emerald-700'], aired: ['تم البث', 'text-teal-700'], returned: ['معادة', 'text-red-700'] };
+    const ROULETTE_COST = 10;
+    const ROULETTE_SEGMENTS = [
+      { points: 5, label: '٥ نقاط', color: '#fbbf24' },
+      { points: 10, label: '١٠ نقاط', color: '#34d399' },
+      { points: 15, label: '١٥ نقطة', color: '#60a5fa' },
+      { points: 20, label: '٢٠ نقطة', color: '#f472b6' },
+      { points: 30, label: '٣٠ نقطة', color: '#a78bfa' },
+      { points: 50, label: 'الجائزة الكبرى ٥٠ نقطة', color: '#ef4444' },
+      { points: 0, label: 'حظ أوفر', color: '#94a3b8' },
+    ];
 
     const ALL_PERMS = [
       { key: 'manage_directory', label: 'إدارة الأفراد والصلاحيات', desc: 'إضافة وتعديل بيانات الطلاب ورموز الدخول' },
@@ -185,7 +195,8 @@
       tab: 'overview',
       reportTab: 'evidence',
       subTab: 'achievements',
-      data: { users: [], activities: [], broadcasts: [], disciplineLogs: [], directives: [], submissions: [], complaints: [], suggestions: [], programReports: [] },
+      data: { users: [], activities: [], broadcasts: [], disciplineLogs: [], directives: [], submissions: [], complaints: [], suggestions: [], programReports: [], competitions: [], rouletteSpins: [] },
+      rouletteRotation: 0,
       selectedBroadcastId: null,
       inlineBroadcastEdit: false,
       selectedReportId: null,
@@ -334,6 +345,7 @@
         { id: 'member_achievements', label: 'تقديم إنجاز' },
         { id: 'member_complaints', label: 'تقديم شكوى' },
         { id: 'member_suggestions', label: 'الاقتراحات' },
+        { id: 'member_competitions', label: 'المسابقات والروليت' },
         ...(canSeeBrc ? [{ id: 'broadcasts', label: 'الإذاعة' }] : []),
         ...(canSeeDir ? [{ id: 'directory', label: 'الأفراد والصلاحيات' }] : []),
       ];
@@ -943,6 +955,89 @@
                 </div>
               `).join('')}
             </div>
+          </div>
+        `;
+      }
+
+      if (state.tab === 'member_competitions') {
+        const comps = (state.data.competitions || []);
+        const spins = (state.data.rouletteSpins || []);
+        const latest = spins[0];
+        const arc = 360 / ROULETTE_SEGMENTS.length;
+        const gradStops = ROULETTE_SEGMENTS.map((s, i) => `${s.color} ${i * arc}deg ${(i + 1) * arc}deg`).join(', ');
+        return `
+          <div class="space-y-6">
+            <div><h2 class="text-xl font-bold">المسابقات والروليت</h2><p class="text-sm text-slate-500">شارك في المسابقات ودوّر عجلة الحظ لتكسب النقاط</p></div>
+
+            <section class="luxury-card p-6 space-y-4">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <h3 class="font-bold">روليت النقاط</h3>
+                <div class="text-sm text-slate-500">تكلفة التدويرة: <span class="font-bold text-slate-800">${ROULETTE_COST}</span> · رصيدك: <span class="font-bold text-teal-800">${state.user.points}</span></div>
+              </div>
+              <div class="flex flex-col items-center gap-4">
+                <div class="relative" style="width:220px;height:220px;">
+                  <div class="absolute left-1/2 -translate-x-1/2 -top-1 z-10" style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:15px solid #0f766e;"></div>
+                  <div id="rouletteWheel" class="w-full h-full rounded-full border-4 border-white shadow-lg" style="background: conic-gradient(from ${-arc / 2}deg, ${gradStops}); transform: rotate(${state.rouletteRotation || 0}deg); transition: transform 3s cubic-bezier(0.16, 1, 0.3, 1);"></div>
+                  <div class="absolute inset-0 flex items-center justify-center pointer-events-none"><div class="w-7 h-7 rounded-full bg-white border-2 border-slate-300 shadow"></div></div>
+                </div>
+                <button onclick="spinRoulette()" class="px-6 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">دوّر العجلة</button>
+                <div class="flex flex-wrap justify-center gap-x-3 gap-y-1.5 text-xs text-slate-600">
+                  ${ROULETTE_SEGMENTS.map((s) => `<span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:${s.color}"></span>${esc(s.label)}</span>`).join('')}
+                </div>
+                ${latest ? `<div class="text-center text-sm font-bold text-teal-800">آخر نتيجة: ${esc(latest.label)}${latest.reward > 0 ? ` (+${latest.reward} نقطة)` : ''}</div>` : '<div class="text-center text-xs text-slate-400">لم تدوّر العجلة بعد</div>'}
+              </div>
+              ${spins.length > 1 ? `
+                <div class="border-t border-slate-100 pt-3">
+                  <div class="text-xs font-bold text-slate-500 mb-1">سجل تدويراتك</div>
+                  <div class="divide-y divide-slate-100">
+                    ${spins.slice(1, 11).map((s) => `<div class="py-1.5 flex justify-between text-xs"><span>${esc(s.label)}</span><span class="font-bold ${s.reward > 0 ? 'text-emerald-700' : 'text-slate-400'}">${s.reward > 0 ? `+${s.reward}` : '٠'}</span></div>`).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </section>
+
+            <section class="luxury-card p-6 space-y-4">
+              <h3 class="font-bold">المسابقات</h3>
+              ${comps.length === 0 ? `<div class="text-center text-sm text-slate-500 py-6">لا توجد مسابقات متاحة حالياً</div>` : comps.map((c) => {
+                const mine = (c.entries || []).find((e) => e.studentId === state.user.id);
+                if (c.status === 'closed' && !mine) {
+                  return `<div class="border-t border-slate-100 pt-3"><div class="font-bold text-sm">${esc(c.title)}</div><div class="text-xs text-slate-400 mt-0.5">مغلقة</div></div>`;
+                }
+                if (mine) {
+                  return `
+                    <div class="border-t border-slate-100 pt-3 space-y-2">
+                      <div class="flex justify-between items-center gap-2">
+                        <div class="font-bold text-sm">${esc(c.title)}</div>
+                        <span class="text-xs font-bold text-emerald-700 whitespace-nowrap">شاركت · ${mine.score}/${c.questions.length} · +${mine.earnedPoints} نقطة</span>
+                      </div>
+                      ${c.questions.map((q, qi) => {
+                        const g = (mine.graded || [])[qi] || {};
+                        return `<div class="text-xs flex gap-1.5"><span class="font-bold ${g.correct ? 'text-emerald-700' : 'text-red-700'}">${g.correct ? '✓' : '✗'}</span><span>${esc(q.text)} — <span class="text-slate-500">${esc(q.options[g.chosen] || '—')}</span></span></div>`;
+                      }).join('')}
+                    </div>
+                  `;
+                }
+                return `
+                  <form onsubmit="enterCompetition(event, ${c.id})" class="border-t border-slate-100 pt-3 space-y-2.5">
+                    <div class="font-bold text-sm">${esc(c.title)}</div>
+                    ${c.description ? `<p class="text-xs text-slate-500">${esc(c.description)}</p>` : ''}
+                    <p class="text-xs text-teal-700 font-bold">المكافأة: ${c.pointsPerCorrect} نقطة لكل إجابة صحيحة</p>
+                    ${c.questions.map((q, qi) => `
+                      <div class="space-y-1.5">
+                        <div class="text-sm font-semibold">${qi + 1}. ${esc(q.text)}</div>
+                        ${q.options.map((opt, oi) => `
+                          <label class="flex items-center gap-2 text-sm cursor-pointer">
+                            <input type="radio" name="comp-${c.id}-q${qi}" value="${oi}" class="accent-teal-800" required />
+                            <span>${esc(opt)}</span>
+                          </label>
+                        `).join('')}
+                      </div>
+                    `).join('')}
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">إرسال الإجابات</button>
+                  </form>
+                `;
+              }).join('')}
+            </section>
           </div>
         `;
       }
@@ -1729,6 +1824,57 @@
       });
       if (!ok) return;
       runAction(() => api('/api/suggestions', { method: 'POST', body: JSON.stringify({ title, details }) }), 'تم إرسال الاقتراح');
+    };
+
+    function animateRouletteTo(reward) {
+      const wheel = document.getElementById('rouletteWheel');
+      if (!wheel) return;
+      const idx = ROULETTE_SEGMENTS.findIndex((s) => s.points === Number(reward));
+      const i = idx < 0 ? 0 : idx;
+      const arc = 360 / ROULETTE_SEGMENTS.length;
+      const desiredMod = ((360 - i * arc) % 360 + 360) % 360;
+      const currentMod = (((state.rouletteRotation || 0) % 360) + 360) % 360;
+      let delta = desiredMod - currentMod;
+      if (delta < 0) delta += 360;
+      state.rouletteRotation = (state.rouletteRotation || 0) + 360 * 5 + delta + (Math.random() * arc * 0.6 - arc * 0.3);
+      wheel.style.transform = 'rotate(' + state.rouletteRotation + 'deg)';
+    }
+
+    window.spinRoulette = async () => {
+      const ok = await openConfirm({
+        title: 'تأكيد تدوير العجلة',
+        message: 'سيُخصم ' + ROULETTE_COST + ' نقاط مقابل تدويرة واحدة. متابعة؟',
+        confirmLabel: 'نعم، دوّر العجلة',
+      });
+      if (!ok) return;
+      await runAction(() => api('/api/roulette/spin', { method: 'POST' }), 'تم تدوير العجلة');
+      if (!state.error) {
+        const latest = (state.data.rouletteSpins || [])[0];
+        if (latest) animateRouletteTo(latest.reward);
+      }
+    };
+
+    window.enterCompetition = async (e, id) => {
+      e.preventDefault();
+      const form = e.target;
+      const comp = (state.data.competitions || []).find((c) => c.id === id);
+      if (!comp) return;
+      const answers = comp.questions.map((q, qi) => {
+        const checked = form.querySelector('input[name="comp-' + id + '-q' + qi + '"]:checked');
+        return checked ? Number(checked.value) : -1;
+      });
+      if (answers.some((a) => a < 0)) {
+        state.error = 'يرجى الإجابة عن جميع الأسئلة';
+        render();
+        return;
+      }
+      const ok = await openConfirm({
+        title: 'تأكيد المشاركة',
+        message: 'سيتم إرسال إجاباتك واحتساب نقاطك فوراً ولا يمكن إعادة المحاولة.',
+        confirmLabel: 'نعم، إرسال الإجابات',
+      });
+      if (!ok) return;
+      runAction(() => api('/api/competitions/' + id + '/enter', { method: 'POST', body: JSON.stringify({ answers }) }), 'تم تسجيل مشاركتك');
     };
 
     window.addEventListener('keydown', (e) => {
