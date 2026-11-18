@@ -6,7 +6,7 @@
   <title>منظومة النشاط الطلابي</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -145,7 +145,7 @@
       }
     }
     @media print {
-      @page { size: A4 portrait; margin: 6mm; }
+      @page { size: A4 portrait; margin: 4mm; }
       html, body {
         width: 100% !important; height: auto !important; min-height: 0 !important;
         margin: 0 !important; padding: 0 !important;
@@ -160,16 +160,19 @@
       .print-reset > * + * { margin-top: 0 !important; }
       .no-print { display: none !important; }
       .print-sheet {
-        width: 196mm !important; max-width: 100% !important; margin: 0 auto !important;
+        width: 202mm !important; max-width: 100% !important; height: 288mm !important; min-height: 288mm !important;
+        margin: 0 auto !important; display: flex !important; flex-direction: column !important;
         border: 1.5px solid #cbd5e1 !important; box-shadow: none !important;
         border-radius: 10px !important; overflow: hidden !important; box-sizing: border-box !important;
         break-inside: avoid !important; page-break-inside: avoid !important; break-after: auto !important;
       }
       .print-certificate-sheet {
-        width: 280mm !important; max-width: 100% !important; margin: 0 auto !important;
-        box-shadow: none !important; box-sizing: border-box !important;
-        break-inside: avoid !important; page-break-inside: avoid !important; break-after: auto !important;
+        width: 288mm !important; max-width: 100% !important; height: 200mm !important; min-height: 200mm !important;
+        margin: 0 auto !important; display: flex !important; flex-direction: column !important;
+        box-shadow: none !important; overflow: hidden !important; box-sizing: border-box !important;
+        break-inside: avoid !important; page-break-inside: avoid !important; break-after: page !important;
       }
+      .print-certificate-sheet:last-child { break-after: auto !important; }
     }
   </style>
 </head>
@@ -513,7 +516,7 @@
                   <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div><label class="block text-xs font-semibold text-slate-700 mb-1">اسم البرنامج *</label><input id="repTitle" required value="${esc(d.title)}" oninput="syncRepDraft('title', this.value)" placeholder="مثال: البراكين" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
                     <div><label class="block text-xs font-semibold text-slate-700 mb-1">المنفذ / ين *</label><input id="repExec" required value="${esc(d.executors)}" oninput="syncRepDraft('executors', this.value)" placeholder="الأستاذ / ..." class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
-                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">تاريخ التنفيذ *</label><input id="repDate" required value="${esc(toEngDigits(d.executionDate))}" oninput="syncRepDraft('executionDate', this.value)" placeholder="1448/05/04هـ" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm english-date-font" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">تاريخ التنفيذ *</label><input id="repDate" required value="${esc(toEngDigits(d.executionDate))}" oninput="syncRepDraft('executionDate', this.value)" placeholder="1448/05/04هـ" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
                   </div>
                   <div class="space-y-2">
                     <div class="flex items-center justify-between"><span class="text-xs font-semibold text-slate-700">الشواهد المصورة (بحد أقصى 4 صور مرتبة في شبكة 2×2)</span><span class="text-xs font-mono text-slate-500">${Math.min(4, d.images.length)}/4 شواهد</span></div>
@@ -552,7 +555,7 @@
                   ${reports.length === 0 ? `<div class="p-6 text-center text-xs text-slate-500">لا توجد تقارير محفوظة بعد</div>` : reports.map((r) => `
                     <button onclick="selectReport(${r.id})" class="w-full text-right p-4 cursor-pointer transition-colors ${selRep && selRep.id === r.id ? 'bg-teal-50/75' : 'hover:bg-slate-50'}">
                       <div class="font-bold text-sm">${esc(r.title)}</div>
-                      <div class="text-xs text-slate-500 mt-1">${esc(r.field)} · <span class="english-date-font">${esc(toEngDigits(r.executionDate))}</span> · ${Math.min(4, (r.images || []).length)}/4 شواهد</div>
+                      <div class="text-xs text-slate-500 mt-1">${esc(r.field)} · ${formatEngDateHtml(r.executionDate)} · ${Math.min(4, (r.images || []).length)}/4 شواهد</div>
                     </button>
                   `).join('')}
                 </div>
@@ -568,28 +571,28 @@
                       </div>
                     </div>
                     <div class="max-w-[794px] mx-auto bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden print-sheet report-kufi-font">
-                      <div class="relative bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799] text-white px-6 pt-4 pb-8 print:pt-3 print:pb-6 rounded-b-xl">
+                      <div class="relative shrink-0 bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799] text-white px-6 pt-4 pb-7 print:pt-3.5 print:pb-6 rounded-b-xl">
                         <div class="flex items-center justify-center gap-5">
-                          <img src="/moe-logo.png" alt="وزارة التعليم - Ministry of Education" class="h-[64px] print:h-[54px] w-auto object-contain shrink-0" />
-                          <div class="w-[2.5px] h-[60px] print:h-[50px] bg-white shrink-0"></div>
-                          <div class="text-right text-[14px] print:text-[12.5px] font-medium leading-[1.6]">
+                          <img src="/moe-logo.png" alt="وزارة التعليم - Ministry of Education" class="h-[64px] print:h-[58px] w-auto object-contain shrink-0" />
+                          <div class="w-[2.5px] h-[60px] print:h-[54px] bg-white shrink-0"></div>
+                          <div class="text-right text-[14px] print:text-[13px] font-medium leading-[1.6]">
                             <div>الإدارة العامة للتعليم</div>
                             <div>بمحافظة جدة</div>
                             <div>النشاط الطلابي</div>
                           </div>
                         </div>
-                        <div class="absolute left-1/2 -translate-x-1/2 -bottom-4 bg-[#24364d] text-white px-16 sm:px-24 py-1.5 print:py-1 rounded-xl text-[14px] sm:text-[15px] font-medium shadow-md whitespace-nowrap border border-white/10">${esc(selRep.schoolName || 'مدرسة الحديبية المتوسطة')}</div>
+                        <div class="absolute left-1/2 -translate-x-1/2 -bottom-3.5 z-10 bg-[#24364d] text-white px-16 sm:px-24 py-1.5 print:py-1 rounded-xl text-[14px] sm:text-[15px] font-medium shadow-md whitespace-nowrap border border-white/10">${esc(selRep.schoolName || 'مدرسة الحديبية المتوسطة')}</div>
                       </div>
-                      <div class="px-5 pt-7 pb-3.5 print:px-4 print:pt-5 print:pb-2.5 space-y-3.5 print:space-y-2.5 bg-white">
-                        <div class="grid grid-cols-12 gap-x-3.5 gap-y-3.5 print:gap-x-3 print:gap-y-2.5">
+                      <div class="px-5 pt-10 pb-3.5 print:px-4 print:pt-9 print:pb-3 space-y-3.5 print:space-y-0 print:flex-1 print:flex print:flex-col print:justify-between print:gap-2.5 bg-white">
+                        <div class="grid grid-cols-12 gap-x-3.5 gap-y-3.5 print:gap-x-3 print:gap-y-2.5 shrink-0">
                           <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">اســـــم البرنــــامج:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.title || '—')}</div></div>
                           <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">مجــــال البرنــــامج:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.field || '—')}</div></div>
                           <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">المنفــــــــــذ/يــــن:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.executors || '—')}</div></div>
-                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">تاريـــــخ التنفيــــذ:</span><div class="text-[15px] sm:text-[16px] print:text-[14.5px] font-medium text-slate-900 min-h-[1.35rem]">${formatEngDateHtml(selRep.executionDate || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">تاريـــــخ التنفيــــذ:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${formatEngDateHtml(selRep.executionDate || '—')}</div></div>
                           <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">المستفيــــــــدون:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.beneficiaries || 'الطلاب')}</div></div>
                           <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">عدد المستفيدين:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.beneficiariesCount || 'اقل من 70 طالب')}</div></div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-3.5 print:gap-3 items-stretch pt-0.5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-3.5 print:gap-3 items-stretch pt-0.5 shrink-0">
                           <div class="relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2.5 print:pt-3.5 print:pb-2 bg-white">
                             <span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">خطوات التنفيــــذ:</span>
                             <div class="space-y-1 text-[12.5px] sm:text-[13px] print:text-[11.5px] print:leading-snug font-semibold text-slate-900 leading-relaxed text-right">${(selRep.steps || []).map((s) => `<div>${esc(s)}</div>`).join('')}</div>
@@ -599,16 +602,16 @@
                             <div class="space-y-1 text-[12.5px] sm:text-[13px] print:text-[11.5px] print:leading-snug font-semibold text-slate-900 leading-relaxed text-right">${(selRep.objectives || []).map((o) => `<div>${esc(o)}</div>`).join('')}</div>
                           </div>
                         </div>
-                        <div class="relative border-2 border-[#217a8c] rounded-xl px-3.5 pt-5 pb-3 print:px-3 print:pt-4 print:pb-2.5 bg-white mt-0.5">
+                        <div class="relative border-2 border-[#217a8c] rounded-xl px-3.5 pt-5 pb-3 print:px-3 print:pt-4 print:pb-2.5 bg-white mt-0.5 print:flex-1 print:flex print:flex-col">
                           <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-5 text-[16px] sm:text-[17px] print:text-[15.5px] font-medium leading-none text-[#1e8c70]">الشــــواهــــد</span>
-                          ${(selRep.images || []).length === 0 ? `<div class="py-10 text-center text-xs text-slate-400">لا توجد صور شواهد مرفقة (الحد الأقصى 4 صور)</div>` : `
-                            <div class="grid grid-cols-2 gap-3 print:gap-2.5 w-full">
-                              ${(selRep.images || []).slice(0, 4).map((src) => `<div class="rounded-xl border border-slate-500/80 overflow-hidden bg-slate-50/40 flex items-center justify-center h-56 sm:h-64 print:h-[192px]"><img src="${src}" class="w-full h-full object-contain" /></div>`).join('')}
+                          ${(selRep.images || []).length === 0 ? `<div class="py-10 print:flex-1 print:flex print:items-center print:justify-center text-center text-xs text-slate-400">لا توجد صور شواهد مرفقة (الحد الأقصى 4 صور)</div>` : `
+                            <div class="grid grid-cols-2 gap-3 print:gap-2.5 w-full print:flex-1 ${(selRep.images || []).length > 2 ? 'print:grid-rows-2' : 'print:grid-rows-1'}">
+                              ${(selRep.images || []).slice(0, 4).map((src) => `<div class="rounded-xl border border-slate-500/80 overflow-hidden bg-slate-50/40 flex items-center justify-center h-56 sm:h-64 print:h-full print:min-h-[180px]"><img src="${src}" class="w-full h-full object-contain" /></div>`).join('')}
                             </div>
                           `}
                         </div>
                       </div>
-                      <div class="h-4 print:h-3 bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799]"></div>
+                      <div class="shrink-0 h-4 print:h-3.5 bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799]"></div>
                     </div>
                   ` : `<div class="luxury-card p-10 text-center text-sm text-slate-500 no-print">أنشئ أول تقرير بالشواهد لعرضه وطباعته</div>`}
                 </div>
@@ -1217,29 +1220,29 @@
 
     function fmtCertDate(val) {
       const norm = toEnDigits(val || '—');
-      return norm.split(/([0-9]+(?:[/\-.:][0-9]+)*)/g).map((p) => /^[0-9]+(?:[/\-.:][0-9]+)*$/.test(p) ? `<span class="english-date-font" dir="ltr">${esc(p)}</span>` : esc(p)).join('');
+      return norm.split(/([0-9]+(?:[/\-.:][0-9]+)*)/g).filter(Boolean).map((p) => /^[0-9]+(?:[/\-.:][0-9]+)*$/.test(p) ? `<span class="english-date-font font-bold" dir="ltr">${esc(p)}</span>` : `<span class="report-kufi-font font-bold">${esc(p)}</span>`).join('');
     }
 
     function renderCertificateSheet(cert) {
       const tpl = CERT_TEMPLATES[cert.templateStyle] || CERT_TEMPLATES.emerald_gold;
       return `
         <div class="max-w-[1000px] mx-auto bg-white border-[6px] ${tpl.outer} rounded-2xl p-2.5 sm:p-3 shadow-xl print-certificate-sheet">
-          <div class="relative border-2 border-dashed ${tpl.inner} rounded-xl bg-gradient-to-b from-white via-[#fcfdfb] to-[#f8faf9] overflow-hidden">
-            <div class="bg-gradient-to-l ${tpl.header} text-white px-6 py-3.5 print:py-2.5 flex flex-wrap items-center justify-between gap-4">
+          <div class="relative border-2 border-dashed ${tpl.inner} rounded-xl bg-gradient-to-b from-white via-[#fcfdfb] to-[#f8faf9] overflow-hidden print:flex-1 print:flex print:flex-col print:justify-between">
+            <div class="shrink-0 bg-gradient-to-l ${tpl.header} text-white px-6 py-3.5 print:px-8 print:py-4 flex flex-wrap items-center justify-between gap-4">
               <div class="flex items-center gap-3.5">
-                <img src="/moe-logo.png" alt="وزارة التعليم - Ministry of Education" class="h-12 sm:h-14 print:h-12 w-auto object-contain shrink-0" />
+                <img src="/moe-logo.png" alt="وزارة التعليم - Ministry of Education" class="h-12 sm:h-14 print:h-14 w-auto object-contain shrink-0" />
                 <div class="w-[2px] h-11 bg-white/80 shrink-0"></div>
-                <div class="text-right text-xs sm:text-[13px] font-medium leading-relaxed report-kufi-font">
+                <div class="text-right text-xs sm:text-[13px] print:text-[14px] font-medium leading-relaxed report-kufi-font">
                   <div>الإدارة العامة للتعليم بمحافظة جدة</div>
                   <div>النشاط الطلابي</div>
                 </div>
               </div>
-              <div class="px-4 py-1.5 rounded-xl bg-white/15 border border-white/25 text-xs sm:text-sm font-bold report-kufi-font">${esc(cert.schoolName || 'مدرسة الحديبية المتوسطة')}</div>
+              <div class="px-4 py-1.5 rounded-xl bg-white/15 border border-white/25 text-xs sm:text-sm print:text-base font-bold report-kufi-font">${esc(cert.schoolName || 'مدرسة الحديبية المتوسطة')}</div>
             </div>
-            <div class="px-6 sm:px-12 py-7 sm:py-9 print:py-6 text-center space-y-5 print:space-y-4">
+            <div class="px-6 sm:px-12 py-7 sm:py-9 print:flex-1 print:flex print:flex-col print:justify-between print:px-14 print:py-7 text-center space-y-5 print:space-y-0">
               <div class="space-y-2">
                 <div class="inline-flex items-center gap-2 px-4 py-1 rounded-full border text-xs font-bold report-kufi-font ${tpl.badge}">وثيقة تكريم رسمية</div>
-                <h2 class="text-3xl sm:text-4xl print:text-3xl font-bold certificate-amiri-font ${tpl.title}">${esc(cert.certificateType || 'شهادة شكر وتقدير')}</h2>
+                <h2 class="text-3xl sm:text-4xl print:text-4xl font-bold certificate-amiri-font ${tpl.title}">${esc(cert.certificateType || 'شهادة شكر وتقدير')}</h2>
                 <div class="h-1 w-44 mx-auto rounded-full bg-gradient-to-l ${tpl.line}"></div>
               </div>
               <p class="text-base sm:text-lg text-slate-700 font-medium report-kufi-font">تسر إدارة النشاط الطلابي بـ ${esc(cert.schoolName || 'مدرسة الحديبية المتوسطة')} أن تتقدم بجزيل الشكر وعظيم التقدير إلى:</p>
@@ -1343,7 +1346,7 @@
                   </div>
                   <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1">تاريخ الإصدار</label>
-                    <input id="certDate" value="${esc(d.issueDate)}" oninput="syncCertDraft()" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm english-date-font" />
+                    <input id="certDate" value="${esc(d.issueDate)}" oninput="syncCertDraft()" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" />
                   </div>
                 </div>
                 <div>
@@ -1379,7 +1382,7 @@
                 ${certs.map((c) => `
                   <button onclick="selectCert(${c.id})" class="w-full text-right p-4 transition-colors cursor-pointer ${sel && sel.id === c.id ? 'bg-teal-50/75' : 'hover:bg-slate-50'}">
                     <div class="font-bold text-sm text-slate-900">${esc(c.recipientName)}</div>
-                    <div class="text-xs text-slate-500 mt-1">${esc(c.certificateType)} · <span class="english-date-font">${esc(toEnDigits(c.issueDate))}</span></div>
+                    <div class="text-xs text-slate-500 mt-1">${esc(c.certificateType)} · ${fmtCertDate(c.issueDate)}</div>
                   </button>
                 `).join('')}
               </div>
@@ -1662,7 +1665,7 @@
 
     window.selectReport = (id) => { state.selectedReportId = id; render(); };
     window.toEngDigits = (v) => String(v || '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-    window.formatEngDateHtml = (v) => toEngDigits(v || '—').split(/([0-9]+(?:[\/\-.:][0-9]+)*)/g).map((part) => (/^[0-9]+(?:[\/\-.:][0-9]+)*$/.test(part) ? `<span class="english-date-font">${esc(part)}</span>` : esc(part))).join('');
+    window.formatEngDateHtml = (v) => toEngDigits(v || '—').split(/([0-9]+(?:[\/\-.:][0-9]+)*)/g).filter(Boolean).map((part) => (/^[0-9]+(?:[\/\-.:][0-9]+)*$/.test(part) ? `<span class="english-date-font font-medium" dir="ltr">${esc(part)}</span>` : `<span class="report-kufi-font font-medium">${esc(part)}</span>`)).join('');
     window.syncRepDraft = (k, v) => { state.reportDraft[k] = k === 'executionDate' ? toEngDigits(v) : v; };
     window.toggleRepAdvanced = () => { state.showRepAdvanced = !state.showRepAdvanced; render(); };
     window.toggleReportBuilder = () => {
@@ -2408,7 +2411,7 @@
         s.id = 'cert-landscape-print';
         document.head.appendChild(s);
       }
-      s.textContent = '@page { size: A4 landscape; margin: 6mm; }';
+      s.textContent = '@media print { @page { size: A4 landscape; margin: 4mm; } }';
       const cleanup = () => { if (s) s.textContent = ''; window.removeEventListener('afterprint', cleanup); };
       window.addEventListener('afterprint', cleanup);
       window.print();
