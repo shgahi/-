@@ -200,6 +200,39 @@
       royal_navy: { label: 'الأزرق الملكي والفضي', outer: 'border-[#1e3a5f]', inner: 'border-[#3b82f6]', header: 'from-[#10233d] via-[#1e3a5f] to-[#1d4e89]', title: 'text-[#1e3a5f]', badge: 'bg-sky-50 text-sky-900 border-sky-200', line: 'from-[#1e3a5f] via-[#60a5fa] to-[#1e3a5f]', seal: 'border-[#1e3a5f] text-[#1e3a5f]' },
       classic_brass: { label: 'الكلاسيكي الذهبي', outer: 'border-[#8a6510]', inner: 'border-[#d4af37]', header: 'from-[#3a2a07] via-[#6e500f] to-[#8a6510]', title: 'text-[#6e500f]', badge: 'bg-amber-50 text-amber-950 border-amber-300', line: 'from-[#6e500f] via-[#d4af37] to-[#6e500f]', seal: 'border-[#8a6510] text-[#6e500f]' },
     };
+    const BADGE_TONE_CLASSES = {
+      emerald: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      gold: 'bg-[#fdf6e2] text-[#8a6510] border-[#e6cf8b]',
+      sky: 'bg-sky-50 text-sky-800 border-sky-200',
+      indigo: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+      teal: 'bg-teal-50 text-teal-800 border-teal-200',
+      rose: 'bg-rose-50 text-rose-800 border-rose-200',
+    };
+    const BADGE_PRESETS = [
+      { key: 'volunteer', label: 'المتطوع', description: 'للمبادرات التطوعية وخدمة المدرسة والزملاء', tone: 'emerald', icon: 'heart' },
+      { key: 'creator', label: 'المبدع', description: 'للأفكار الإبداعية والتميز الفني والتنظيمي', tone: 'gold', icon: 'sparkles' },
+      { key: 'broadcast_reader', label: 'قارئ الإذاعة', description: 'للإلقاء المميز في الإذاعة المدرسية الصباحية', tone: 'sky', icon: 'mic' },
+      { key: 'leader', label: 'القائد المتميز', description: 'للقيادة الفاعلة والقدوة الإيجابية في اللجان', tone: 'indigo', icon: 'crown' },
+      { key: 'disciplined', label: 'المثالي المنضبط', description: 'للالتزام الكامل والانضباط طوال الفصل', tone: 'teal', icon: 'shield' },
+      { key: 'star_writer', label: 'المثقف والكاتب', description: 'للمشاركات الثقافية وإعداد المحتوى المميز', tone: 'rose', icon: 'book' },
+    ];
+    function badgeSvg(icon) {
+      const paths = {
+        heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+        sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+        mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
+        crown: '<path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/>',
+        shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+        book: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+        star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+      };
+      return `<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[icon] || paths.star}</svg>`;
+    }
+    function renderBadgeChip(b, canRemove, studentId, studentName) {
+      const cls = BADGE_TONE_CLASSES[b.tone] || BADGE_TONE_CLASSES.emerald;
+      const title = b.awardedByName ? `ممنوحة من: ${b.awardedByName} (${b.awardedAt || ''})` : b.label;
+      return `<span title="${esc(title)}" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11px] font-semibold whitespace-nowrap ${cls}">${badgeSvg(b.icon)}<span>${esc(b.label)}</span>${canRemove ? `<button type="button" onclick="event.stopPropagation(); revokeStudentBadge(${studentId}, '${esc(studentName)}', '${esc(b.id)}', '${esc(b.label)}')" class="mr-0.5 rounded-full px-1 hover:bg-black/10 cursor-pointer font-bold" aria-label="إزالة الشارة">×</button>` : ''}</span>`;
+    }
     const toEnDigits = (s) => String(s ?? '').replace(/[٠-٩]/g, (c) => '٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[۰-۹]/g, (c) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(c));
     function defaultHijriDate() {
       try {
@@ -233,7 +266,10 @@
       tab: 'overview',
       reportTab: 'evidence',
       subTab: 'achievements',
-      data: { users: [], activities: [], broadcasts: [], disciplineLogs: [], directives: [], submissions: [], complaints: [], suggestions: [], programReports: [], certificates: [] },
+      data: { users: [], activities: [], broadcasts: [], disciplineLogs: [], directives: [], submissions: [], complaints: [], suggestions: [], programReports: [], certificates: [], leaderboard: { entries: [], myRank: null, totalRanked: 0, updatedAt: '' } },
+      lbUnit: 'all',
+      lbSearch: '',
+      awardModalStudentId: null,
       wheelUnitFilter: 'all',
       wheelDisabledIds: [],
       wheelExcludeWinners: true,
@@ -265,6 +301,7 @@
       editingReportId: null,
       reportDraft: {
         schoolName: 'مدرسة الحديبية المتوسطة',
+        departmentName: 'النشاط الطلابي',
         title: '',
         field: '',
         executors: '',
@@ -397,6 +434,7 @@
       if (isMgmt(user.role)) {
         return [
           { id: 'overview', label: 'لوحة القيادة' },
+          { id: 'leaderboard', label: 'لوحة الترتيب' },
           { id: 'reports', label: 'التقارير' },
           { id: 'wheel', label: 'عجلة الأسماء' },
           { id: 'certificates', label: 'الشهادات' },
@@ -407,6 +445,7 @@
       }
       return [
         { id: 'member_stats', label: 'إحصائياتي' },
+        { id: 'leaderboard', label: 'لوحة الترتيب' },
         { id: 'member_achievements', label: 'تقديم إنجاز' },
         { id: 'member_complaints', label: 'تقديم شكوى' },
         { id: 'member_suggestions', label: 'الاقتراحات' },
@@ -513,10 +552,11 @@
                     <h3 class="text-sm font-bold">${state.editingReportId ? 'تعديل التقرير والشواهد' : 'إنشاء تقرير برنامج جديد (4 شواهد)'}</h3>
                     <button type="button" onclick="generateReportDraft()" class="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer">توليد المجال والخطوات والأهداف بالذكاء الاصطناعي</button>
                   </div>
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div><label class="block text-xs font-semibold text-slate-700 mb-1">اسم البرنامج *</label><input id="repTitle" required value="${esc(d.title)}" oninput="syncRepDraft('title', this.value)" placeholder="مثال: البراكين" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
                     <div><label class="block text-xs font-semibold text-slate-700 mb-1">المنفذ / ين *</label><input id="repExec" required value="${esc(d.executors)}" oninput="syncRepDraft('executors', this.value)" placeholder="الأستاذ / ..." class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
                     <div><label class="block text-xs font-semibold text-slate-700 mb-1">تاريخ التنفيذ *</label><input id="repDate" required value="${esc(toEngDigits(d.executionDate))}" oninput="syncRepDraft('executionDate', this.value)" placeholder="1448/05/04هـ" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">القسم (تحت محافظة جدة)</label><input id="repDept" value="${esc(d.departmentName ?? 'النشاط الطلابي')}" oninput="syncRepDraft('departmentName', this.value)" placeholder="النشاط الطلابي" class="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm" /></div>
                   </div>
                   <div class="space-y-2">
                     <div class="flex items-center justify-between"><span class="text-xs font-semibold text-slate-700">الشواهد المصورة (بحد أقصى 4 صور مرتبة في شبكة 2×2)</span><span class="text-xs font-mono text-slate-500">${Math.min(4, d.images.length)}/4 شواهد</span></div>
@@ -578,7 +618,7 @@
                           <div class="text-right text-[14px] print:text-[13px] font-medium leading-[1.6]">
                             <div>الإدارة العامة للتعليم</div>
                             <div>بمحافظة جدة</div>
-                            <div>النشاط الطلابي</div>
+                            <div>${esc(selRep.departmentName || 'النشاط الطلابي')}</div>
                           </div>
                         </div>
                         <div class="absolute left-1/2 -translate-x-1/2 -bottom-3.5 z-10 bg-[#24364d] text-white px-16 sm:px-24 py-1.5 print:py-1 rounded-xl text-[14px] sm:text-[15px] font-medium shadow-md whitespace-nowrap border border-white/10">${esc(selRep.schoolName || 'مدرسة الحديبية المتوسطة')}</div>
@@ -849,6 +889,7 @@
                       <td class="py-3 px-4">
                         <div class="font-semibold">${esc(u.fullName)}${!u.isActive ? ' <span class="text-xs text-red-700">· موقوف</span>' : ''}</div>
                         <div class="text-xs text-slate-500">${esc(u.gradeOrDept || u.memberCode)}${permCnt > 0 ? ` · <span class="text-teal-800">${permCnt} صلاحيات</span>` : ''}</div>
+                        ${(u.badges || []).length > 0 ? `<div class="flex flex-wrap gap-1 mt-1.5">${u.badges.map((b) => renderBadgeChip(b, false)).join('')}</div>` : ''}
                       </td>
                       <td class="py-3 px-4">
                         ${canControlTarget ? `
@@ -973,6 +1014,7 @@
               <div class="luxury-card luxury-card-interactive p-5"><div class="text-xs text-slate-500">إنجازات مقبولة</div><div class="text-3xl font-bold text-emerald-700 font-mono tabular-nums mt-2">${approvedCnt}</div></div>
               <div class="luxury-card luxury-card-interactive p-5"><div class="text-xs text-slate-500">شهاداتي الممنوحة</div><div class="text-3xl font-bold text-brass-600 font-mono tabular-nums mt-2">${myCerts.length}</div></div>
             </div>
+            <div id="memberRankSummary" class="no-print">${renderMemberRankCard()}</div>
             ${myCerts.length > 0 ? `
               <section class="luxury-card p-6 space-y-4 print-reset">
                 <div class="flex flex-wrap items-center justify-between gap-2 no-print">
@@ -1405,9 +1447,244 @@
       `;
     }
 
+    function renderMemberRankCard() {
+      const lb = state.data.leaderboard || { entries: [], myRank: null, totalRanked: 0 };
+      const myBadges = state.user?.badges || [];
+      return `
+        <section class="luxury-card p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="font-bold text-sm text-slate-900">ترتيبي المباشر وشاراتي الشرفية</h3>
+              <p class="text-xs text-slate-500 mt-0.5">${lb.myRank ? `أنت حالياً في المركز #${lb.myRank} من أصل ${lb.totalRanked} طالب برصيد ${state.user.points} نقطة` : 'يتحدث الترتيب مباشرة مع كل نقطة أو إنجاز معتمد'}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              ${lb.myRank ? `<span class="px-3 py-1 rounded-xl bg-teal-50 border border-teal-200 text-xs font-bold text-teal-900 font-mono tabular-nums">المركز #${lb.myRank}</span>` : ''}
+              <span class="px-3 py-1 rounded-xl bg-[#fdf6e2] border border-[#e6cf8b] text-xs font-bold text-[#8a6510] font-mono tabular-nums">${myBadges.length} شارات</span>
+            </div>
+          </div>
+          <div class="pt-3 border-t border-slate-100">
+            <div class="text-xs font-semibold text-slate-600 mb-2">شاراتي الممنوحة:</div>
+            ${myBadges.length === 0 ? `<p class="text-xs text-slate-400">لم تُمنح لك شارات بعد — شارك في الإذاعة والتطوع والأنشطة لتحصل على أوسمة التميز من الإدارة.</p>` : `<div class="flex flex-wrap gap-2">${myBadges.map((b) => renderBadgeChip(b, false)).join('')}</div>`}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderLeaderboardLiveBody() {
+      const lb = state.data.leaderboard || { entries: [], myRank: null, totalRanked: 0, updatedAt: '' };
+      const entries = lb.entries || [];
+      const mgmt = isMgmt(state.user.role);
+      const q = (state.lbSearch || '').trim().toLowerCase();
+      const filtered = entries.filter((item) => {
+        if (state.lbUnit !== 'all' && item.unit !== state.lbUnit) return false;
+        if (q) {
+          return (
+            String(item.fullName || '').toLowerCase().includes(q) ||
+            String(item.memberCode || '').toLowerCase().includes(q) ||
+            String(item.gradeOrDept || '').toLowerCase().includes(q) ||
+            (item.badges || []).some((b) => String(b.label || '').toLowerCase().includes(q))
+          );
+        }
+        return true;
+      });
+      const top3 = filtered.slice(0, 3);
+      if (filtered.length === 0) {
+        return `<div class="luxury-card p-10 text-center text-sm text-slate-500">لا يوجد طلاب مطابقون للبحث أو التصنيف المحدد حالياً.</div>`;
+      }
+      const podiumStyles = [
+        { card: 'border-[#e2c675] bg-gradient-to-b from-[#fdf8eb]/80 to-white', pill: 'bg-[#fdf6e2] text-[#8a6510] border-[#e6cf8b]', label: 'المركز الأول' },
+        { card: 'border-slate-300 bg-gradient-to-b from-slate-50/90 to-white', pill: 'bg-slate-100 text-slate-800 border-slate-300', label: 'المركز الثاني' },
+        { card: 'border-amber-200 bg-gradient-to-b from-amber-50/50 to-white', pill: 'bg-amber-50 text-amber-800 border-amber-200', label: 'المركز الثالث' },
+      ];
+      return `
+        <div class="space-y-5">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            ${top3.map((e, i) => {
+              const st = podiumStyles[i];
+              const isMe = e.id === state.user.id;
+              return `
+                <article class="rounded-2xl border p-5 space-y-3.5 ${st.card} ${isMe ? 'ring-2 ring-teal-700/40' : ''}">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="px-2.5 py-1 rounded-lg border text-xs font-bold ${st.pill}">${st.label}</span>
+                    <span class="text-2xl font-extrabold font-mono tabular-nums text-teal-800">${e.points} <span class="text-[11px] font-sans font-medium text-slate-500">نقطة</span></span>
+                  </div>
+                  <div>
+                    <div class="font-bold text-sm text-slate-900">${esc(e.fullName)} ${isMe ? '<span class="text-[11px] text-teal-700">(أنت)</span>' : ''}</div>
+                    <div class="text-xs text-slate-500 mt-0.5">${esc(UNIT_LABELS[e.unit] || e.unit)}${e.gradeOrDept ? ' · ' + esc(e.gradeOrDept) : ''}</div>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5 min-h-[1.5rem]">
+                    ${(e.badges || []).length ? e.badges.map((b) => renderBadgeChip(b, mgmt, e.id, e.fullName)).join('') : '<span class="text-[11px] text-slate-400">لا توجد شارات بعد</span>'}
+                  </div>
+                  <div class="pt-2 border-t border-slate-200/70 flex items-center justify-between text-xs text-slate-500">
+                    <span>الإنجازات المقبولة: <b class="font-mono tabular-nums text-slate-800">${e.approvedCount || 0}</b></span>
+                    ${mgmt ? `<button type="button" onclick="openAwardBadgeModal(${e.id})" class="text-teal-800 hover:underline font-bold cursor-pointer">+ منح شارة</button>` : ''}
+                  </div>
+                </article>
+              `;
+            }).join('')}
+          </div>
+
+          <section class="luxury-card overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-900">جدول الترتيب الكامل</h3>
+              <span class="text-xs font-bold text-teal-800 font-mono tabular-nums">${filtered.length} طالب</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-right text-sm">
+                <thead class="bg-slate-50/80 text-xs text-slate-500 border-b border-slate-200/80">
+                  <tr>
+                    <th class="py-3 px-4 w-20">الترتيب</th>
+                    <th class="py-3 px-4">الطالب</th>
+                    <th class="py-3 px-4">اللجنة</th>
+                    <th class="py-3 px-4">الشارات الممنوحة</th>
+                    <th class="py-3 px-4">الإنجازات</th>
+                    <th class="py-3 px-4">النقاط</th>
+                    ${mgmt ? '<th class="py-3 px-4">إدارة الشارات</th>' : ''}
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/70">
+                  ${filtered.map((e) => {
+                    const isMe = e.id === state.user.id;
+                    return `
+                      <tr class="${isMe ? 'bg-teal-50/55' : 'hover:bg-slate-50/80'}">
+                        <td class="py-3 px-4 font-mono tabular-nums font-bold text-slate-800">#${e.rank}</td>
+                        <td class="py-3 px-4">
+                          <div class="font-semibold text-slate-900">${esc(e.fullName)} ${isMe ? '<span class="text-[11px] text-teal-800 font-bold">(أنت)</span>' : ''}</div>
+                          <div class="text-xs text-slate-500">${esc(e.gradeOrDept || e.memberCode)}</div>
+                        </td>
+                        <td class="py-3 px-4 text-xs text-slate-600">${esc(UNIT_LABELS[e.unit] || e.unit)}</td>
+                        <td class="py-3 px-4">
+                          ${(e.badges || []).length ? `<div class="flex flex-wrap gap-1">${e.badges.map((b) => renderBadgeChip(b, mgmt, e.id, e.fullName)).join('')}</div>` : '<span class="text-xs text-slate-400">—</span>'}
+                        </td>
+                        <td class="py-3 px-4 font-mono tabular-nums text-xs font-semibold">${e.approvedCount || 0}</td>
+                        <td class="py-3 px-4 font-mono tabular-nums font-bold text-teal-800">${e.points}</td>
+                        ${mgmt ? `<td class="py-3 px-4 whitespace-nowrap"><button type="button" onclick="openAwardBadgeModal(${e.id})" class="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-teal-50 hover:text-teal-900 text-xs font-semibold cursor-pointer">+ منح شارة</button></td>` : ''}
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      `;
+    }
+
+    function renderLeaderboard() {
+      const lb = state.data.leaderboard || { entries: [], myRank: null, totalRanked: 0, updatedAt: '' };
+      const mgmt = isMgmt(state.user.role);
+      const syncTime = lb.updatedAt ? new Date(lb.updatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+      const units = [
+        { id: 'all', label: 'جميع الأقسام' },
+        { id: 'activity_1', label: 'النشاط الأول' },
+        { id: 'activity_2', label: 'النشاط الثاني' },
+        { id: 'broadcast', label: 'الإذاعة المدرسية' },
+        { id: 'general', label: 'النشاط العام' },
+      ];
+      return `
+        <div class="space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-bold text-slate-900">لوحة الترتيب المباشرة والشارات</h2>
+              <p class="text-sm text-slate-500 mt-0.5">تحديث تلقائي مباشر لترتيب الطلاب حسب النقاط والإنجازات المعتمدة والشارات الشرفية</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-600 font-mono tabular-nums">آخر تحديث: <b id="lbSyncTime" dir="ltr" class="text-slate-900">${esc(syncTime)}</b></span>
+              <button type="button" onclick="refreshLeaderboardNow()" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold cursor-pointer">تحديث الآن</button>
+              ${mgmt && (lb.entries || []).length > 0 ? `<button type="button" onclick="openAwardBadgeModal(${lb.entries[0].id})" class="px-4 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">+ منح شارة لطالب</button>` : ''}
+            </div>
+          </div>
+          ${!mgmt ? `<div id="lbMyRankStrip">${lb.myRank ? renderMemberRankCard() : ''}</div>` : ''}
+          <div class="luxury-card px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <input id="lbSearchInput" type="text" value="${esc(state.lbSearch)}" oninput="setLbSearch(this.value)" placeholder="بحث باسم الطالب أو الشارة..." class="w-full md:max-w-xs h-9 px-3 rounded-lg border border-slate-200 bg-slate-50/70 text-xs" />
+            <div class="flex flex-wrap gap-1.5">
+              ${units.map((u) => `<button type="button" onclick="setLbUnit('${u.id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${state.lbUnit === u.id ? 'bg-teal-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'}">${esc(u.label)}</button>`).join('')}
+            </div>
+          </div>
+          <div id="leaderboardLiveContainer">${renderLeaderboardLiveBody()}</div>
+        </div>
+      `;
+    }
+
     function renderModalRoot() {
       const mroot = document.getElementById('modal-root');
       const modals = [];
+
+      if (state.awardModalStudentId && isMgmt(state.user?.role)) {
+        const entries = (state.data.leaderboard?.entries || []);
+        const st = entries.find((e) => e.id === state.awardModalStudentId) || entries[0];
+        if (st) {
+          modals.push(`
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 backdrop-blur-xs p-4 overflow-y-auto animate-backdrop-enter" onclick="closeAwardBadgeModal()">
+              <div onclick="event.stopPropagation()" class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-6 space-y-4 my-8 shadow-2xl animate-modal-enter">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 class="text-lg font-bold">منح شارة شرفية للطالب</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">اختر الطالب ثم اضغط على أي شارة جاهزة أو أصدر شارة مخصصة</p>
+                  </div>
+                  <button type="button" onclick="closeAwardBadgeModal()" class="px-2.5 py-1 rounded-lg text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">إغلاق</button>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">الطالب المستهدف</label>
+                  <select id="lbTargetStudent" onchange="state.awardModalStudentId = Number(this.value); renderModalRoot();" class="w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm font-semibold">
+                    ${entries.map((item) => `<option value="${item.id}" ${item.id === st.id ? 'selected' : ''}>#${item.rank} · ${esc(item.fullName)} (${esc(UNIT_LABELS[item.unit] || item.unit)} — ${item.points} نقطة)</option>`).join('')}
+                  </select>
+                </div>
+                ${(st.badges || []).length > 0 ? `
+                  <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                    <div class="text-xs font-semibold text-slate-600">الشارات الحالية للطالب ${esc(st.fullName)}:</div>
+                    <div class="flex flex-wrap gap-1.5">${st.badges.map((b) => renderBadgeChip(b, true, st.id, st.fullName)).join('')}</div>
+                  </div>
+                ` : ''}
+                <div class="space-y-2">
+                  <div class="text-xs font-bold text-slate-800">الشارات المعتمدة (ضغطة واحدة للمنح)</div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    ${BADGE_PRESETS.map((p, idx) => {
+                      const hasIt = (st.badges || []).some((b) => b.key === p.key || b.label === p.label);
+                      return `
+                        <button type="button" ${hasIt ? 'disabled' : ''} onclick="awardPresetBadge(${st.id}, ${idx})" class="text-right p-3 rounded-xl border flex items-center justify-between gap-2 ${hasIt ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed' : 'border-slate-200 bg-white hover:border-teal-700 hover:bg-teal-50/40 cursor-pointer'}">
+                          <div class="space-y-1 min-w-0">
+                            ${renderBadgeChip({ id: p.key, key: p.key, label: p.label, tone: p.tone, icon: p.icon }, false)}
+                            <div class="text-[11px] text-slate-500 truncate">${esc(p.description)}</div>
+                          </div>
+                          <span class="text-xs font-bold text-teal-800 shrink-0">${hasIt ? 'ممنوحة' : 'منح'}</span>
+                        </button>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+                <form onsubmit="awardCustomBadge(event, ${st.id})" class="pt-3 border-t border-slate-100 space-y-2.5">
+                  <div class="text-xs font-bold text-slate-800">أو إصدار شارة مخصصة</div>
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input id="customBadgeLabel" required placeholder="اسم الشارة (مثال: سفير النظافة)" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
+                    <select id="customBadgeTone" class="h-10 px-3 rounded-xl border border-slate-300 bg-white text-xs font-semibold">
+                      <option value="emerald">أخضر (التطوع والتميز)</option>
+                      <option value="gold">ذهبي (الإبداع)</option>
+                      <option value="sky">سماوي (الإذاعة والإلقاء)</option>
+                      <option value="indigo">نيلي (القيادة)</option>
+                      <option value="teal">زمردي (الانضباط)</option>
+                      <option value="rose">عنابي (الثقافة والكتابة)</option>
+                    </select>
+                    <select id="customBadgeIcon" class="h-10 px-3 rounded-xl border border-slate-300 bg-white text-xs font-semibold">
+                      <option value="star">نجمة التميز</option>
+                      <option value="heart">تطوع ومبادرة</option>
+                      <option value="sparkles">إبداع</option>
+                      <option value="mic">إذاعة وإلقاء</option>
+                      <option value="crown">قيادة</option>
+                      <option value="shield">انضباط</option>
+                      <option value="book">ثقافة وكتابة</option>
+                    </select>
+                  </div>
+                  <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeAwardBadgeModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold cursor-pointer">إغلاق</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer">+ منح الشارة المخصصة</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          `);
+        }
+      }
 
       if (state.editingUserId) {
         const u = state.data.users.find((x) => x.id === state.editingUserId);
@@ -1559,6 +1836,7 @@
       const nav = navItemsFor(state.user);
       let body = '';
       if (state.tab === 'overview') body = renderOverview();
+      else if (state.tab === 'leaderboard') body = renderLeaderboard();
       else if (state.tab === 'reports') body = renderReports();
       else if (state.tab === 'wheel') body = renderWheel();
       else if (state.tab === 'certificates') body = renderCertificates();
@@ -1673,7 +1951,7 @@
       if (!state.showReportBuilder) {
         state.editingReportId = null;
         state.showRepAdvanced = false;
-        state.reportDraft = { ...state.reportDraft, title: '', field: '', beneficiariesCount: '', stepsText: '', objectivesText: '', images: [] };
+        state.reportDraft = { ...state.reportDraft, departmentName: 'النشاط الطلابي', title: '', field: '', beneficiariesCount: '', stepsText: '', objectivesText: '', images: [] };
       }
       render();
     };
@@ -1740,6 +2018,7 @@
       state.showRepAdvanced = true;
       state.reportDraft = {
         schoolName: rep.schoolName || 'مدرسة الحديبية المتوسطة',
+        departmentName: rep.departmentName || 'النشاط الطلابي',
         title: rep.title, field: rep.field, executors: rep.executors,
         executionDate: rep.executionDate, beneficiaries: rep.beneficiaries, beneficiariesCount: rep.beneficiariesCount,
         stepsText: (rep.steps || []).join('\n'), objectivesText: (rep.objectives || []).join('\n'),
@@ -1770,6 +2049,7 @@
       if (!ok) return;
       const payload = {
         schoolName: d.schoolName.trim() || 'مدرسة الحديبية المتوسطة',
+        departmentName: (d.departmentName || '').trim() || 'النشاط الطلابي',
         title: d.title.trim(), field: field,
         executors: d.executors.trim(), executionDate: d.executionDate.trim(),
         beneficiaries: d.beneficiaries.trim() || 'الطلاب', beneficiariesCount: count || 'اقل من 70 طالب',
@@ -1784,7 +2064,7 @@
           ? await api('/api/reports/' + editId, { method: 'PATCH', body: JSON.stringify(payload) })
           : await api('/api/reports', { method: 'POST', body: JSON.stringify(payload) });
         state.selectedReportId = res.report.id;
-        state.reportDraft = { ...state.reportDraft, title: '', field: '', beneficiariesCount: '', stepsText: '', objectivesText: '', images: [] };
+        state.reportDraft = { ...state.reportDraft, departmentName: 'النشاط الطلابي', title: '', field: '', beneficiariesCount: '', stepsText: '', objectivesText: '', images: [] };
       }, editId ? 'تم تحديث التقرير بنجاح' : 'تم إنشاء التقرير وحفظه بنجاح');
     };
     window.deleteProgramReport = async (id, title) => {
@@ -2416,6 +2696,108 @@
       window.addEventListener('afterprint', cleanup);
       window.print();
     };
+
+    window.setLbUnit = (u) => {
+      state.lbUnit = u;
+      render();
+    };
+    window.setLbSearch = (val) => {
+      state.lbSearch = val;
+      const box = document.getElementById('leaderboardLiveContainer');
+      if (box) box.innerHTML = renderLeaderboardLiveBody();
+    };
+    async function pollLeaderboardSilently(showFeedback = false) {
+      if (!state.user || !getToken()) return;
+      try {
+        const lb = await api('/api/leaderboard');
+        state.data.leaderboard = lb;
+        const mine = (lb.entries || []).find((e) => e.id === state.user.id);
+        if (mine) {
+          state.user.points = mine.points;
+          state.user.badges = mine.badges || [];
+        }
+        const liveBox = document.getElementById('leaderboardLiveContainer');
+        if (liveBox) liveBox.innerHTML = renderLeaderboardLiveBody();
+        const syncEl = document.getElementById('lbSyncTime');
+        if (syncEl && lb.updatedAt) {
+          syncEl.textContent = new Date(lb.updatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        const rankStrip = document.getElementById('lbMyRankStrip');
+        if (rankStrip) rankStrip.innerHTML = lb.myRank ? renderMemberRankCard() : '';
+        const portalRank = document.getElementById('memberRankSummary');
+        if (portalRank) portalRank.innerHTML = renderMemberRankCard();
+        if (showFeedback) {
+          state.okMsg = 'تم تحديث لوحة الترتيب مباشرة';
+          render();
+        }
+      } catch (err) {
+        if (showFeedback) {
+          state.error = err.message;
+          render();
+        }
+      }
+    }
+    window.refreshLeaderboardNow = () => pollLeaderboardSilently(true);
+    window.openAwardBadgeModal = (studentId) => {
+      state.awardModalStudentId = studentId;
+      renderModalRoot();
+    };
+    window.closeAwardBadgeModal = () => {
+      state.awardModalStudentId = null;
+      renderModalRoot();
+    };
+    window.awardPresetBadge = async (studentId, presetIdx) => {
+      const p = BADGE_PRESETS[presetIdx];
+      if (!p) return;
+      try {
+        await api('/api/users/' + studentId + '/badges', {
+          method: 'POST',
+          body: JSON.stringify({ key: p.key, label: p.label, tone: p.tone, icon: p.icon }),
+        });
+        state.okMsg = 'تم منح شارة «' + p.label + '» للطالب بنجاح';
+        await refreshWorkspace();
+        renderModalRoot();
+      } catch (err) {
+        state.error = err.message;
+        render();
+      }
+    };
+    window.awardCustomBadge = async (e, studentId) => {
+      e.preventDefault();
+      const label = (document.getElementById('customBadgeLabel')?.value || '').trim();
+      const tone = document.getElementById('customBadgeTone')?.value || 'emerald';
+      const icon = document.getElementById('customBadgeIcon')?.value || 'star';
+      if (!label) return;
+      try {
+        await api('/api/users/' + studentId + '/badges', {
+          method: 'POST',
+          body: JSON.stringify({ label, tone, icon }),
+        });
+        state.okMsg = 'تم منح شارة «' + label + '» للطالب بنجاح';
+        await refreshWorkspace();
+        renderModalRoot();
+      } catch (err) {
+        state.error = err.message;
+        render();
+      }
+    };
+    window.revokeStudentBadge = async (studentId, studentName, badgeId, badgeLabel) => {
+      const ok = await openConfirm({
+        title: 'إزالة شارة الطالب',
+        message: `هل تريد إزالة شارة «${badgeLabel}» من سجل الطالب ${studentName}؟`,
+        confirmLabel: 'نعم، إزالة الشارة',
+        tone: 'amber',
+      });
+      if (!ok) return;
+      await runAction(() => api('/api/users/' + studentId + '/badges/' + encodeURIComponent(badgeId), { method: 'DELETE' }), 'تمت إزالة الشارة');
+      renderModalRoot();
+    };
+
+    setInterval(() => {
+      if (state.user && (state.tab === 'leaderboard' || state.tab === 'member_stats') && !state.confirmOpts) {
+        pollLeaderboardSilently(false);
+      }
+    }, 5000);
 
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && state.confirmOpts) window.resolveConfirm(false);

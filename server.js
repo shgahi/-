@@ -57,6 +57,51 @@ const sanitizePermissions = (input) => {
   return input.filter((p) => ALL_PERMISSIONS.includes(p));
 };
 
+const ALLOWED_BADGE_TONES = ['emerald', 'gold', 'sky', 'indigo', 'teal', 'rose'];
+const ALLOWED_BADGE_ICONS = ['star', 'heart', 'sparkles', 'mic', 'crown', 'shield', 'book'];
+function parseBadgesJson(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+function computeLeaderboard(users, submissions) {
+  const approvedCounts = new Map();
+  for (const s of submissions || []) {
+    if (s.status === 'approved') {
+      const sid = Number(s.studentId ?? s.student_id);
+      approvedCounts.set(sid, (approvedCounts.get(sid) || 0) + 1);
+    }
+  }
+  const ranked = (users || [])
+    .filter((u) => !isMgmt(u.role) && Boolean(u.isActive ?? u.is_active ?? true))
+    .sort((a, b) => {
+      const ptsDiff = Number(b.points || 0) - Number(a.points || 0);
+      if (ptsDiff !== 0) return ptsDiff;
+      const appDiff = (approvedCounts.get(b.id) || 0) - (approvedCounts.get(a.id) || 0);
+      if (appDiff !== 0) return appDiff;
+      return a.id - b.id;
+    });
+  return ranked.map((u, idx) => ({
+    id: u.id,
+    rank: idx + 1,
+    fullName: u.fullName ?? u.full_name,
+    memberCode: u.memberCode ?? u.member_code,
+    role: u.role,
+    unit: u.unit,
+    gradeOrDept: u.gradeOrDept ?? u.grade_or_dept ?? '',
+    points: Number(u.points || 0),
+    approvedCount: approvedCounts.get(u.id) || 0,
+    badges: parseBadgesJson(u.badges ?? u.badges_json),
+  }));
+}
+
 // ===== الشهادات — الدوال والمسارات =====
 const ALLOWED_CERT_TEMPLATES = ['emerald_gold', 'royal_navy', 'classic_brass'];
 const mapCertificate = (r) => ({
@@ -376,6 +421,7 @@ function createInitialData() {
         points: 100,
         isActive: true,
         permissions: [...ALL_PERMISSIONS],
+        badges: [],
         createdAt: now,
       },
       {
@@ -392,6 +438,7 @@ function createInitialData() {
         points: 96,
         isActive: true,
         permissions: [...ALL_PERMISSIONS],
+        badges: [],
         createdAt: now,
       },
     ],
@@ -474,7 +521,13 @@ function readLocal() {
     fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2), 'utf8');
     return initial;
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  const parsed = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  parsed.users = (parsed.users || []).map((u) => ({ ...u, badges: parseBadgesJson(u.badges) }));
+  parsed.programReports = (parsed.programReports || []).map((r) => ({
+    ...r,
+    departmentName: r.departmentName || 'النشاط الطلابي',
+  }));
+  return parsed;
 }
 
 function writeLocal(data) {
@@ -505,9 +558,11 @@ async function ensureReady() {
           points INTEGER NOT NULL DEFAULT 0,
           is_active BOOLEAN NOT NULL DEFAULT TRUE,
           permissions JSONB,
+          badges_json TEXT NOT NULL DEFAULT '[]',
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS badges_json TEXT NOT NULL DEFAULT '[]';
         CREATE TABLE IF NOT EXISTS activities (
           id SERIAL PRIMARY KEY,
           title TEXT NOT NULL,
@@ -597,6 +652,7 @@ async function ensureReady() {
         CREATE TABLE IF NOT EXISTS program_reports (
           id SERIAL PRIMARY KEY,
           school_name TEXT NOT NULL DEFAULT 'مدرسة الحديبية المتوسطة',
+          department_name TEXT NOT NULL DEFAULT 'النشاط الطلابي',
           title TEXT NOT NULL,
           field TEXT NOT NULL DEFAULT 'النشاط الطلابي',
           executors TEXT NOT NULL,
@@ -610,6 +666,7 @@ async function ensureReady() {
           created_by_name TEXT NOT NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE program_reports ADD COLUMN IF NOT EXISTS department_name TEXT NOT NULL DEFAULT 'النشاط الطلابي';
         CREATE TABLE IF NOT EXISTS certificates (
           id SERIAL PRIMARY KEY,
           student_id INTEGER,
@@ -681,6 +738,7 @@ const mapUser = (r) => ({
   permissions: Array.isArray(r.permissions)
     ? r.permissions
     : DEFAULT_ROLE_PERMISSIONS[r.role] || [],
+  badges: parseBadgesJson(r.badges_json ?? r.badges),
   createdAt: new Date(r.created_at).toISOString(),
 });
 
@@ -688,6 +746,7 @@ const sanitizeUser = (u, viewer = null) => {
   const { passwordHash: _, ...rest } = u;
   const pub = {
     ...rest,
+    badges: parseBadgesJson(u.badges),
     permissions:
       isSupremePresident(u)
         ? [...ALL_PERMISSIONS]
@@ -802,6 +861,8 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
     if (!isNeon) {
       const db = readLocal();
       const visibleUsers = canSeeUsers ? db.users : db.users.filter((u) => u.id === viewer.id);
+      const leaderboard = computeLeaderboard(db.users, db.submissions || []);
+      const myRank = leaderboard.find((e) => e.id === viewer.id)?.rank ?? null;
       return res.json({
         users: visibleUsers.map((u) => sanitizeUser(u, viewer)),
         activities: db.activities,
@@ -813,10 +874,11 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
         suggestions: canReviewSubs ? db.suggestions : db.suggestions.filter((s) => s.studentId === viewer.id),
         programReports: canSeeReports ? (db.programReports || []) : [],
         certificates: isMgmt(viewer.role) ? (db.certificates || []) : (db.certificates || []).filter((c) => c.studentId === viewer.id),
+        leaderboard: { entries: leaderboard, myRank, totalRanked: leaderboard.length, updatedAt: new Date().toISOString() },
       });
     }
     const p = getPool();
-    const [uR, aR, bR, disR, dirR, subR, cmpR, sugR, repR, certR] = await Promise.all([
+    const [uR, aR, bR, disR, dirR, subR, cmpR, sugR, repR, certR, lbUR, lbSubR] = await Promise.all([
       canSeeUsers ? p.query('SELECT * FROM users ORDER BY id ASC') : p.query('SELECT * FROM users WHERE id=$1', [viewer.id]),
       p.query('SELECT * FROM activities ORDER BY id DESC'),
       canSeeBroadcasts ? p.query('SELECT * FROM broadcasts ORDER BY id DESC') : Promise.resolve({ rows: [] }),
@@ -837,7 +899,11 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
       isMgmt(viewer.role)
         ? p.query('SELECT * FROM certificates ORDER BY id DESC')
         : p.query('SELECT * FROM certificates WHERE student_id=$1 ORDER BY id DESC', [viewer.id]),
+      p.query('SELECT id, member_code, full_name, role, unit, grade_or_dept, points, is_active, badges_json FROM users ORDER BY id ASC'),
+      p.query("SELECT student_id, status FROM submissions WHERE status = 'approved'"),
     ]);
+    const leaderboard = computeLeaderboard(lbUR.rows, lbSubR.rows);
+    const myRank = leaderboard.find((e) => e.id === viewer.id)?.rank ?? null;
     res.json({
       users: uR.rows.map((r) => sanitizeUser(mapUser(r), viewer)),
       activities: aR.rows.map((r) => ({
@@ -875,7 +941,8 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
         details: r.details, status: r.status, adminResponse: r.admin_response,
       })),
       programReports: repR.rows.map((r) => ({
-        id: r.id, schoolName: r.school_name, title: r.title, field: r.field, executors: r.executors,
+        id: r.id, schoolName: r.school_name, departmentName: r.department_name || 'النشاط الطلابي',
+        title: r.title, field: r.field, executors: r.executors,
         executionDate: r.execution_date, beneficiaries: r.beneficiaries, beneficiariesCount: r.beneficiaries_count,
         steps: Array.isArray(r.steps) ? r.steps : [],
         objectives: Array.isArray(r.objectives) ? r.objectives : [],
@@ -883,6 +950,7 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
         createdById: r.created_by_id, createdByName: r.created_by_name,
       })),
       certificates: certR.rows.map(mapCertificate),
+      leaderboard: { entries: leaderboard, myRank, totalRanked: leaderboard.length, updatedAt: new Date().toISOString() },
     });
   } catch {
     res.status(500).json({ error: 'تعذر تحميل البيانات' });
@@ -934,6 +1002,7 @@ app.post('/api/users', requireAuth, async (req, res) => {
         points: isMgmt(targetRole) ? 90 : 0,
         isActive: true,
         permissions: parsedPerms,
+        badges: [],
         createdAt: new Date().toISOString(),
       };
       db.users.push(created);
@@ -945,8 +1014,8 @@ app.post('/api/users', requireAuth, async (req, res) => {
     if (exists.rowCount > 0) return res.status(400).json({ error: 'رمز الدخول مستخدم مسبقاً' });
 
     const r = await getPool().query(
-      `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, phone, grade_or_dept, points, is_active, permissions)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11::jsonb) RETURNING *`,
+      `INSERT INTO users (member_code, login_code, username, full_name, password_hash, role, unit, phone, grade_or_dept, points, is_active, permissions, badges_json)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11::jsonb,'[]') RETURNING *`,
       [
         memberCode, cleanCode, username, fullName.trim(), hash, targetRole, targetUnit,
         phone.trim(), String(gradeOrDept || '').trim(), isMgmt(targetRole) ? 90 : 0,
@@ -1668,7 +1737,7 @@ app.post('/api/reports', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'إضافة تقارير البرامج مخصصة للإدارة فقط' });
     }
     await ensureReady();
-    const { schoolName, title, field, executors, executionDate, beneficiaries, beneficiariesCount, steps, objectives, images } = req.body || {};
+    const { schoolName, departmentName, title, field, executors, executionDate, beneficiaries, beneficiariesCount, steps, objectives, images } = req.body || {};
     const cleanTitle = String(title || '').trim();
     const cleanExec = String(executors || '').trim();
     const cleanDate = String(executionDate || '').trim();
@@ -1686,6 +1755,7 @@ app.post('/api/reports', requireAuth, async (req, res) => {
     const safeObjs = safeObjsInput.length ? safeObjsInput : aiData.objectives;
     const safeImgs = Array.isArray(images) ? images.map(String).filter((x) => x.startsWith('data:image/')).slice(0, 4) : [];
     const safeSchool = String(schoolName || '').trim() || 'مدرسة الحديبية المتوسطة';
+    const safeDept = String(departmentName || '').trim() || 'النشاط الطلابي';
     const safeField = String(field || '').trim() || aiData.field;
     const safeBen = String(beneficiaries || '').trim() || aiData.beneficiaries;
     const safeCnt = String(beneficiariesCount || '').trim() || aiData.beneficiariesCount;
@@ -1695,7 +1765,7 @@ app.post('/api/reports', requireAuth, async (req, res) => {
       db.counters.programReports = (db.counters.programReports || 0) + 1;
       db.programReports = db.programReports || [];
       const item = {
-        id: db.counters.programReports, schoolName: safeSchool, title: cleanTitle, field: safeField,
+        id: db.counters.programReports, schoolName: safeSchool, departmentName: safeDept, title: cleanTitle, field: safeField,
         executors: cleanExec, executionDate: cleanDate, beneficiaries: safeBen, beneficiariesCount: safeCnt,
         steps: safeSteps, objectives: safeObjs, images: safeImgs,
         createdById: req.user.id, createdByName: req.user.fullName, createdAt: new Date().toISOString(),
@@ -1707,14 +1777,15 @@ app.post('/api/reports', requireAuth, async (req, res) => {
 
     const r = await getPool().query(
       `INSERT INTO program_reports
-        (school_name, title, field, executors, execution_date, beneficiaries, beneficiaries_count, steps, objectives, images, created_by_id, created_by_name)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12) RETURNING *`,
-      [safeSchool, cleanTitle, safeField, cleanExec, cleanDate, safeBen, safeCnt, JSON.stringify(safeSteps), JSON.stringify(safeObjs), JSON.stringify(safeImgs), req.user.id, req.user.fullName]
+        (school_name, department_name, title, field, executors, execution_date, beneficiaries, beneficiaries_count, steps, objectives, images, created_by_id, created_by_name)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13) RETURNING *`,
+      [safeSchool, safeDept, cleanTitle, safeField, cleanExec, cleanDate, safeBen, safeCnt, JSON.stringify(safeSteps), JSON.stringify(safeObjs), JSON.stringify(safeImgs), req.user.id, req.user.fullName]
     );
     const row = r.rows[0];
     res.status(201).json({
       report: {
-        id: row.id, schoolName: row.school_name, title: row.title, field: row.field, executors: row.executors,
+        id: row.id, schoolName: row.school_name, departmentName: row.department_name || 'النشاط الطلابي',
+        title: row.title, field: row.field, executors: row.executors,
         executionDate: row.execution_date, beneficiaries: row.beneficiaries, beneficiariesCount: row.beneficiaries_count,
         steps: row.steps || [], objectives: row.objectives || [], images: row.images || [],
         createdById: row.created_by_id, createdByName: row.created_by_name,
@@ -1740,6 +1811,7 @@ app.patch('/api/reports/:id', requireAuth, async (req, res) => {
       const item = db.programReports.find((r) => r.id === id);
       if (!item) return res.status(404).json({ error: 'التقرير غير موجود' });
       if (body.schoolName !== undefined) item.schoolName = String(body.schoolName).trim() || 'مدرسة الحديبية المتوسطة';
+      if (body.departmentName !== undefined) item.departmentName = String(body.departmentName).trim() || 'النشاط الطلابي';
       if (body.title !== undefined && String(body.title).trim()) item.title = String(body.title).trim();
       if (body.field !== undefined) item.field = String(body.field).trim();
       if (body.executors !== undefined && String(body.executors).trim()) item.executors = String(body.executors).trim();
@@ -1756,18 +1828,20 @@ app.patch('/api/reports/:id', requireAuth, async (req, res) => {
     const r = await getPool().query(
       `UPDATE program_reports SET
         school_name = COALESCE($1, school_name),
-        title = COALESCE($2, title),
-        field = COALESCE($3, field),
-        executors = COALESCE($4, executors),
-        execution_date = COALESCE($5, execution_date),
-        beneficiaries = COALESCE($6, beneficiaries),
-        beneficiaries_count = COALESCE($7, beneficiaries_count),
-        steps = COALESCE($8::jsonb, steps),
-        objectives = COALESCE($9::jsonb, objectives),
-        images = COALESCE($10::jsonb, images)
-       WHERE id=$11 RETURNING *`,
+        department_name = COALESCE($2, department_name),
+        title = COALESCE($3, title),
+        field = COALESCE($4, field),
+        executors = COALESCE($5, executors),
+        execution_date = COALESCE($6, execution_date),
+        beneficiaries = COALESCE($7, beneficiaries),
+        beneficiaries_count = COALESCE($8, beneficiaries_count),
+        steps = COALESCE($9::jsonb, steps),
+        objectives = COALESCE($10::jsonb, objectives),
+        images = COALESCE($11::jsonb, images)
+       WHERE id=$12 RETURNING *`,
       [
         body.schoolName !== undefined ? (String(body.schoolName).trim() || 'مدرسة الحديبية المتوسطة') : null,
+        body.departmentName !== undefined ? (String(body.departmentName).trim() || 'النشاط الطلابي') : null,
         body.title !== undefined && String(body.title).trim() ? String(body.title).trim() : null,
         body.field !== undefined ? String(body.field).trim() : null,
         body.executors !== undefined && String(body.executors).trim() ? String(body.executors).trim() : null,
@@ -1784,7 +1858,8 @@ app.patch('/api/reports/:id', requireAuth, async (req, res) => {
     const row = r.rows[0];
     res.json({
       report: {
-        id: row.id, schoolName: row.school_name, title: row.title, field: row.field, executors: row.executors,
+        id: row.id, schoolName: row.school_name, departmentName: row.department_name || 'النشاط الطلابي',
+        title: row.title, field: row.field, executors: row.executors,
         executionDate: row.execution_date, beneficiaries: row.beneficiaries, beneficiariesCount: row.beneficiaries_count,
         steps: row.steps || [], objectives: row.objectives || [], images: row.images || [],
         createdById: row.created_by_id, createdByName: row.created_by_name,
@@ -1963,6 +2038,99 @@ app.delete('/api/certificates/:id', requireAuth, requireMgmt, async (req, res) =
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'تعذر حذف الشهادة' });
+  }
+});
+
+app.get('/api/leaderboard', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    let entries;
+    if (!isNeon) {
+      const db = readLocal();
+      entries = computeLeaderboard(db.users, db.submissions || []);
+    } else {
+      const p = getPool();
+      const [lbUR, lbSubR] = await Promise.all([
+        p.query('SELECT id, member_code, full_name, role, unit, grade_or_dept, points, is_active, badges_json FROM users ORDER BY id ASC'),
+        p.query("SELECT student_id, status FROM submissions WHERE status = 'approved'"),
+      ]);
+      entries = computeLeaderboard(lbUR.rows, lbSubR.rows);
+    }
+    const myRank = entries.find((e) => e.id === req.user.id)?.rank ?? null;
+    res.json({ entries, myRank, totalRanked: entries.length, updatedAt: new Date().toISOString() });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب لوحة الترتيب' });
+  }
+});
+
+app.post('/api/users/:id/badges', requireAuth, requireMgmt, async (req, res) => {
+  try {
+    await ensureReady();
+    const id = Number(req.params.id);
+    const { key, label, tone, icon } = req.body || {};
+    const cleanLabel = String(label || '').trim();
+    if (!cleanLabel) return res.status(400).json({ error: 'يرجى كتابة اسم الشارة' });
+    const target = await findUserById(id);
+    if (!target) return res.status(404).json({ error: 'الطالب غير موجود' });
+
+    const safeTone = ALLOWED_BADGE_TONES.includes(tone) ? tone : 'emerald';
+    const safeIcon = ALLOWED_BADGE_ICONS.includes(icon) ? icon : 'star';
+    const cleanKey = String(key || '').trim() || `custom_${Date.now()}`;
+    const currentBadges = parseBadgesJson(target.badges);
+
+    if (currentBadges.some((b) => (key && b.key === key) || b.label === cleanLabel)) {
+      return res.status(400).json({ error: 'هذه الشارة ممنوحة للطالب مسبقاً' });
+    }
+
+    const badge = {
+      id: `bdg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      key: cleanKey,
+      label: cleanLabel,
+      tone: safeTone,
+      icon: safeIcon,
+      awardedAt: new Date().toISOString().slice(0, 10),
+      awardedByName: req.user.fullName,
+    };
+    const nextBadges = [...currentBadges, badge];
+
+    if (!isNeon) {
+      const db = readLocal();
+      const idx = db.users.findIndex((u) => u.id === id);
+      if (idx === -1) return res.status(404).json({ error: 'الطالب غير موجود' });
+      db.users[idx].badges = nextBadges;
+      writeLocal(db);
+      return res.status(201).json({ user: sanitizeUser(db.users[idx], req.user), badge });
+    }
+
+    const r = await getPool().query('UPDATE users SET badges_json=$1 WHERE id=$2 RETURNING *', [JSON.stringify(nextBadges), id]);
+    res.status(201).json({ user: sanitizeUser(mapUser(r.rows[0]), req.user), badge });
+  } catch {
+    res.status(500).json({ error: 'تعذر منح الشارة' });
+  }
+});
+
+app.delete('/api/users/:id/badges/:badgeId', requireAuth, requireMgmt, async (req, res) => {
+  try {
+    await ensureReady();
+    const id = Number(req.params.id);
+    const badgeId = String(req.params.badgeId || '').trim();
+    const target = await findUserById(id);
+    if (!target) return res.status(404).json({ error: 'الطالب غير موجود' });
+    const nextBadges = parseBadgesJson(target.badges).filter((b) => b.id !== badgeId);
+
+    if (!isNeon) {
+      const db = readLocal();
+      const idx = db.users.findIndex((u) => u.id === id);
+      if (idx === -1) return res.status(404).json({ error: 'الطالب غير موجود' });
+      db.users[idx].badges = nextBadges;
+      writeLocal(db);
+      return res.json({ user: sanitizeUser(db.users[idx], req.user) });
+    }
+
+    const r = await getPool().query('UPDATE users SET badges_json=$1 WHERE id=$2 RETURNING *', [JSON.stringify(nextBadges), id]);
+    res.json({ user: sanitizeUser(mapUser(r.rows[0]), req.user) });
+  } catch {
+    res.status(500).json({ error: 'تعذر إزالة الشارة' });
   }
 });
 
