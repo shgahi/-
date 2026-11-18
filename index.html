@@ -173,7 +173,16 @@
         break-inside: avoid !important; page-break-inside: avoid !important; break-after: page !important;
       }
       .print-certificate-sheet:last-child { break-after: auto !important; }
+      body.print-export-active #app { display: none !important; }
+      body.print-export-active #print-export-portal {
+        display: block !important; width: 100% !important; margin: 0 !important; padding: 0 !important;
+        background: #ffffff !important; color: #0f172a !important; overflow: visible !important;
+      }
+      .print-table-sheet { width: 100% !important; background: #ffffff !important; color: #0f172a !important; overflow: visible !important; }
+      .print-table-sheet thead { display: table-header-group !important; }
+      .print-table-sheet tr { break-inside: avoid !important; page-break-inside: avoid !important; }
     }
+    #print-export-portal { display: none; }
   </style>
 </head>
 <body class="bg-[#f5f7fa] text-slate-900 min-h-screen antialiased">
@@ -528,14 +537,17 @@
           <div class="flex flex-wrap items-center justify-between gap-3 no-print">
             <div>
               <h2 class="text-xl font-bold">التقارير والمتابعة</h2>
-              <p class="text-sm text-slate-500">تقارير البرامج بالشواهد المصورة، أداء الطلاب واتساب، والنشاط الأول والثاني والانضباط</p>
+              <p class="text-sm text-slate-500">تقارير البرامج بالشواهد المصورة، أداء الطلاب مع التصدير Excel وPDF، والنشاط الأول والثاني والانضباط</p>
             </div>
-            <div class="flex flex-wrap gap-1 p-1 bg-slate-200/75 rounded-xl text-xs font-semibold">
-              <button onclick="setReportTab('evidence')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'evidence' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">تقارير الشواهد (${reports.length})</button>
-              <button onclick="setReportTab('students')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'students' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">أداء الطلاب (${students.length})</button>
-              <button onclick="setReportTab('activity_1')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'activity_1' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">النشاط الأول</button>
-              <button onclick="setReportTab('activity_2')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'activity_2' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">النشاط الثاني</button>
-              <button onclick="setReportTab('discipline')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'discipline' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">الضباط والانضباط</button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" onclick="exportFullArchiveExcel()" class="px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 text-xs font-bold cursor-pointer">تصدير السجل الشامل Excel</button>
+              <div class="flex flex-wrap gap-1 p-1 bg-slate-200/75 rounded-xl text-xs font-semibold">
+                <button onclick="setReportTab('evidence')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'evidence' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">تقارير الشواهد (${reports.length})</button>
+                <button onclick="setReportTab('students')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'students' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">أداء الطلاب (${students.length})</button>
+                <button onclick="setReportTab('activity_1')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'activity_1' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">النشاط الأول</button>
+                <button onclick="setReportTab('activity_2')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'activity_2' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">النشاط الثاني</button>
+                <button onclick="setReportTab('discipline')" class="px-3 py-1.5 rounded-lg ${state.reportTab === 'discipline' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}">الضباط والانضباط</button>
+              </div>
             </div>
           </div>
 
@@ -543,7 +555,13 @@
             <div class="space-y-5 print-reset">
               <div class="flex flex-wrap items-center justify-between gap-3 no-print">
                 <p class="text-xs text-slate-500">أدخل اسم البرنامج والمنفذين والتاريخ وأرفق حتى 4 شواهد مصورة، ويتولى الذكاء الاصطناعي استنتاج المجال وخطوات التنفيذ والأهداف مباشرة.</p>
-                <button onclick="toggleReportBuilder()" class="px-4 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">${state.showReportBuilder ? 'إغلاق النموذج' : 'إعداد تقرير جديد (4 شواهد)'}</button>
+                <div class="flex flex-wrap items-center gap-2">
+                  ${reports.length > 0 ? `
+                    <button type="button" onclick="exportProgramReportsExcel()" class="px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 text-xs font-bold cursor-pointer">تصدير الكل Excel</button>
+                    <button type="button" onclick="exportProgramReportsPdf()" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold cursor-pointer">ملخص التقارير PDF</button>
+                  ` : ''}
+                  <button onclick="toggleReportBuilder()" class="px-4 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">${state.showReportBuilder ? 'إغلاق النموذج' : 'إعداد تقرير جديد (4 شواهد)'}</button>
+                </div>
               </div>
 
               ${(state.showReportBuilder || reports.length === 0) ? `
@@ -661,11 +679,20 @@
 
           ${state.reportTab === 'students' ? `
             <section class="luxury-card overflow-hidden">
+              <div class="px-6 py-4 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+                <h3 class="font-bold text-base">تقرير أداء طلاب النشاط (${students.length})</h3>
+                ${students.length > 0 ? `
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="exportStudentsExcel()" class="px-3.5 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 text-xs font-bold cursor-pointer">تصدير Excel</button>
+                    <button type="button" onclick="exportStudentsPdf()" class="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold cursor-pointer">تصدير PDF</button>
+                  </div>
+                ` : ''}
+              </div>
               ${students.length === 0 ? `<div class="p-10 text-center text-sm text-slate-500">لا يوجد طلاب مسجلون بعد. أضف الطلاب من قسم الأفراد والصلاحيات.</div>` : `
                 <div class="overflow-x-auto">
                   <table class="w-full text-right text-sm">
                     <thead class="bg-slate-50/80 text-xs text-slate-500 border-b border-slate-200/80">
-                      <tr><th class="py-3 px-4">الطالب</th><th class="py-3 px-4">القسم</th><th class="py-3 px-4">الصف</th><th class="py-3 px-4">الجوال</th><th class="py-3 px-4">النقاط</th><th class="py-3 px-4">واتساب</th></tr>
+                      <tr><th class="py-3 px-4">الطالب</th><th class="py-3 px-4">القسم</th><th class="py-3 px-4">الصف</th><th class="py-3 px-4">الجوال</th><th class="py-3 px-4">النقاط</th><th class="py-3 px-4">إرسال وتصدير</th></tr>
                     </thead>
                     <tbody class="divide-y divide-slate-200/70">
                       ${students.map((st) => `
@@ -675,8 +702,11 @@
                           <td class="py-3 px-4 text-xs text-slate-600">${esc(st.gradeOrDept || '—')}</td>
                           <td class="py-3 px-4 text-xs font-mono tabular-nums">${esc(st.phone)}</td>
                           <td class="py-3 px-4 font-mono tabular-nums font-bold text-teal-800">${st.points}</td>
-                          <td class="py-3 px-4">
-                            <a href="${waUrl(st)}" target="_blank" rel="noopener noreferrer" class="inline-block px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold">إرسال الأداء واتساب</a>
+                          <td class="py-3 px-4 whitespace-nowrap">
+                            <div class="inline-flex items-center gap-1.5">
+                              <button type="button" onclick="exportSingleStudentPdf(${st.id})" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer">تقرير PDF</button>
+                              <a href="${waUrl(st)}" target="_blank" rel="noopener noreferrer" class="inline-block px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold">واتساب</a>
+                            </div>
                           </td>
                         </tr>
                       `).join('')}
@@ -689,7 +719,13 @@
 
           ${(state.reportTab === 'activity_1' || state.reportTab === 'activity_2') ? `
             <section class="luxury-card p-6 space-y-4">
-              <h3 class="font-bold text-base">${state.reportTab === 'activity_1' ? 'برامج النشاط الأول' : 'برامج النشاط الثاني'}</h3>
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h3 class="font-bold text-base">${state.reportTab === 'activity_1' ? 'برامج النشاط الأول' : 'برامج النشاط الثاني'}</h3>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button type="button" onclick="exportActivitiesExcel('${state.reportTab}')" class="px-3.5 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 text-xs font-bold cursor-pointer">تصدير Excel</button>
+                  <button type="button" onclick="exportActivitiesPdf('${state.reportTab}')" class="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold cursor-pointer">تصدير PDF</button>
+                </div>
+              </div>
               <form onsubmit="createActivity(event, '${state.reportTab}')" class="grid grid-cols-1 sm:grid-cols-4 gap-2">
                 <input id="actTitle" required placeholder="عنوان البرنامج" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
                 <input id="actCat" placeholder="المجال (ثقافي/رياضي)" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
@@ -715,7 +751,15 @@
 
           ${state.reportTab === 'discipline' ? `
             <section class="luxury-card p-6 space-y-4">
-              <h3 class="font-bold text-base">سجل الضباط والانضباط والنقاط</h3>
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h3 class="font-bold text-base">سجل الضباط والانضباط والنقاط</h3>
+                ${(state.data.disciplineLogs || []).length > 0 ? `
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="exportDisciplineExcel()" class="px-3.5 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 text-xs font-bold cursor-pointer">تصدير Excel</button>
+                    <button type="button" onclick="exportDisciplinePdf()" class="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold cursor-pointer">تصدير PDF</button>
+                  </div>
+                ` : ''}
+              </div>
               ${students.length === 0 ? `<p class="text-sm text-slate-500">أضف طلاباً أولاً لتسجيل ملاحظات الانضباط.</p>` : `
                 <form onsubmit="createDiscipline(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-2">
                   <select id="disUser" required class="h-10 px-3 rounded-xl border border-slate-300 text-sm bg-white">
@@ -757,7 +801,10 @@
               <h2 class="text-xl font-bold">الإذاعة المدرسية</h2>
               <p class="text-sm text-slate-500">جدول الإذاعات الصباحية والتعديل الكامل على الفقرات</p>
             </div>
-            ${sel ? `<button onclick="window.print()" class="px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold cursor-pointer">طباعة النص</button>` : ''}
+            <div class="flex flex-wrap items-center gap-2">
+              ${(state.data.broadcasts || []).length > 0 ? `<button type="button" onclick="exportBroadcastsExcel()" class="px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 text-xs font-bold cursor-pointer">تصدير Excel</button>` : ''}
+              ${sel ? `<button onclick="window.print()" class="px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold cursor-pointer">طباعة النص</button>` : ''}
+            </div>
           </div>
           ${canAdd ? `
             <div class="luxury-card p-5 space-y-3 no-print">
@@ -845,9 +892,17 @@
       const genCode = Math.floor(100000 + Math.random() * 900000);
       return `
         <div class="space-y-6">
-          <div>
-            <h2 class="text-xl font-bold">الأفراد والصلاحيات</h2>
-            <p class="text-sm text-slate-500">تعديل شامل لبيانات الأفراد، رموز الدخول، النقاط، الرتب، والصلاحيات التفصيلية لكل عضو</p>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-xl font-bold">الأفراد والصلاحيات</h2>
+              <p class="text-sm text-slate-500">تعديل شامل لبيانات الأفراد، رموز الدخول، النقاط، الرتب، والصلاحيات التفصيلية لكل عضو</p>
+            </div>
+            ${(state.data.users || []).length > 0 ? `
+              <div class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="exportDirectoryExcel()" class="px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 text-xs font-bold cursor-pointer">تصدير Excel</button>
+                <button type="button" onclick="exportDirectoryPdf()" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold cursor-pointer">تصدير PDF</button>
+              </div>
+            ` : ''}
           </div>
           <form onsubmit="createUser(event)" class="luxury-card p-5 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
             <input id="uName" required placeholder="الاسم الكامل" class="h-10 px-3 rounded-xl border border-slate-300 text-sm" />
@@ -1591,6 +1646,10 @@
             <div class="flex flex-wrap items-center gap-2">
               <span class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-600 font-mono tabular-nums">آخر تحديث: <b id="lbSyncTime" dir="ltr" class="text-slate-900">${esc(syncTime)}</b></span>
               <button type="button" onclick="refreshLeaderboardNow()" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold cursor-pointer">تحديث الآن</button>
+              ${(lb.entries || []).length > 0 ? `
+                <button type="button" onclick="exportLeaderboardExcel()" class="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 text-xs font-bold cursor-pointer">Excel</button>
+                <button type="button" onclick="exportLeaderboardPdf()" class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold cursor-pointer">PDF</button>
+              ` : ''}
               ${mgmt && (lb.entries || []).length > 0 ? `<button type="button" onclick="openAwardBadgeModal(${lb.entries[0].id})" class="px-4 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">+ منح شارة لطالب</button>` : ''}
             </div>
           </div>
@@ -2802,6 +2861,364 @@
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && state.confirmOpts) window.resolveConfirm(false);
     });
+
+    // =========================================================================
+    // Pure OpenXML (.xlsx) Multi-Sheet RTL Export & Official A4 PDF Exporter
+    // =========================================================================
+    const XLSX_CRC_TABLE = (() => {
+      const t = new Uint32Array(256);
+      for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        t[i] = c >>> 0;
+      }
+      return t;
+    })();
+    function xlsxCrc32(bytes) {
+      let crc = 0xffffffff;
+      for (let i = 0; i < bytes.length; i++) crc = XLSX_CRC_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+      return (crc ^ 0xffffffff) >>> 0;
+    }
+    const xlsxEncoder = new TextEncoder();
+    function buildXlsxZip(files) {
+      const locals = [];
+      const centrals = [];
+      let offset = 0;
+      for (const f of files) {
+        const nb = xlsxEncoder.encode(f.path);
+        const db = xlsxEncoder.encode(f.content);
+        const crc = xlsxCrc32(db);
+        const sz = db.length;
+        const lh = new Uint8Array(30 + nb.length);
+        const lv = new DataView(lh.buffer);
+        lv.setUint32(0, 0x04034b50, true);
+        lv.setUint16(4, 20, true);
+        lv.setUint16(6, 0x0800, true);
+        lv.setUint16(8, 0, true);
+        lv.setUint32(14, crc, true);
+        lv.setUint32(18, sz, true);
+        lv.setUint32(22, sz, true);
+        lv.setUint16(26, nb.length, true);
+        lh.set(nb, 30);
+        locals.push(lh, db);
+
+        const ch = new Uint8Array(46 + nb.length);
+        const cv = new DataView(ch.buffer);
+        cv.setUint32(0, 0x02014b50, true);
+        cv.setUint16(4, 20, true);
+        cv.setUint16(6, 20, true);
+        cv.setUint16(8, 0x0800, true);
+        cv.setUint16(10, 0, true);
+        cv.setUint32(16, crc, true);
+        cv.setUint32(20, sz, true);
+        cv.setUint32(24, sz, true);
+        cv.setUint16(28, nb.length, true);
+        cv.setUint32(42, offset, true);
+        ch.set(nb, 46);
+        centrals.push(ch);
+        offset += lh.length + db.length;
+      }
+      const cSize = centrals.reduce((a, c) => a + c.length, 0);
+      const eocd = new Uint8Array(22);
+      const ev = new DataView(eocd.buffer);
+      ev.setUint32(0, 0x06054b50, true);
+      ev.setUint16(8, files.length, true);
+      ev.setUint16(10, files.length, true);
+      ev.setUint32(12, cSize, true);
+      ev.setUint32(16, offset, true);
+      return new Blob([...locals.map((b) => b.buffer), ...centrals.map((b) => b.buffer), eocd.buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+    }
+    function escXml(v) {
+      return String(v ?? '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    }
+    function colLetter(i) {
+      let n = i + 1, s = '';
+      while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+      return s;
+    }
+    function cleanSheetName(raw, used, idx) {
+      let b = String(raw || `ورقة ${idx + 1}`).replace(/[\\/*?:[\]]/g, ' ').replace(/\s+/g, ' ').trim() || `Sheet ${idx + 1}`;
+      b = b.slice(0, 31).trim();
+      let cand = b, k = 2;
+      while (used.has(cand.toLowerCase())) { const suf = ` (${k})`; cand = `${b.slice(0, Math.max(1, 31 - suf.length))}${suf}`; k++; }
+      used.add(cand.toLowerCase());
+      return cand;
+    }
+    function buildSheetXml(sh) {
+      const headers = (sh.headers && sh.headers.length) ? sh.headers : ['البيانات'];
+      const cols = headers.length;
+      const widths = headers.map((h) => Math.max(12, String(h || '').length + 4));
+      for (const row of (sh.rows || [])) {
+        for (let c = 0; c < cols; c++) {
+          const t = row[c] == null ? '' : String(row[c]);
+          const maxL = t.split('\n').reduce((m, l) => Math.max(m, l.length), 0);
+          widths[c] = Math.min(46, Math.max(widths[c], maxL + 4));
+        }
+      }
+      const colsXml = widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('');
+      const cellXml = (c, rNum, val, isHdr) => {
+        const ref = `${colLetter(c)}${rNum}`;
+        if (!isHdr && typeof val === 'number' && Number.isFinite(val)) return `<c r="${ref}" s="3" t="n"><v>${val}</v></c>`;
+        const txt = typeof val === 'boolean' ? (val ? 'نعم' : 'لا') : (val == null ? '' : String(val));
+        return `<c r="${ref}" s="${isHdr ? 1 : 2}" t="inlineStr"><is><t xml:space="preserve">${escXml(txt)}</t></is></c>`;
+      };
+      const rowsXml = [`<row r="1" ht="28" customHeight="1">${headers.map((h, c) => cellXml(c, 1, h, true)).join('')}</row>`];
+      (sh.rows || []).forEach((row, idx) => {
+        const rNum = idx + 2;
+        rowsXml.push(`<row r="${rNum}" ht="22">${headers.map((_, c) => cellXml(c, rNum, row[c], false)).join('')}</row>`);
+      });
+      const lastCol = colLetter(Math.max(0, cols - 1));
+      const lastRow = Math.max(1, (sh.rows || []).length + 1);
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView rightToLeft="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="22"/><cols>${colsXml}</cols><sheetData>${rowsXml.join('')}</sheetData><autoFilter ref="A1:${lastCol}${lastRow}"/></worksheet>`;
+    }
+    function exportXlsxFile(filename, sheets) {
+      const used = new Set();
+      const norm = (sheets && sheets.length ? sheets : [{ name: 'بيانات', headers: ['البيانات'], rows: [] }]).map((s, i) => ({ ...s, safeName: cleanSheetName(s.name, used, i) }));
+      const stylesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><color rgb="FF0F172A"/><name val="Cairo"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Cairo"/></font><font><b/><sz val="11"/><color rgb="FF0F3D33"/><name val="Cairo"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0F3D33"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFCBD5E1"/></left><right style="thin"><color rgb="FFCBD5E1"/></right><top style="thin"><color rgb="FFCBD5E1"/></top><bottom style="thin"><color rgb="FFCBD5E1"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+      const ctOverrides = norm.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('');
+      const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${ctOverrides}</Types>`;
+      const rootRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+      const wbSheets = norm.map((s, i) => `<sheet name="${escXml(s.safeName)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('');
+      const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${wbSheets}</sheets></workbook>`;
+      const wbRels = norm.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('');
+      const wbRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${wbRels}<Relationship Id="rId${norm.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+      const blob = buildXlsxZip([
+        { path: '[Content_Types].xml', content: contentTypesXml },
+        { path: '_rels/.rels', content: rootRelsXml },
+        { path: 'xl/workbook.xml', content: wbXml },
+        { path: 'xl/_rels/workbook.xml.rels', content: wbRelsXml },
+        { path: 'xl/styles.xml', content: stylesXml },
+        ...norm.map((s, i) => ({ path: `xl/worksheets/sheet${i + 1}.xml`, content: buildSheetXml(s) })),
+      ]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename.endsWith('.xlsx') ? filename : filename + '.xlsx';
+      a.className = 'hidden';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1500);
+    }
+    function exportStamp() { return new Date().toISOString().slice(0, 10); }
+    function printTablePdfDoc({ title, subtitle, schoolName, departmentName, orientation = 'portrait', summaryItems = [], headers, rows }) {
+      const logoSrc = '/moe-logo.png';
+      const trigger = () => {
+        let portal = document.getElementById('print-export-portal');
+        if (!portal) {
+          portal = document.createElement('div');
+          portal.id = 'print-export-portal';
+          portal.setAttribute('dir', 'rtl');
+          document.body.appendChild(portal);
+        }
+        let st = document.getElementById('print-export-page-style');
+        if (!st) { st = document.createElement('style'); st.id = 'print-export-page-style'; document.head.appendChild(st); }
+        st.textContent = `@media print { @page { size: A4 ${orientation}; margin: 8mm; } }`;
+        const kpis = summaryItems.length ? `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">${summaryItems.map((it) => `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center"><div class="text-[11px] font-semibold text-slate-500">${esc(it.label)}</div><div class="text-sm font-bold text-[#0f3d33] tabular-nums mt-0.5">${esc(it.value)}</div></div>`).join('')}</div>` : '';
+        const thead = headers.map((h) => `<th class="py-2 px-2.5 text-right text-[11px] font-bold text-white border border-[#17503f]">${esc(h)}</th>`).join('');
+        const tbody = rows.length ? rows.map((r, i) => `<tr class="${i % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}">${r.map((c) => `<td class="py-1.5 px-2.5 text-[11px] text-slate-800 border border-slate-200 align-top leading-relaxed">${esc(c)}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${Math.max(1, headers.length)}" class="py-6 text-center text-xs text-slate-500 border border-slate-200">لا توجد بيانات متاحة حالياً</td></tr>`;
+        portal.innerHTML = `<div class="print-table-sheet report-kufi-font bg-white text-slate-900"><div class="bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799] text-white px-5 py-3.5 rounded-xl mb-4 flex items-center justify-between gap-4"><div class="flex items-center gap-3.5"><img src="${logoSrc}" alt="وزارة التعليم" class="h-12 w-auto object-contain shrink-0" /><div class="w-[2px] h-11 bg-white/80 shrink-0"></div><div class="text-xs font-medium leading-relaxed"><div>الإدارة العامة للتعليم بمحافظة جدة</div><div>${esc(departmentName || 'النشاط الطلابي')}</div><div class="font-bold">${esc(schoolName || 'مدرسة الحديبية المتوسطة')}</div></div></div><div class="text-left"><div class="text-base font-bold">${esc(title)}</div>${subtitle ? `<div class="text-[11px] text-white/90 mt-0.5">${esc(subtitle)}</div>` : ''}<div class="text-[10px] text-white/85 mt-1 tabular-nums">تاريخ الطباعة: ${esc(defaultHijriDate() + ' · ' + exportStamp())}</div></div></div>${kpis}<table class="w-full border-collapse text-right"><thead><tr class="bg-[#0f3d33]">${thead}</tr></thead><tbody>${tbody}</tbody></table><div class="mt-4 pt-2.5 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-500"><span>مُصدر آلياً من منظومة النشاط الطلابي</span><span class="tabular-nums">إجمالي السجلات: ${rows.length}</span></div></div>`;
+        document.body.classList.add('print-export-active');
+        const cleanup = () => {
+          document.body.classList.remove('print-export-active');
+          const p = document.getElementById('print-export-portal'); if (p) p.innerHTML = '';
+          const s = document.getElementById('print-export-page-style'); if (s) s.remove();
+          window.removeEventListener('afterprint', cleanup);
+        };
+        window.addEventListener('afterprint', cleanup);
+        setTimeout(() => { window.print(); setTimeout(cleanup, 60000); }, 100);
+      };
+      const img = new Image();
+      let done = false;
+      const go = () => { if (!done) { done = true; trigger(); } };
+      img.onload = go; img.onerror = go; img.src = logoSrc;
+      setTimeout(go, 400);
+    }
+    function buildStudentsExportData() {
+      const users = (state.data?.users || []).filter((u) => !isMgmt(u.role)).slice().sort((a, b) => b.points - a.points || String(a.fullName).localeCompare(String(b.fullName), 'ar'));
+      const subs = state.data?.submissions || [];
+      const rows = users.map((st, idx) => {
+        const ap = subs.filter((s) => s.studentId === st.id && s.status === 'approved').length;
+        const pn = subs.filter((s) => s.studentId === st.id && s.status === 'pending').length;
+        return [idx + 1, st.fullName, st.memberCode, ROLE_LABELS[st.role] || st.role, UNIT_LABELS[st.unit] || st.unit, st.gradeOrDept || '—', st.phone || '—', ap, pn, st.points, (st.badges || []).length, (st.badges || []).map((b) => b.label).join('، ') || '—', st.isActive ? 'نشط' : 'موقوف'];
+      });
+      const uMap = new Map();
+      for (const st of users) {
+        const cur = uMap.get(st.unit) || { label: UNIT_LABELS[st.unit] || st.unit, count: 0, pts: 0, ap: 0, bg: 0 };
+        cur.count++; cur.pts += st.points;
+        cur.ap += subs.filter((s) => s.studentId === st.id && s.status === 'approved').length;
+        cur.bg += (st.badges || []).length;
+        uMap.set(st.unit, cur);
+      }
+      const unitRows = Array.from(uMap.values()).map((u) => [u.label, u.count, u.pts, u.count ? Math.round((u.pts / u.count) * 10) / 10 : 0, u.ap, u.bg]);
+      return { users, subs, rows, unitRows };
+    }
+    window.exportStudentsExcel = () => {
+      const { rows, unitRows } = buildStudentsExportData();
+      exportXlsxFile(`أداء-طلاب-النشاط-${exportStamp()}.xlsx`, [
+        { name: 'أداء الطلاب التفصيلي', headers: ['الترتيب', 'الاسم الكامل', 'رمز العضو', 'الصفة', 'اللجنة / القسم', 'الصف', 'الجوال', 'الإنجازات المقبولة', 'قيد المراجعة', 'النقاط', 'عدد الشارات', 'الشارات', 'الحالة'], rows },
+        { name: 'ملخص اللجان', headers: ['اللجنة / القسم', 'عدد الطلاب', 'إجمالي النقاط', 'متوسط النقاط', 'الإنجازات المقبولة', 'الشارات'], rows: unitRows },
+      ]);
+      state.okMsg = 'تم تصدير أداء الطلاب بصيغة Excel بنجاح'; render();
+    };
+    window.exportStudentsPdf = () => {
+      const { users, subs } = buildStudentsExportData();
+      const totalPts = users.reduce((a, s) => a + s.points, 0);
+      const totalAp = subs.filter((s) => s.status === 'approved').length;
+      const totalBg = users.reduce((a, s) => a + (s.badges || []).length, 0);
+      printTablePdfDoc({
+        title: 'تقرير أداء طلاب النشاط', subtitle: 'بيان شامل بالنقاط والإنجازات المعتمدة والشارات الشرفية', orientation: 'landscape',
+        summaryItems: [{ label: 'إجمالي الطلاب', value: users.length }, { label: 'مجموع النقاط', value: totalPts }, { label: 'الإنجازات المعتمدة', value: totalAp }, { label: 'الشارات', value: totalBg }],
+        headers: ['الترتيب', 'الطالب', 'الرمز', 'اللجنة', 'الصف', 'الجوال', 'الإنجازات', 'النقاط', 'الشارات', 'الحالة'],
+        rows: users.map((st, i) => [i + 1, st.fullName, st.memberCode, UNIT_LABELS[st.unit] || st.unit, st.gradeOrDept || '—', st.phone || '—', subs.filter((s) => s.studentId === st.id && s.status === 'approved').length, st.points, (st.badges || []).map((b) => b.label).join('، ') || '—', st.isActive ? 'نشط' : 'موقوف']),
+      });
+    };
+    window.exportSingleStudentPdf = (studentId) => {
+      const st = (state.data?.users || []).find((u) => u.id === studentId);
+      if (!st) return;
+      const subs = (state.data?.submissions || []).filter((s) => s.studentId === st.id);
+      const logs = (state.data?.disciplineLogs || []).filter((l) => l.userId === st.id);
+      const rows = [
+        ...subs.map((s) => [s.activityDate || (s.createdAt || '').slice(0, 10), 'إنجاز طلابي', s.title, s.status === 'approved' ? `+${s.awardedPoints}` : '0', (SUB_STATUS[s.status] || [s.status])[0]]),
+        ...logs.map((l) => [l.logDate || (l.createdAt || '').slice(0, 10), 'سجل انضباط', l.note, l.pointsDelta >= 0 ? `+${l.pointsDelta}` : String(l.pointsDelta), `بواسطة: ${l.recordedByName}`]),
+      ];
+      printTablePdfDoc({
+        title: `سجل أداء الطالب: ${st.fullName}`,
+        subtitle: `${UNIT_LABELS[st.unit] || st.unit} · ${st.gradeOrDept || st.memberCode} · الشارات: ${(st.badges || []).map((b) => b.label).join('، ') || 'لا توجد شارات بعد'}`,
+        orientation: 'portrait',
+        summaryItems: [{ label: 'النقاط', value: st.points }, { label: 'الإنجازات المقبولة', value: subs.filter((s) => s.status === 'approved').length }, { label: 'سجلات الانضباط', value: logs.length }, { label: 'الشارات', value: (st.badges || []).length }],
+        headers: ['التاريخ', 'نوع السجل', 'العنوان / التفاصيل', 'أثر النقاط', 'الحالة / المسجّل'],
+        rows,
+      });
+    };
+    window.exportProgramReportsExcel = () => {
+      const reps = state.data?.programReports || [];
+      exportXlsxFile(`تقارير-البرامج-والشواهد-${exportStamp()}.xlsx`, [{
+        name: 'تقارير البرامج',
+        headers: ['م', 'اسم البرنامج', 'القسم', 'اسم المدرسة', 'المجال', 'المنفذون', 'تاريخ التنفيذ', 'المستفيدون', 'العدد', 'خطوات التنفيذ', 'الأهداف', 'الشواهد', 'المعدّ', 'التاريخ'],
+        rows: reps.map((r, i) => [i + 1, r.title, r.departmentName || 'النشاط الطلابي', r.schoolName || 'مدرسة الحديبية المتوسطة', r.field, r.executors, r.executionDate, r.beneficiaries, r.beneficiariesCount, (r.steps || []).join(' | '), (r.objectives || []).join(' | '), Math.min(4, (r.images || []).length), r.createdByName, (r.createdAt || '').slice(0, 10)]),
+      }]);
+      state.okMsg = 'تم تصدير جميع تقارير البرامج بصيغة Excel بنجاح'; render();
+    };
+    window.exportProgramReportsPdf = () => {
+      const reps = state.data?.programReports || [];
+      const firstSchool = reps[0]?.schoolName || 'مدرسة الحديبية المتوسطة';
+      const firstDept = reps[0]?.departmentName || 'النشاط الطلابي';
+      const totalImg = reps.reduce((a, r) => a + Math.min(4, (r.images || []).length), 0);
+      printTablePdfDoc({
+        title: 'الملخص المعتمد لتقارير تنفيذ البرامج', subtitle: 'بيان موثق بالبرامج المنفذة ومجالاتها والمستفيدين والشواهد',
+        schoolName: firstSchool, departmentName: firstDept, orientation: 'landscape',
+        summaryItems: [{ label: 'إجمالي التقارير', value: reps.length }, { label: 'إجمالي الشواهد', value: totalImg }, { label: 'القسم', value: firstDept }],
+        headers: ['م', 'اسم البرنامج', 'المجال', 'المنفذون', 'تاريخ التنفيذ', 'المستفيدون', 'العدد', 'الشواهد', 'المعدّ'],
+        rows: reps.map((r, i) => [i + 1, r.title, r.field, r.executors, r.executionDate, r.beneficiaries, r.beneficiariesCount, `${Math.min(4, (r.images || []).length)}/4`, r.createdByName]),
+      });
+    };
+    window.exportActivitiesExcel = (unit) => {
+      const label = unit === 'activity_1' ? 'النشاط الأول' : 'النشاط الثاني';
+      const acts = (state.data?.activities || []).filter((a) => a.unit === unit);
+      const tsks = (state.data?.tasks || []).filter((t) => t.unit === unit);
+      exportXlsxFile(`سجل-${label.replace(/\s+/g, '-')}-${exportStamp()}.xlsx`, [
+        { name: 'البرامج والأنشطة', headers: ['م', 'العنوان', 'المجال', 'التاريخ', 'الوقت', 'الموقع', 'المشاركون', 'الحالة', 'جاهزية الضباط', 'المنشئ', 'الوصف'], rows: acts.map((a, i) => [i + 1, a.title, a.category, a.eventDate, a.eventTime, a.location, a.participantsCount, a.status, a.officerReady ? 'جاهز' : 'بانتظار الفحص', a.createdByName, a.description]) },
+        { name: 'المهام', headers: ['م', 'المهمة', 'المكلف', 'الأولوية', 'تاريخ التسليم', 'الحالة', 'ملاحظات'], rows: tsks.map((t, i) => [i + 1, t.title, t.assignedToName || '—', t.priority === 'high' ? 'عالية' : 'اعتيادية', t.dueDate, t.status, t.notes || '—']) },
+      ]);
+      state.okMsg = `تم تصدير سجل ${label} بصيغة Excel بنجاح`; render();
+    };
+    window.exportActivitiesPdf = (unit) => {
+      const label = unit === 'activity_1' ? 'النشاط الأول' : 'النشاط الثاني';
+      const acts = (state.data?.activities || []).filter((a) => a.unit === unit);
+      printTablePdfDoc({
+        title: `سجل البرامج والفعاليات — ${label}`, orientation: 'landscape',
+        summaryItems: [{ label: 'إجمالي البرامج', value: acts.length }, { label: 'المشاركون', value: acts.reduce((a, b) => a + (Number(b.participantsCount) || 0), 0) }],
+        headers: ['م', 'البرنامج', 'المجال', 'التاريخ والوقت', 'الموقع', 'المشاركون', 'الحالة', 'المنشئ'],
+        rows: acts.map((a, i) => [i + 1, a.title, a.category, `${a.eventDate} · ${a.eventTime}`, a.location, a.participantsCount, a.status === 'completed' ? 'مكتمل' : 'معتمد', a.createdByName]),
+      });
+    };
+    window.exportDisciplineExcel = () => {
+      const logs = state.data?.disciplineLogs || [];
+      exportXlsxFile(`سجل-الانضباط-والنقاط-${exportStamp()}.xlsx`, [{
+        name: 'سجل الانضباط التفصيلي',
+        headers: ['م', 'التاريخ', 'العضو', 'الرمز', 'اللجنة', 'التصنيف', 'تعديل النقاط', 'الملاحظة', 'سجّله'],
+        rows: logs.map((l, i) => [i + 1, l.logDate || (l.createdAt || '').slice(0, 10), l.userName, l.userCode, UNIT_LABELS[l.unit] || l.unit, l.category, l.pointsDelta, l.note, l.recordedByName]),
+      }]);
+      state.okMsg = 'تم تصدير سجل الانضباط بصيغة Excel بنجاح'; render();
+    };
+    window.exportDisciplinePdf = () => {
+      const logs = state.data?.disciplineLogs || [];
+      const plus = logs.filter((l) => l.pointsDelta > 0).reduce((a, l) => a + l.pointsDelta, 0);
+      const minus = logs.filter((l) => l.pointsDelta < 0).reduce((a, l) => a + Math.abs(l.pointsDelta), 0);
+      printTablePdfDoc({
+        title: 'سجل الضباط والانضباط الميداني', orientation: 'landscape',
+        summaryItems: [{ label: 'عدد السجلات', value: logs.length }, { label: 'النقاط (+)', value: `+${plus}` }, { label: 'النقاط (-)', value: `-${minus}` }, { label: 'الصافي', value: plus - minus }],
+        headers: ['م', 'التاريخ', 'العضو', 'الرمز', 'القسم', 'النقاط', 'الملاحظة', 'بواسطة'],
+        rows: logs.map((l, i) => [i + 1, l.logDate || (l.createdAt || '').slice(0, 10), l.userName, l.userCode, UNIT_LABELS[l.unit] || l.unit, l.pointsDelta >= 0 ? `+${l.pointsDelta}` : String(l.pointsDelta), l.note, l.recordedByName]),
+      });
+    };
+    window.exportDirectoryExcel = () => {
+      const users = state.data?.users || [];
+      const subs = state.data?.submissions || [];
+      exportXlsxFile(`دليل-الأفراد-والصلاحيات-${exportStamp()}.xlsx`, [{
+        name: 'الأفراد والصلاحيات',
+        headers: ['م', 'الاسم الكامل', 'رمز العضو', 'رمز الدخول', 'الصفة', 'اللجنة', 'الصف', 'الجوال', 'النقاط', 'الإنجازات', 'الشارات', 'الحالة'],
+        rows: users.map((u, i) => [i + 1, u.fullName, u.memberCode, u.loginCode || '—', ROLE_LABELS[u.role] || u.role, UNIT_LABELS[u.unit] || u.unit, u.gradeOrDept || '—', u.phone || '—', u.points, subs.filter((s) => s.studentId === u.id && s.status === 'approved').length, (u.badges || []).map((b) => b.label).join('، ') || '—', u.isActive ? 'نشط' : 'موقوف']),
+      }]);
+      state.okMsg = 'تم تصدير سجل الأفراد بصيغة Excel بنجاح'; render();
+    };
+    window.exportDirectoryPdf = () => {
+      const users = state.data?.users || [];
+      const subs = state.data?.submissions || [];
+      printTablePdfDoc({
+        title: 'سجل الأفراد والقيادات المعتمد', subtitle: 'بيان منسوبي النشاط الطلابي من قيادات وضباط وطلاب', orientation: 'landscape',
+        summaryItems: [{ label: 'إجمالي الأعضاء', value: users.length }, { label: 'الطلاب الأفراد', value: users.filter((u) => !isMgmt(u.role)).length }, { label: 'الحسابات النشطة', value: users.filter((u) => u.isActive).length }],
+        headers: ['م', 'الاسم', 'الرمز', 'الصفة', 'اللجنة', 'الصف', 'الجوال', 'الإنجازات', 'النقاط', 'الحالة'],
+        rows: users.map((u, i) => [i + 1, u.fullName, u.memberCode, ROLE_LABELS[u.role] || u.role, UNIT_LABELS[u.unit] || u.unit, u.gradeOrDept || '—', u.phone || '—', subs.filter((s) => s.studentId === u.id && s.status === 'approved').length, u.points, u.isActive ? 'نشط' : 'موقوف']),
+      });
+    };
+    window.exportLeaderboardExcel = () => {
+      const entries = state.data?.leaderboard?.entries || [];
+      exportXlsxFile(`لوحة-الترتيب-والشارات-${exportStamp()}.xlsx`, [{
+        name: 'لوحة الترتيب',
+        headers: ['الترتيب', 'الطالب', 'رمز العضو', 'اللجنة', 'الصف', 'الإنجازات المعتمدة', 'النقاط', 'عدد الشارات', 'الشارات'],
+        rows: entries.map((e) => [e.rank, e.fullName, e.memberCode, UNIT_LABELS[e.unit] || e.unit, e.gradeOrDept || '—', e.approvedCount || 0, e.points, (e.badges || []).length, (e.badges || []).map((b) => b.label).join('، ') || '—']),
+      }]);
+      state.okMsg = 'تم تصدير لوحة الترتيب بصيغة Excel بنجاح'; render();
+    };
+    window.exportLeaderboardPdf = () => {
+      const entries = state.data?.leaderboard?.entries || [];
+      printTablePdfDoc({
+        title: 'لوحة الترتيب الرسمية والشارات الشرفية', orientation: 'portrait',
+        summaryItems: [{ label: 'الطلاب المصنفون', value: entries.length }, { label: 'مجموع النقاط', value: entries.reduce((a, e) => a + e.points, 0) }, { label: 'المتصدر', value: entries[0]?.fullName || '—' }],
+        headers: ['المركز', 'الطالب', 'اللجنة', 'الصف', 'الإنجازات', 'النقاط', 'الشارات'],
+        rows: entries.map((e) => [`#${e.rank}`, e.fullName, UNIT_LABELS[e.unit] || e.unit, e.gradeOrDept || '—', e.approvedCount || 0, e.points, (e.badges || []).map((b) => b.label).join('، ') || '—']),
+      });
+    };
+    window.exportBroadcastsExcel = () => {
+      const brcs = state.data?.broadcasts || [];
+      exportXlsxFile(`جدول-الإذاعة-المدرسية-${exportStamp()}.xlsx`, [{
+        name: 'الإذاعة المدرسية',
+        headers: ['م', 'عنوان الإذاعة', 'تاريخ البث', 'الوقت', 'المحور', 'فريق الإلقاء', 'المشرف', 'الحالة', 'المقدمة', 'القرآن', 'الحديث', 'كلمة الصباح', 'هل تعلم', 'الخاتمة'],
+        rows: brcs.map((b, i) => [i + 1, b.title, b.airDate, b.airTime, b.theme, b.presenters, b.supervisorName, (BRC_STATUS[b.status] || [b.status])[0], b.segments?.intro, b.segments?.quran, b.segments?.hadith, b.segments?.morningWord, b.segments?.didYouKnow, b.segments?.closing]),
+      }]);
+      state.okMsg = 'تم تصدير جدول الإذاعات بصيغة Excel بنجاح'; render();
+    };
+    window.exportFullArchiveExcel = () => {
+      const { rows: stRows, unitRows } = buildStudentsExportData();
+      const reps = state.data?.programReports || [];
+      const logs = state.data?.disciplineLogs || [];
+      const acts = state.data?.activities || [];
+      const tsks = state.data?.tasks || [];
+      const brcs = state.data?.broadcasts || [];
+      exportXlsxFile(`السجل-الشامل-للنشاط-الطلابي-${exportStamp()}.xlsx`, [
+        { name: 'أداء الطلاب', headers: ['الترتيب', 'الاسم الكامل', 'رمز العضو', 'الصفة', 'اللجنة / القسم', 'الصف', 'الجوال', 'الإنجازات المقبولة', 'قيد المراجعة', 'النقاط', 'عدد الشارات', 'الشارات', 'الحالة'], rows: stRows },
+        { name: 'ملخص اللجان', headers: ['اللجنة / القسم', 'عدد الطلاب', 'إجمالي النقاط', 'متوسط النقاط', 'الإنجازات المقبولة', 'الشارات'], rows: unitRows },
+        { name: 'تقارير البرامج', headers: ['م', 'اسم البرنامج', 'القسم', 'اسم المدرسة', 'المجال', 'المنفذون', 'تاريخ التنفيذ', 'المستفيدون', 'العدد', 'خطوات التنفيذ', 'الأهداف', 'الشواهد', 'المعدّ'], rows: reps.map((r, i) => [i + 1, r.title, r.departmentName || 'النشاط الطلابي', r.schoolName || 'مدرسة الحديبية المتوسطة', r.field, r.executors, r.executionDate, r.beneficiaries, r.beneficiariesCount, (r.steps || []).join(' | '), (r.objectives || []).join(' | '), Math.min(4, (r.images || []).length), r.createdByName]) },
+        { name: 'سجل الانضباط', headers: ['م', 'التاريخ', 'العضو', 'الرمز', 'اللجنة', 'التصنيف', 'تعديل النقاط', 'الملاحظة', 'سجّله'], rows: logs.map((l, i) => [i + 1, l.logDate || (l.createdAt || '').slice(0, 10), l.userName, l.userCode, UNIT_LABELS[l.unit] || l.unit, l.category, l.pointsDelta, l.note, l.recordedByName]) },
+        { name: 'البرامج والأنشطة', headers: ['م', 'العنوان', 'القسم', 'المجال', 'التاريخ', 'الوقت', 'الموقع', 'المشاركون', 'الحالة', 'المنشئ'], rows: acts.map((a, i) => [i + 1, a.title, UNIT_LABELS[a.unit] || a.unit, a.category, a.eventDate, a.eventTime, a.location, a.participantsCount, a.status, a.createdByName]) },
+        { name: 'المهام', headers: ['م', 'المهمة', 'القسم', 'المكلف', 'الأولوية', 'تاريخ التسليم', 'الحالة'], rows: tsks.map((t, i) => [i + 1, t.title, UNIT_LABELS[t.unit] || t.unit, t.assignedToName || '—', t.priority === 'high' ? 'عالية' : 'اعتيادية', t.dueDate, t.status]) },
+        ...(brcs.length ? [{ name: 'الإذاعة المدرسية', headers: ['م', 'عنوان الإذاعة', 'تاريخ البث', 'الوقت', 'المحور', 'فريق الإلقاء', 'المشرف', 'الحالة'], rows: brcs.map((b, i) => [i + 1, b.title, b.airDate, b.airTime, b.theme, b.presenters, b.supervisorName, (BRC_STATUS[b.status] || [b.status])[0]]) }] : []),
+      ]);
+      state.okMsg = 'تم تصدير السجل الشامل للتقارير والطلاب بصيغة Excel بنجاح'; render();
+    };
 
     if (getToken()) refreshWorkspace();
     else render();
