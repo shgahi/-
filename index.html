@@ -144,10 +144,26 @@
       }
     }
     @media print {
-      @page { size: A4 portrait; margin: 5mm; }
-      html, body { background-color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      @page { size: A4 portrait; margin: 6mm; }
+      html, body {
+        width: 100% !important; height: auto !important; min-height: 0 !important;
+        margin: 0 !important; padding: 0 !important;
+        background-color: #ffffff !important; overflow: visible !important;
+        -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+      }
+      #app, .print-reset {
+        display: block !important; width: 100% !important; max-width: 100% !important;
+        min-height: 0 !important; margin: 0 !important; padding: 0 !important; gap: 0 !important;
+        animation: none !important; transform: none !important; overflow: visible !important;
+      }
+      .print-reset > * + * { margin-top: 0 !important; }
       .no-print { display: none !important; }
-      .print-sheet { border: none !important; box-shadow: none !important; margin: 0 auto !important; max-width: 100% !important; width: 100% !important; border-radius: 0 !important; break-inside: avoid; }
+      .print-sheet {
+        width: 196mm !important; max-width: 100% !important; margin: 0 auto !important;
+        border: 1.5px solid #cbd5e1 !important; box-shadow: none !important;
+        border-radius: 10px !important; overflow: hidden !important; box-sizing: border-box !important;
+        break-inside: avoid !important; page-break-inside: avoid !important; break-after: auto !important;
+      }
     }
   </style>
 </head>
@@ -185,7 +201,7 @@
     const DEFAULT_ROLE_PERMS = {
       president: ALL_PERMS.map((p) => p.key),
       vice_president: ALL_PERMS.map((p) => p.key),
-      officer: ['manage_activities', 'manage_discipline', 'manage_broadcasts', 'review_submissions', 'issue_directives'],
+      officer: [],
       member: [],
     };
 
@@ -225,7 +241,7 @@
 
     let confirmResolver = null;
     const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const isMgmt = (r) => ['president', 'vice_president', 'officer'].includes(r);
+    const isMgmt = (r) => ['president', 'vice_president'].includes(r);
     const isSupreme = (u) => Boolean(u && u.username === 'president');
     const effectivePerms = (u) => isSupreme(u) ? ALL_PERMS.map((p) => p.key) : (Array.isArray(u?.permissions) ? u.permissions : (DEFAULT_ROLE_PERMS[u?.role] || []));
     const hasPerm = (u, perm) => effectivePerms(u).includes(perm);
@@ -352,7 +368,7 @@
     }
 
     function renderOverview() {
-      const students = state.data.users.filter((u) => u.role === 'member');
+      const students = state.data.users.filter((u) => !isMgmt(u.role));
       const pendingSub = state.data.submissions.filter((s) => s.status === 'pending').length;
       const openCmp = state.data.complaints.filter((c) => c.status !== 'resolved').length;
       const newSug = state.data.suggestions.filter((s) => s.status === 'new').length;
@@ -416,12 +432,12 @@
     }
 
     function renderReports() {
-      const students = state.data.users.filter((u) => u.role === 'member');
+      const students = state.data.users.filter((u) => !isMgmt(u.role));
       const reports = state.data.programReports || [];
       const selRep = reports.find((r) => r.id === state.selectedReportId) || reports[0] || null;
       const d = state.reportDraft;
       return `
-        <div class="space-y-6">
+        <div class="space-y-6 print-reset">
           <div class="flex flex-wrap items-center justify-between gap-3 no-print">
             <div>
               <h2 class="text-xl font-bold">التقارير والمتابعة</h2>
@@ -437,7 +453,7 @@
           </div>
 
           ${state.reportTab === 'evidence' ? `
-            <div class="space-y-5">
+            <div class="space-y-5 print-reset">
               <div class="flex flex-wrap items-center justify-between gap-3 no-print">
                 <p class="text-xs text-slate-500">أدخل اسم البرنامج والمنفذين والتاريخ وأرفق حتى 4 شواهد مصورة، ويتولى الذكاء الاصطناعي استنتاج المجال وخطوات التنفيذ والأهداف مباشرة.</p>
                 <button onclick="toggleReportBuilder()" class="px-4 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold cursor-pointer">${state.showReportBuilder ? 'إغلاق النموذج' : 'إعداد تقرير جديد (4 شواهد)'}</button>
@@ -485,7 +501,7 @@
                 </form>
               ` : ''}
 
-              <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start print-reset">
                 <div class="lg:col-span-4 luxury-card overflow-hidden divide-y divide-slate-200/70 no-print">
                   <div class="px-4 py-3 bg-slate-50/70 text-xs font-bold text-slate-700">التقارير المحفوظة (${reports.length})</div>
                   ${reports.length === 0 ? `<div class="p-6 text-center text-xs text-slate-500">لا توجد تقارير محفوظة بعد</div>` : reports.map((r) => `
@@ -496,7 +512,7 @@
                   `).join('')}
                 </div>
 
-                <div class="lg:col-span-8 space-y-3">
+                <div class="lg:col-span-8 space-y-3 print-reset">
                   ${selRep ? `
                     <div class="flex flex-wrap justify-between items-center gap-2 no-print">
                       <span class="text-xs text-slate-500">أعدّه: <b>${esc(selRep.createdByName)}</b></span>
@@ -506,48 +522,48 @@
                         <button onclick="deleteProgramReport(${selRep.id}, '${esc(selRep.title)}')" class="px-3 py-1.5 rounded-xl border border-red-200 bg-white text-red-700 text-xs font-bold cursor-pointer">حذف</button>
                       </div>
                     </div>
-                    <div class="max-w-[794px] mx-auto bg-white border border-slate-200 shadow-lg overflow-hidden print-sheet report-kufi-font">
-                      <div class="relative bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799] text-white px-6 pt-5 pb-9 rounded-b-xl">
+                    <div class="max-w-[794px] mx-auto bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden print-sheet report-kufi-font">
+                      <div class="relative bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799] text-white px-6 pt-4 pb-8 print:pt-3 print:pb-6 rounded-b-xl">
                         <div class="flex items-center justify-center gap-5">
-                          <img src="/moe-logo.png" alt="وزارة التعليم - Ministry of Education" class="h-[68px] w-auto object-contain shrink-0" />
-                          <div class="w-[2.5px] h-[64px] bg-white shrink-0"></div>
-                          <div class="text-right text-[14px] font-medium leading-[1.65]">
+                          <img src="/moe-logo.png" alt="وزارة التعليم - Ministry of Education" class="h-[64px] print:h-[54px] w-auto object-contain shrink-0" />
+                          <div class="w-[2.5px] h-[60px] print:h-[50px] bg-white shrink-0"></div>
+                          <div class="text-right text-[14px] print:text-[12.5px] font-medium leading-[1.6]">
                             <div>الإدارة العامة للتعليم</div>
                             <div>بمحافظة جدة</div>
                             <div>النشاط الطلابي</div>
                           </div>
                         </div>
-                        <div class="absolute left-1/2 -translate-x-1/2 -bottom-4 bg-[#24364d] text-white px-16 sm:px-24 py-1.5 rounded-xl text-[14px] sm:text-[15px] font-medium shadow-md whitespace-nowrap border border-white/10">${esc(selRep.schoolName || 'مدرسة الحديبية المتوسطة')}</div>
+                        <div class="absolute left-1/2 -translate-x-1/2 -bottom-4 bg-[#24364d] text-white px-16 sm:px-24 py-1.5 print:py-1 rounded-xl text-[14px] sm:text-[15px] font-medium shadow-md whitespace-nowrap border border-white/10">${esc(selRep.schoolName || 'مدرسة الحديبية المتوسطة')}</div>
                       </div>
-                      <div class="px-6 pt-8 pb-4 space-y-4 bg-white">
-                        <div class="grid grid-cols-12 gap-x-3.5 gap-y-4">
-                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">اســـــم البرنــــامج:</span><div class="text-[15px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.title || '—')}</div></div>
-                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">مجــــال البرنــــامج:</span><div class="text-[15px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.field || '—')}</div></div>
-                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">المنفــــــــــذ/يــــن:</span><div class="text-[15px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.executors || '—')}</div></div>
-                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">تاريـــــخ التنفيــــذ:</span><div class="text-[15px] sm:text-[16px] font-medium text-slate-900 min-h-[1.35rem] english-date-font">${esc(toEngDigits(selRep.executionDate || '—'))}</div></div>
-                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">المستفيــــــــدون:</span><div class="text-[15px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.beneficiaries || 'الطلاب')}</div></div>
-                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-2.5 bg-white text-center"><span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">عدد المستفيدين:</span><div class="text-[15px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.beneficiariesCount || 'اقل من 70 طالب')}</div></div>
+                      <div class="px-5 pt-7 pb-3.5 print:px-4 print:pt-5 print:pb-2.5 space-y-3.5 print:space-y-2.5 bg-white">
+                        <div class="grid grid-cols-12 gap-x-3.5 gap-y-3.5 print:gap-x-3 print:gap-y-2.5">
+                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">اســـــم البرنــــامج:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.title || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">مجــــال البرنــــامج:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.field || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">المنفــــــــــذ/يــــن:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.executors || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">تاريـــــخ التنفيــــذ:</span><div class="text-[15px] sm:text-[16px] print:text-[14.5px] font-medium text-slate-900 min-h-[1.35rem]">${formatEngDateHtml(selRep.executionDate || '—')}</div></div>
+                          <div class="col-span-12 sm:col-span-7 print:col-span-7 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">المستفيــــــــدون:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.beneficiaries || 'الطلاب')}</div></div>
+                          <div class="col-span-12 sm:col-span-5 print:col-span-5 relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2 print:pt-3.5 print:pb-1.5 bg-white text-center"><span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">عدد المستفيدين:</span><div class="text-[15px] print:text-[14px] font-medium text-slate-900 min-h-[1.35rem]">${esc(selRep.beneficiariesCount || 'اقل من 70 طالب')}</div></div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-3.5 items-stretch pt-1">
-                          <div class="relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-3 bg-white">
-                            <span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">خطوات التنفيــــذ:</span>
-                            <div class="space-y-1 text-xs sm:text-[13px] text-slate-900 leading-relaxed text-right">${(selRep.steps || []).map((s) => `<div>${esc(s)}</div>`).join('')}</div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-3.5 print:gap-3 items-stretch pt-0.5">
+                          <div class="relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2.5 print:pt-3.5 print:pb-2 bg-white">
+                            <span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">خطوات التنفيــــذ:</span>
+                            <div class="space-y-1 text-[12.5px] sm:text-[13px] print:text-[11.5px] print:leading-snug font-semibold text-slate-900 leading-relaxed text-right">${(selRep.steps || []).map((s) => `<div>${esc(s)}</div>`).join('')}</div>
                           </div>
-                          <div class="relative border-[1.7px] border-[#217a8c] rounded-xl px-4 pt-5 pb-3 bg-white">
-                            <span class="absolute -top-3.5 right-3.5 bg-white px-2 text-[17px] sm:text-[18px] print:text-[17px] font-medium leading-none text-[#1e8c70]">الأهــــــــــــــــــــداف:</span>
-                            <div class="space-y-1 text-xs sm:text-[13px] text-slate-900 leading-relaxed text-right">${(selRep.objectives || []).map((o) => `<div>${esc(o)}</div>`).join('')}</div>
+                          <div class="relative border-2 border-[#217a8c] rounded-xl px-4 pt-4 pb-2.5 print:pt-3.5 print:pb-2 bg-white">
+                            <span class="absolute -top-3 right-3.5 bg-white px-2 text-[15px] sm:text-[15.5px] print:text-[14.5px] font-medium leading-none text-[#1e8c70]">الأهــــــــــــــــــــداف:</span>
+                            <div class="space-y-1 text-[12.5px] sm:text-[13px] print:text-[11.5px] print:leading-snug font-semibold text-slate-900 leading-relaxed text-right">${(selRep.objectives || []).map((o) => `<div>${esc(o)}</div>`).join('')}</div>
                           </div>
                         </div>
-                        <div class="relative border-[1.7px] border-[#217a8c] rounded-xl px-6 pt-7 pb-4 bg-white mt-1">
-                          <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-white px-5 text-[18px] sm:text-[19px] print:text-[18px] font-medium leading-none text-[#1e8c70]">الشــــواهــــد</span>
+                        <div class="relative border-2 border-[#217a8c] rounded-xl px-3.5 pt-5 pb-3 print:px-3 print:pt-4 print:pb-2.5 bg-white mt-0.5">
+                          <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-5 text-[16px] sm:text-[17px] print:text-[15.5px] font-medium leading-none text-[#1e8c70]">الشــــواهــــد</span>
                           ${(selRep.images || []).length === 0 ? `<div class="py-10 text-center text-xs text-slate-400">لا توجد صور شواهد مرفقة (الحد الأقصى 4 صور)</div>` : `
-                            <div class="grid grid-cols-2 gap-4 max-w-[580px] mx-auto">
-                              ${(selRep.images || []).slice(0, 4).map((src) => `<div class="rounded-xl border border-slate-500/80 overflow-hidden bg-white flex items-center justify-center h-36 sm:h-40 print:h-[152px]"><img src="${src}" class="w-full h-full object-contain" /></div>`).join('')}
+                            <div class="grid grid-cols-2 gap-3 print:gap-2.5 w-full">
+                              ${(selRep.images || []).slice(0, 4).map((src) => `<div class="rounded-xl border border-slate-500/80 overflow-hidden bg-slate-50/40 flex items-center justify-center h-56 sm:h-64 print:h-[192px]"><img src="${src}" class="w-full h-full object-contain" /></div>`).join('')}
                             </div>
                           `}
                         </div>
                       </div>
-                      <div class="h-4 bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799]"></div>
+                      <div class="h-4 print:h-3 bg-gradient-to-l from-[#34ad6d] via-[#1b8682] to-[#196799]"></div>
                     </div>
                   ` : `<div class="luxury-card p-10 text-center text-sm text-slate-500 no-print">أنشئ أول تقرير بالشواهد لعرضه وطباعته</div>`}
                 </div>
@@ -751,7 +767,7 @@
             <input id="uCode" required value="${genCode}" placeholder="رمز الدخول" class="h-10 px-3 rounded-xl border border-slate-300 text-sm font-mono" />
             <select id="uRole" class="h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm">
               <option value="member">فرد (طالب)</option>
-              <option value="officer">ضابط نشاط (إدارة)</option>
+              <option value="officer">ضابط نشاط</option>
               <option value="vice_president">نائب الرئيس (إدارة)</option>
               ${isSupremeActor ? `<option value="president">رئيس النشاط (إدارة)</option>` : ''}
             </select>
@@ -1319,6 +1335,7 @@
 
     window.selectReport = (id) => { state.selectedReportId = id; render(); };
     window.toEngDigits = (v) => String(v || '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+    window.formatEngDateHtml = (v) => toEngDigits(v || '—').split(/([0-9]+(?:[\/\-.:][0-9]+)*)/g).map((part) => (/^[0-9]+(?:[\/\-.:][0-9]+)*$/.test(part) ? `<span class="english-date-font">${esc(part)}</span>` : esc(part))).join('');
     window.syncRepDraft = (k, v) => { state.reportDraft[k] = k === 'executionDate' ? toEngDigits(v) : v; };
     window.toggleRepAdvanced = () => { state.showRepAdvanced = !state.showRepAdvanced; render(); };
     window.toggleReportBuilder = () => {

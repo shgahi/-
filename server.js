@@ -20,7 +20,7 @@ const DATABASE_URL = (process.env.DATABASE_URL || '').trim();
 const isNeon = Boolean(DATABASE_URL);
 const DB_FILE = path.join(__dirname, 'activity-db.json');
 
-const MANAGEMENT_ROLES = ['president', 'vice_president', 'officer'];
+const MANAGEMENT_ROLES = ['president', 'vice_president'];
 const ALLOWED_ROLES = ['president', 'vice_president', 'officer', 'member'];
 const ALL_PERMISSIONS = [
   'manage_directory',
@@ -33,7 +33,7 @@ const ALL_PERMISSIONS = [
 const DEFAULT_ROLE_PERMISSIONS = {
   president: [...ALL_PERMISSIONS],
   vice_president: [...ALL_PERMISSIONS],
-  officer: ['manage_activities', 'manage_discipline', 'manage_broadcasts', 'review_submissions', 'issue_directives'],
+  officer: [],
   member: [],
 };
 
@@ -1138,7 +1138,7 @@ app.post('/api/users', requireAuth, async (req, res) => {
 
     const cleanCode = String(loginCode).trim();
     const rand = Math.floor(1000 + Math.random() * 9000);
-    const memberCode = `${targetRole === 'member' ? 'STD' : 'ADM'}-${rand}`;
+    const memberCode = `${isMgmt(targetRole) ? 'ADM' : 'STD'}-${rand}`;
     const username = `user_${cleanCode}`.toLowerCase();
     const hash = bcrypt.hashSync(cleanCode, 10);
     const targetUnit = unit || 'activity_1';
@@ -1161,7 +1161,7 @@ app.post('/api/users', requireAuth, async (req, res) => {
         unit: targetUnit,
         phone: phone.trim(),
         gradeOrDept: String(gradeOrDept || '').trim(),
-        points: targetRole === 'member' ? 0 : 90,
+        points: isMgmt(targetRole) ? 90 : 0,
         isActive: true,
         permissions: parsedPerms,
         createdAt: new Date().toISOString(),
@@ -1179,7 +1179,7 @@ app.post('/api/users', requireAuth, async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11::jsonb) RETURNING *`,
       [
         memberCode, cleanCode, username, fullName.trim(), hash, targetRole, targetUnit,
-        phone.trim(), String(gradeOrDept || '').trim(), targetRole === 'member' ? 0 : 90,
+        phone.trim(), String(gradeOrDept || '').trim(), isMgmt(targetRole) ? 90 : 0,
         JSON.stringify(parsedPerms),
       ]
     );
