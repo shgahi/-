@@ -57,225 +57,178 @@ const sanitizePermissions = (input) => {
   return input.filter((p) => ALL_PERMISSIONS.includes(p));
 };
 
-// ===== الروليت والمسابقات — الدوال والمسارات =====
-const ROULETTE_COST = 10;
-const ROULETTE_SEGMENTS = [
-  { points: 5, label: '٥ نقاط', weight: 18 },
-  { points: 10, label: '١٠ نقاط', weight: 22 },
-  { points: 15, label: '١٥ نقطة', weight: 20 },
-  { points: 20, label: '٢٠ نقطة', weight: 14 },
-  { points: 30, label: '٣٠ نقطة', weight: 10 },
-  { points: 50, label: 'الجائزة الكبرى ٥٠ نقطة', weight: 4 },
-  { points: 0, label: 'حظ أوفر', weight: 12 },
-];
-const ROULETTE_TOTAL_WEIGHT = ROULETTE_SEGMENTS.reduce((s, seg) => s + seg.weight, 0);
-
-function pickRouletteReward() {
-  let roll = Math.floor(Math.random() * ROULETTE_TOTAL_WEIGHT);
-  for (const seg of ROULETTE_SEGMENTS) {
-    if (roll < seg.weight) return seg;
-    roll -= seg.weight;
-  }
-  return ROULETTE_SEGMENTS[0];
-}
-
-function sanitizeCompetition(input, actor) {
-  const title = String(input?.title || '').trim();
-  if (!title) return { error: 'يرجى إدخال عنوان المسابقة' };
-  const pointsPerCorrect = Math.max(0, Math.min(50, Number(input?.pointsPerCorrect || 0) || 0));
-  const rawQs = Array.isArray(input?.questions) ? input.questions : [];
-  const questions = [];
-  for (const q of rawQs) {
-    const text = String(q?.text || '').trim();
-    const options = Array.isArray(q?.options) ? q.options.map((o) => String(o ?? '').trim()).filter(Boolean) : [];
-    const correctIndex = Number(q?.correctIndex);
-    if (!text || options.length < 2 || !Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex >= options.length) {
-      return { error: 'كل سؤال يحتاج نصاً وخيارين على الأقل وإجابة صحيحة محددة' };
-    }
-    questions.push({ id: questions.length + 1, text, options, correctIndex });
-  }
-  if (questions.length === 0) return { error: 'أضف سؤالاً واحداً على الأقل' };
-  return {
-    value: {
-      title,
-      description: String(input?.description || '').trim(),
-      unit: String(input?.unit || 'all'),
-      status: String(input?.status || 'open') === 'closed' ? 'closed' : 'open',
-      pointsPerCorrect,
-      questions,
-      createdByName: actor?.fullName || '',
-    },
-  };
-}
-
-const mapCompetition = (r) => ({
+// ===== الشهادات — الدوال والمسارات =====
+const ALLOWED_CERT_TEMPLATES = ['emerald_gold', 'royal_navy', 'classic_brass'];
+const mapCertificate = (r) => ({
   id: r.id,
-  title: r.title,
-  description: r.description || '',
-  unit: r.unit,
-  status: r.status,
-  pointsPerCorrect: Number(r.points_per_correct || r.pointsPerCorrect || 0),
-  questions: Array.isArray(r.questions) ? r.questions : [],
-  entries: Array.isArray(r.entries) ? r.entries : [],
+  studentId: r.student_id !== undefined ? r.student_id : (r.studentId ?? null),
+  recipientName: r.recipient_name || r.recipientName || '',
+  gradeOrTitle: r.grade_or_title || r.gradeOrTitle || '',
+  certificateType: r.certificate_type || r.certificateType || 'شهادة شكر وتقدير',
+  reason: r.reason || '',
+  schoolName: r.school_name || r.schoolName || 'مدرسة الحديبية المتوسطة',
+  issuerTitle: r.issuer_title || r.issuerTitle || 'رئيس النشاط الطلابي',
+  issuerName: r.issuer_name || r.issuerName || '',
+  principalName: r.principal_name || r.principalName || '',
+  issueDate: r.issue_date || r.issueDate || '',
+  templateStyle: ALLOWED_CERT_TEMPLATES.includes(r.template_style || r.templateStyle)
+    ? (r.template_style || r.templateStyle)
+    : 'emerald_gold',
+  createdById: Number(r.created_by_id || r.createdById || 0),
   createdByName: r.created_by_name || r.createdByName || '',
   createdAt: r.created_at ? new Date(r.created_at).toISOString() : (r.createdAt || undefined),
 });
 
-const mapRouletteSpin = (r) => ({
-  id: r.id,
-  studentId: r.student_id || r.studentId,
-  studentName: r.student_name || r.studentName,
-  cost: Number(r.cost || 0),
-  reward: Number(r.reward || 0),
-  label: r.label || '',
-  createdAt: r.created_at ? new Date(r.created_at).toISOString() : (r.createdAt || undefined),
+app.get('/api/certificates', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const viewer = req.user;
+    if (!isNeon) {
+      const list = readLocal().certificates || [];
+      return res.json({
+        certificates: isMgmt(viewer.role) ? list : list.filter((c) => c.studentId === viewer.id),
+      });
+    }
+    const p = getPool();
+    const r = isMgmt(viewer.role)
+      ? await p.query('SELECT * FROM certificates ORDER BY id DESC')
+      : await p.query('SELECT * FROM certificates WHERE student_id=$1 ORDER BY id DESC', [viewer.id]);
+    res.json({ certificates: r.rows.map(mapCertificate) });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب الشهادات' });
+  }
 });
 
-async function rouletteSpinHandler(req, res) {
+app.post('/api/certificates', requireAuth, requireMgmt, async (req, res) => {
   try {
     await ensureReady();
     const u = req.user;
-    if (Number(u.points || 0) < ROULETTE_COST) {
-      return res.status(400).json({ error: `يلزم ${ROULETTE_COST} نقاط على الأقل لتدوير العجلة` });
+    const b = req.body || {};
+    const recipientName = String(b.recipientName || '').trim();
+    const reason = String(b.reason || '').trim();
+    const issueDate = String(b.issueDate || '').trim();
+    if (!recipientName || !reason || !issueDate) {
+      return res.status(400).json({ error: 'يرجى إدخال اسم المكرّم ونص الشهادة وتاريخ الإصدار' });
     }
-    const seg = pickRouletteReward();
-    const net = seg.points - ROULETTE_COST;
+    const tpl = ALLOWED_CERT_TEMPLATES.includes(b.templateStyle) ? b.templateStyle : 'emerald_gold';
+    const itemInput = {
+      studentId: b.studentId ? Number(b.studentId) : null,
+      recipientName,
+      gradeOrTitle: String(b.gradeOrTitle || '').trim(),
+      certificateType: String(b.certificateType || '').trim() || 'شهادة شكر وتقدير',
+      reason,
+      schoolName: String(b.schoolName || '').trim() || 'مدرسة الحديبية المتوسطة',
+      issuerTitle: String(b.issuerTitle || '').trim() || 'رئيس النشاط الطلابي',
+      issuerName: String(b.issuerName || '').trim() || u.fullName,
+      principalName: String(b.principalName || '').trim(),
+      issueDate,
+      templateStyle: tpl,
+      createdById: u.id,
+      createdByName: u.fullName,
+    };
     if (!isNeon) {
       const db = readLocal();
-      const me = db.users.find((x) => x.id === u.id);
-      if (!me) return res.status(404).json({ error: 'الحساب غير موجود' });
-      me.points = Math.max(0, Number(me.points || 0) + net);
-      db.counters.roulette = (db.counters.roulette || 0) + 1;
-      const spin = {
-        id: db.counters.roulette,
-        studentId: u.id,
-        studentName: u.fullName,
-        cost: ROULETTE_COST,
-        reward: seg.points,
-        label: seg.label,
-        createdAt: new Date().toISOString(),
-      };
-      db.rouletteSpins.unshift(spin);
+      db.counters = db.counters || {};
+      db.counters.certificates = (db.counters.certificates || 0) + 1;
+      db.certificates = db.certificates || [];
+      const created = { id: db.counters.certificates, ...itemInput, createdAt: new Date().toISOString() };
+      db.certificates.unshift(created);
       writeLocal(db);
-      return res.json({ spin, points: me.points });
-    }
-    const p = getPool();
-    const r = await p.query(
-      `INSERT INTO roulette_spins (student_id, student_name, cost, reward) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [u.id, u.fullName, ROULETTE_COST, seg.points]
-    );
-    await p.query('UPDATE users SET points = GREATEST(0, points + $1) WHERE id=$2', [net, u.id]);
-    return res.json({ spin: mapRouletteSpin({ ...r.rows[0], label: seg.label }), points: Math.max(0, Number(u.points || 0) + net) });
-  } catch {
-    res.status(500).json({ error: 'تعذر تدوير العجلة' });
-  }
-}
-app.post('/api/roulette/spin', requireAuth, rouletteSpinHandler);
-
-async function competitionCreateHandler(req, res) {
-  try {
-    if (!isMgmt(req.user.role)) return res.status(403).json({ error: 'إنشاء المسابقات مخصص للإدارة' });
-    await ensureReady();
-    const parsed = sanitizeCompetition(req.body, req.user);
-    if (parsed.error) return res.status(400).json({ error: parsed.error });
-    const c = parsed.value;
-    if (!isNeon) {
-      const db = readLocal();
-      db.counters.competitions = (db.counters.competitions || 0) + 1;
-      const item = { id: db.counters.competitions, ...c, entries: [], createdAt: new Date().toISOString() };
-      db.competitions.unshift(item);
-      writeLocal(db);
-      return res.status(201).json({ competition: item });
+      return res.status(201).json({ certificate: created });
     }
     const r = await getPool().query(
-      `INSERT INTO competitions (title, description, unit, status, points_per_correct, questions, entries, created_by_name)
-       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8) RETURNING *`,
-      [c.title, c.description, c.unit, c.status, c.pointsPerCorrect, JSON.stringify(c.questions), JSON.stringify([]), c.createdByName]
+      `INSERT INTO certificates (student_id, recipient_name, grade_or_title, certificate_type, reason, school_name, issuer_title, issuer_name, principal_name, issue_date, template_style, created_by_id, created_by_name)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      [
+        itemInput.studentId, itemInput.recipientName, itemInput.gradeOrTitle, itemInput.certificateType,
+        itemInput.reason, itemInput.schoolName, itemInput.issuerTitle, itemInput.issuerName,
+        itemInput.principalName, itemInput.issueDate, itemInput.templateStyle, itemInput.createdById, itemInput.createdByName,
+      ]
     );
-    res.status(201).json({ competition: mapCompetition(r.rows[0]) });
+    res.status(201).json({ certificate: mapCertificate(r.rows[0]) });
   } catch (e) {
-    res.status(400).json({ error: e.message || 'تعذر إنشاء المسابقة' });
+    res.status(500).json({ error: e.message || 'تعذر إصدار الشهادة' });
   }
-}
-app.post('/api/competitions', requireAuth, competitionCreateHandler);
+});
 
-async function competitionDeleteHandler(req, res) {
+app.patch('/api/certificates/:id', requireAuth, requireMgmt, async (req, res) => {
   try {
-    if (!isMgmt(req.user.role)) return res.status(403).json({ error: 'حذف المسابقات مخصص للإدارة' });
+    await ensureReady();
+    const id = Number(req.params.id);
+    const b = req.body || {};
+    if (!isNeon) {
+      const db = readLocal();
+      const idx = (db.certificates || []).findIndex((c) => c.id === id);
+      if (idx === -1) return res.status(404).json({ error: 'الشهادة غير موجودة' });
+      const cur = db.certificates[idx];
+      db.certificates[idx] = {
+        ...cur,
+        ...(b.studentId !== undefined ? { studentId: b.studentId ? Number(b.studentId) : null } : {}),
+        ...(b.recipientName !== undefined && String(b.recipientName).trim() ? { recipientName: String(b.recipientName).trim() } : {}),
+        ...(b.gradeOrTitle !== undefined ? { gradeOrTitle: String(b.gradeOrTitle).trim() } : {}),
+        ...(b.certificateType !== undefined && String(b.certificateType).trim() ? { certificateType: String(b.certificateType).trim() } : {}),
+        ...(b.reason !== undefined && String(b.reason).trim() ? { reason: String(b.reason).trim() } : {}),
+        ...(b.schoolName !== undefined ? { schoolName: String(b.schoolName).trim() || 'مدرسة الحديبية المتوسطة' } : {}),
+        ...(b.issuerTitle !== undefined ? { issuerTitle: String(b.issuerTitle).trim() || 'رئيس النشاط الطلابي' } : {}),
+        ...(b.issuerName !== undefined ? { issuerName: String(b.issuerName).trim() } : {}),
+        ...(b.principalName !== undefined ? { principalName: String(b.principalName).trim() } : {}),
+        ...(b.issueDate !== undefined && String(b.issueDate).trim() ? { issueDate: String(b.issueDate).trim() } : {}),
+        ...(ALLOWED_CERT_TEMPLATES.includes(b.templateStyle) ? { templateStyle: b.templateStyle } : {}),
+      };
+      writeLocal(db);
+      return res.json({ certificate: db.certificates[idx] });
+    }
+    const p = getPool();
+    const curRes = await p.query('SELECT * FROM certificates WHERE id=$1', [id]);
+    if (curRes.rowCount === 0) return res.status(404).json({ error: 'الشهادة غير موجودة' });
+    const cur = mapCertificate(curRes.rows[0]);
+    const next = {
+      ...cur,
+      ...(b.studentId !== undefined ? { studentId: b.studentId ? Number(b.studentId) : null } : {}),
+      ...(b.recipientName !== undefined && String(b.recipientName).trim() ? { recipientName: String(b.recipientName).trim() } : {}),
+      ...(b.gradeOrTitle !== undefined ? { gradeOrTitle: String(b.gradeOrTitle).trim() } : {}),
+      ...(b.certificateType !== undefined && String(b.certificateType).trim() ? { certificateType: String(b.certificateType).trim() } : {}),
+      ...(b.reason !== undefined && String(b.reason).trim() ? { reason: String(b.reason).trim() } : {}),
+      ...(b.schoolName !== undefined ? { schoolName: String(b.schoolName).trim() || 'مدرسة الحديبية المتوسطة' } : {}),
+      ...(b.issuerTitle !== undefined ? { issuerTitle: String(b.issuerTitle).trim() || 'رئيس النشاط الطلابي' } : {}),
+      ...(b.issuerName !== undefined ? { issuerName: String(b.issuerName).trim() } : {}),
+      ...(b.principalName !== undefined ? { principalName: String(b.principalName).trim() } : {}),
+      ...(b.issueDate !== undefined && String(b.issueDate).trim() ? { issueDate: String(b.issueDate).trim() } : {}),
+      ...(ALLOWED_CERT_TEMPLATES.includes(b.templateStyle) ? { templateStyle: b.templateStyle } : {}),
+    };
+    const r = await p.query(
+      `UPDATE certificates SET student_id=$1, recipient_name=$2, grade_or_title=$3, certificate_type=$4, reason=$5, school_name=$6, issuer_title=$7, issuer_name=$8, principal_name=$9, issue_date=$10, template_style=$11 WHERE id=$12 RETURNING *`,
+      [
+        next.studentId, next.recipientName, next.gradeOrTitle, next.certificateType,
+        next.reason, next.schoolName, next.issuerTitle, next.issuerName,
+        next.principalName, next.issueDate, next.templateStyle, id,
+      ]
+    );
+    res.json({ certificate: mapCertificate(r.rows[0]) });
+  } catch {
+    res.status(500).json({ error: 'تعذر تحديث الشهادة' });
+  }
+});
+
+app.delete('/api/certificates/:id', requireAuth, requireMgmt, async (req, res) => {
+  try {
     await ensureReady();
     const id = Number(req.params.id);
     if (!isNeon) {
       const db = readLocal();
-      const before = db.competitions.length;
-      db.competitions = db.competitions.filter((c) => c.id !== id);
-      if (db.competitions.length === before) return res.status(404).json({ error: 'المسابقة غير موجودة' });
+      const before = (db.certificates || []).length;
+      db.certificates = (db.certificates || []).filter((c) => c.id !== id);
+      if (db.certificates.length === before) return res.status(404).json({ error: 'الشهادة غير موجودة' });
       writeLocal(db);
       return res.json({ ok: true });
     }
-    const r = await getPool().query('DELETE FROM competitions WHERE id=$1 RETURNING id', [id]);
-    if (r.rowCount === 0) return res.status(404).json({ error: 'المسابقة غير موجودة' });
+    const r = await getPool().query('DELETE FROM certificates WHERE id=$1 RETURNING id', [id]);
+    if (r.rowCount === 0) return res.status(404).json({ error: 'الشهادة غير موجودة' });
     res.json({ ok: true });
   } catch {
-    res.status(500).json({ error: 'تعذر حذف المسابقة' });
+    res.status(500).json({ error: 'تعذر حذف الشهادة' });
   }
-}
-app.delete('/api/competitions/:id', requireAuth, competitionDeleteHandler);
-
-async function competitionEnterHandler(req, res) {
-  try {
-    await ensureReady();
-    const u = req.user;
-    const id = Number(req.params.id);
-    const answers = Array.isArray(req.body?.answers) ? req.body.answers.map((a) => Number(a)).filter((a) => Number.isInteger(a)) : [];
-    if (!isNeon) {
-      const db = readLocal();
-      const comp = (db.competitions || []).find((c) => c.id === id);
-      if (!comp) return res.status(404).json({ error: 'المسابقة غير موجودة' });
-      if (comp.status === 'closed') return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
-      if ((comp.entries || []).some((e) => e.studentId === u.id)) return res.status(400).json({ error: 'لقد اشتركت في هذه المسابقة مسبقاً' });
-      if (answers.length !== comp.questions.length) return res.status(400).json({ error: 'أجب عن جميع الأسئلة' });
-      let score = 0;
-      const graded = comp.questions.map((q, i) => {
-        const chosen = answers[i];
-        const correct = chosen === q.correctIndex;
-        if (correct) score += 1;
-        return { questionId: q.id, chosen, correct };
-      });
-      const earned = score * Number(comp.pointsPerCorrect || 0);
-      const entry = { studentId: u.id, studentName: u.fullName, answers, graded, score, earnedPoints: earned, createdAt: new Date().toISOString() };
-      comp.entries.push(entry);
-      if (earned > 0) {
-        const me = db.users.find((x) => x.id === u.id);
-        if (me) me.points = Math.max(0, Number(me.points || 0) + earned);
-      }
-      writeLocal(db);
-      return res.json({ entry, score, total: comp.questions.length, earnedPoints: earned });
-    }
-    const p = getPool();
-    const cr = await p.query('SELECT * FROM competitions WHERE id=$1', [id]);
-    if (cr.rowCount === 0) return res.status(404).json({ error: 'المسابقة غير موجودة' });
-    const comp = mapCompetition(cr.rows[0]);
-    if (comp.status === 'closed') return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
-    if (comp.entries.some((e) => e.studentId === u.id)) return res.status(400).json({ error: 'لقد اشتركت في هذه المسابقة مسبقاً' });
-    if (answers.length !== comp.questions.length) return res.status(400).json({ error: 'أجب عن جميع الأسئلة' });
-    let score = 0;
-    const graded = comp.questions.map((q, i) => {
-      const chosen = answers[i];
-      const correct = chosen === q.correctIndex;
-      if (correct) score += 1;
-      return { questionId: q.id, chosen, correct };
-    });
-    const earned = score * Number(comp.pointsPerCorrect || 0);
-    const entry = { studentId: u.id, studentName: u.fullName, answers, graded, score, earnedPoints: earned, createdAt: new Date().toISOString() };
-    comp.entries.push(entry);
-    await p.query('UPDATE competitions SET entries=$1::jsonb WHERE id=$2', [JSON.stringify(comp.entries), id]);
-    if (earned > 0) await p.query('UPDATE users SET points = GREATEST(0, points + $1) WHERE id=$2', [earned, u.id]);
-    return res.json({ entry, score, total: comp.questions.length, earnedPoints: earned });
-  } catch {
-    res.status(500).json({ error: 'تعذر تسجيل المشاركة' });
-  }
-}
-app.post('/api/competitions/:id/enter', requireAuth, competitionEnterHandler);
+});
 
 function formatBroadcastSegmentSpacing(text) {
   const normalized = String(text ?? '').replace(/\r\n/g, '\n').trim();
@@ -557,8 +510,7 @@ function createInitialData() {
       complaints: 0,
       suggestions: 0,
       programReports: 0,
-      competitions: 1,
-      roulette: 0,
+      certificates: 0,
     },
     users: [
       {
@@ -663,25 +615,7 @@ function createInitialData() {
     complaints: [],
     suggestions: [],
     programReports: [],
-    competitions: [
-      {
-        id: 1,
-        title: 'مسابقة النشاط الطلابي الثقافية',
-        description: 'ثلاثة أسئلة سريعة عن الانضباط والنشاط الطلابي — لكل إجابة صحيحة ٥ نقاط',
-        unit: 'all',
-        status: 'open',
-        pointsPerCorrect: 5,
-        questions: [
-          { id: 1, text: 'أفضل وسيلة لتقديم إنجازك للإدارة هي:', options: ['عبر المنصة في تبويب تقديم إنجاز', 'شفاهاً للمسؤول فقط', 'لا أقدم إنجازاً'], correctIndex: 0 },
-          { id: 2, text: 'الانضباط المدرسي يعكس:', options: ['وعي الطالب واحترامه لنفسه', 'ضعف الشخصية', 'لا علاقة له بالأخلاق'], correctIndex: 0 },
-          { id: 3, text: 'الاستيقاظ المبكر:', options: ['ينشّط الذاكرة ويزيد التركيز', 'يقلل التركيز', 'لا يؤثر'], correctIndex: 0 },
-        ],
-        createdByName: 'عبدالرحمن نسيم',
-        createdAt: now,
-        entries: [],
-      },
-    ],
-    rouletteSpins: [],
+    certificates: [],
   };
 }
 
@@ -827,24 +761,21 @@ async function ensureReady() {
           created_by_name TEXT NOT NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
-        CREATE TABLE IF NOT EXISTS competitions (
+        CREATE TABLE IF NOT EXISTS certificates (
           id SERIAL PRIMARY KEY,
-          title TEXT NOT NULL,
-          description TEXT NOT NULL DEFAULT '',
-          unit TEXT NOT NULL DEFAULT 'all',
-          status TEXT NOT NULL DEFAULT 'open',
-          points_per_correct INTEGER NOT NULL DEFAULT 0,
-          questions JSONB NOT NULL DEFAULT '[]'::jsonb,
-          entries JSONB NOT NULL DEFAULT '[]'::jsonb,
-          created_by_name TEXT NOT NULL DEFAULT '',
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-        CREATE TABLE IF NOT EXISTS roulette_spins (
-          id SERIAL PRIMARY KEY,
-          student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          student_name TEXT NOT NULL,
-          cost INTEGER NOT NULL DEFAULT 0,
-          reward INTEGER NOT NULL DEFAULT 0,
+          student_id INTEGER,
+          recipient_name TEXT NOT NULL,
+          grade_or_title TEXT NOT NULL DEFAULT '',
+          certificate_type TEXT NOT NULL DEFAULT 'شهادة شكر وتقدير',
+          reason TEXT NOT NULL DEFAULT '',
+          school_name TEXT NOT NULL DEFAULT 'مدرسة الحديبية المتوسطة',
+          issuer_title TEXT NOT NULL DEFAULT 'رئيس النشاط الطلابي',
+          issuer_name TEXT NOT NULL DEFAULT '',
+          principal_name TEXT NOT NULL DEFAULT '',
+          issue_date TEXT NOT NULL,
+          template_style TEXT NOT NULL DEFAULT 'emerald_gold',
+          created_by_id INTEGER NOT NULL,
+          created_by_name TEXT NOT NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
@@ -877,13 +808,6 @@ async function ensureReady() {
             `INSERT INTO directives (title, content, target_unit, priority, issued_by_name, issued_by_role)
              VALUES ($1,$2,$3,$4,$5,$6)`,
             [d.title, d.content, d.targetUnit, d.priority, d.issuedByName, d.issuedByRole]
-          );
-        }
-        for (const c of seed.competitions) {
-          await p.query(
-            `INSERT INTO competitions (title, description, unit, status, points_per_correct, questions, entries, created_by_name)
-             VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8)`,
-            [c.title, c.description, c.unit, c.status, c.pointsPerCorrect, JSON.stringify(c.questions), JSON.stringify(c.entries), c.createdByName]
           );
         }
       }
@@ -1039,12 +963,11 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
         complaints: canReviewSubs ? db.complaints : db.complaints.filter((c) => c.reporterId === viewer.id),
         suggestions: canReviewSubs ? db.suggestions : db.suggestions.filter((s) => s.studentId === viewer.id),
         programReports: canSeeReports ? (db.programReports || []) : [],
-        competitions: db.competitions || [],
-        rouletteSpins: isMgmt(viewer.role) ? (db.rouletteSpins || []) : (db.rouletteSpins || []).filter((s) => s.studentId === viewer.id),
+        certificates: isMgmt(viewer.role) ? (db.certificates || []) : (db.certificates || []).filter((c) => c.studentId === viewer.id),
       });
     }
     const p = getPool();
-    const [uR, aR, bR, disR, dirR, subR, cmpR, sugR, repR, compR, rouR] = await Promise.all([
+    const [uR, aR, bR, disR, dirR, subR, cmpR, sugR, repR, certR] = await Promise.all([
       canSeeUsers ? p.query('SELECT * FROM users ORDER BY id ASC') : p.query('SELECT * FROM users WHERE id=$1', [viewer.id]),
       p.query('SELECT * FROM activities ORDER BY id DESC'),
       canSeeBroadcasts ? p.query('SELECT * FROM broadcasts ORDER BY id DESC') : Promise.resolve({ rows: [] }),
@@ -1062,10 +985,9 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
         ? p.query('SELECT * FROM suggestions ORDER BY id DESC')
         : p.query('SELECT * FROM suggestions WHERE student_id=$1 ORDER BY id DESC', [viewer.id]),
       canSeeReports ? p.query('SELECT * FROM program_reports ORDER BY id DESC') : Promise.resolve({ rows: [] }),
-      p.query('SELECT * FROM competitions ORDER BY id DESC'),
       isMgmt(viewer.role)
-        ? p.query('SELECT * FROM roulette_spins ORDER BY id DESC')
-        : p.query('SELECT * FROM roulette_spins WHERE student_id=$1 ORDER BY id DESC', [viewer.id]),
+        ? p.query('SELECT * FROM certificates ORDER BY id DESC')
+        : p.query('SELECT * FROM certificates WHERE student_id=$1 ORDER BY id DESC', [viewer.id]),
     ]);
     res.json({
       users: uR.rows.map((r) => sanitizeUser(mapUser(r), viewer)),
@@ -1111,8 +1033,7 @@ app.get('/api/workspace', requireAuth, async (req, res) => {
         images: Array.isArray(r.images) ? r.images : [],
         createdById: r.created_by_id, createdByName: r.created_by_name,
       })),
-      competitions: compR.rows.map(mapCompetition),
-      rouletteSpins: rouR.rows.map(mapRouletteSpin),
+      certificates: certR.rows.map(mapCertificate),
     });
   } catch {
     res.status(500).json({ error: 'تعذر تحميل البيانات' });
