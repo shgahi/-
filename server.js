@@ -1,11 +1,13 @@
 import 'dotenv/config';
 import express from 'express';
 import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pg from 'pg';
+import { WebSocketServer, WebSocket } from 'ws';
 
 const { Pool } = pg;
 const __filename = fileURLToPath(import.meta.url);
@@ -39,6 +41,11 @@ const DEFAULT_ROLE_PERMISSIONS = {
 
 const isMgmt = (role) => MANAGEMENT_ROLES.includes(role);
 const isSupremePresident = (user) => Boolean(user && user.username === 'president');
+const canModerateChat = (user) =>
+  Boolean(user && (isSupremePresident(user) || user.role === 'vice_president'));
+const CHAT_RETENTION_HOURS = 48;
+const CHAT_RETENTION_MS = CHAT_RETENTION_HOURS * 60 * 60 * 1000;
+const MAX_CHAT_IMAGE_CHARS = 2_000_000;
 const hasPerm = (user, perm) => {
   if (!user) return false;
   if (isSupremePresident(user)) return true;
@@ -448,6 +455,7 @@ function createInitialData() {
       suggestions: 0,
       programReports: 0,
       certificates: 0,
+      chatMessages: 0,
     },
     users: [
       {
@@ -571,6 +579,12 @@ function createInitialData() {
     suggestions: [],
     programReports: [],
     certificates: [],
+    chatMessages: [],
+    chatSettings: {
+      mutedAll: false,
+      mutedByName: null,
+      updatedAt: now,
+    },
   };
 }
 
@@ -593,6 +607,7 @@ function readLocal() {
     suggestions: 0,
     programReports: 0,
     certificates: 0,
+    chatMessages: 0,
     ...(parsed.counters || {}),
   };
   parsed.users = (parsed.users || []).map((u) => ({
@@ -630,6 +645,12 @@ function readLocal() {
     departmentName: r.departmentName || 'النشاط الطلابي',
   }));
   parsed.certificates = parsed.certificates || [];
+  parsed.chatMessages = Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [];
+  parsed.chatSettings = parsed.chatSettings || {
+    mutedAll: false,
+    mutedByName: null,
+    updatedAt: new Date().toISOString(),
+  };
   return parsed;
 }
 
@@ -821,6 +842,29 @@ async function ensureReady() {
           created_by_name TEXT NOT NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        CREATE TABLE IF NOT EXISTS chat_messages (
+          id SERIAL PRIMARY KEY,
+          sender_id INTEGER NOT NULL,
+          sender_name TEXT NOT NULL,
+          sender_role TEXT NOT NULL,
+          sender_unit TEXT NOT NULL,
+          sender_is_supreme BOOLEAN NOT NULL DEFAULT FALSE,
+          text_content TEXT NOT NULL DEFAULT '',
+          image_data TEXT,
+          reply_to JSONB,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '2 days')
+        );
+        CREATE INDEX IF NOT EXISTS idx_chat_messages_expires_at ON chat_messages (expires_at);
+        CREATE TABLE IF NOT EXISTS chat_settings (
+          id INTEGER PRIMARY KEY,
+          muted_all BOOLEAN NOT NULL DEFAULT FALSE,
+          muted_by_name TEXT,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        INSERT INTO chat_settings (id, muted_all, muted_by_name)
+        VALUES (1, FALSE, NULL)
+        ON CONFLICT (id) DO NOTHING;
       `);
       const countRes = await p.query('SELECT COUNT(*)::int AS cnt FROM users');
       if (countRes.rows[0].cnt === 0) {
@@ -2878,6 +2922,299 @@ app.delete('/api/users/:id/badges/:badgeId', requireAuth, requireMgmt, async (re
   }
 });
 
+// ===== الدردشة العامة — البث المباشر والحذف التلقائي بعد يومين =====
+const mapPgChatMessage = (r) => {
+  let replyTo = r.reply_to;
+  if (typeof replyTo === 'string') {
+    try { replyTo = JSON.parse(replyTo); } catch { replyTo = null; }
+  }
+  return {
+    id: r.id,
+    senderId: Number(r.sender_id),
+    senderName: r.sender_name || '',
+    senderRole: r.sender_role || 'member',
+    senderUnit: r.sender_unit || 'activity_1',
+    senderIsSupreme: Boolean(r.sender_is_supreme),
+    text: r.text_content || '',
+    imageData: r.image_data || null,
+    replyTo: replyTo || null,
+    createdAt: new Date(r.created_at).toISOString(),
+    expiresAt: new Date(r.expires_at).toISOString(),
+  };
+};
+
+const mapPgChatSettings = (r) => ({
+  mutedAll: Boolean(r?.muted_all),
+  mutedByName: r?.muted_by_name || null,
+  updatedAt: r?.updated_at ? new Date(r.updated_at).toISOString() : new Date().toISOString(),
+});
+
+async function purgeExpiredChatMessages() {
+  await ensureReady();
+  if (!isNeon) {
+    const db = readLocal();
+    const nowMs = Date.now();
+    const prevLen = db.chatMessages.length;
+    db.chatMessages = db.chatMessages.filter((m) => {
+      const expMs = Date.parse(m.expiresAt || '');
+      const createdMs = Date.parse(m.createdAt || '');
+      if (Number.isFinite(expMs)) return expMs > nowMs;
+      if (Number.isFinite(createdMs)) return nowMs - createdMs < CHAT_RETENTION_MS;
+      return true;
+    });
+    const removed = prevLen - db.chatMessages.length;
+    if (removed > 0) writeLocal(db);
+    return removed;
+  }
+  const r = await getPool().query(
+    "DELETE FROM chat_messages WHERE expires_at <= NOW() OR created_at <= NOW() - INTERVAL '2 days'"
+  );
+  return r.rowCount ?? 0;
+}
+
+async function getChatSettings() {
+  await ensureReady();
+  if (!isNeon) return readLocal().chatSettings;
+  const r = await getPool().query('SELECT * FROM chat_settings WHERE id = 1 LIMIT 1');
+  return mapPgChatSettings(r.rows[0]);
+}
+
+async function setChatMute(mutedAll, actorName) {
+  await ensureReady();
+  const mutedByName = mutedAll ? actorName : null;
+  if (!isNeon) {
+    const db = readLocal();
+    db.chatSettings = { mutedAll, mutedByName, updatedAt: new Date().toISOString() };
+    writeLocal(db);
+    return db.chatSettings;
+  }
+  const r = await getPool().query(
+    `INSERT INTO chat_settings (id, muted_all, muted_by_name, updated_at)
+     VALUES (1, $1, $2, NOW())
+     ON CONFLICT (id) DO UPDATE SET muted_all = $1, muted_by_name = $2, updated_at = NOW()
+     RETURNING *`,
+    [mutedAll, mutedByName]
+  );
+  return mapPgChatSettings(r.rows[0]);
+}
+
+async function listChatMessages(limit = 150) {
+  await purgeExpiredChatMessages();
+  if (!isNeon) {
+    return readLocal().chatMessages.slice(-limit);
+  }
+  const r = await getPool().query(
+    'SELECT * FROM (SELECT * FROM chat_messages ORDER BY id DESC LIMIT $1) sub ORDER BY id ASC',
+    [limit]
+  );
+  return r.rows.map(mapPgChatMessage);
+}
+
+const chatClients = new Set();
+
+function getOnlineChatUsers() {
+  const byId = new Map();
+  for (const c of chatClients) {
+    if (c.ws.readyState !== WebSocket.OPEN) continue;
+    if (!byId.has(c.user.id)) {
+      byId.set(c.user.id, {
+        id: c.user.id,
+        fullName: c.user.fullName,
+        role: c.user.role,
+        isSupreme: isSupremePresident(c.user),
+      });
+    }
+  }
+  const roleWeight = (u) => {
+    if (u.isSupreme) return 0;
+    if (u.role === 'president') return 1;
+    if (u.role === 'vice_president') return 2;
+    if (u.role === 'officer') return 3;
+    return 4;
+  };
+  return Array.from(byId.values()).sort((a, b) => {
+    const d = roleWeight(a) - roleWeight(b);
+    return d !== 0 ? d : a.fullName.localeCompare(b.fullName, 'ar');
+  });
+}
+
+function broadcastChatEvent(payload) {
+  const raw = JSON.stringify(payload);
+  for (const c of chatClients) {
+    if (c.ws.readyState === WebSocket.OPEN) {
+      try { c.ws.send(raw); } catch { /* ignore */ }
+    }
+  }
+}
+
+function broadcastChatPresence() {
+  broadcastChatEvent({ type: 'chat:presence', onlineUsers: getOnlineChatUsers() });
+}
+
+app.get('/api/chat/state', requireAuth, async (_req, res) => {
+  try {
+    const [messages, settings] = await Promise.all([listChatMessages(150), getChatSettings()]);
+    res.json({
+      messages,
+      settings,
+      onlineUsers: getOnlineChatUsers(),
+      retentionHours: CHAT_RETENTION_HOURS,
+    });
+  } catch {
+    res.status(500).json({ error: 'تعذر تحميل بيانات الدردشة' });
+  }
+});
+
+app.post('/api/chat/messages', requireAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    const settings = await getChatSettings();
+    if (settings.mutedAll && !canModerateChat(user)) {
+      return res.status(403).json({
+        error: settings.mutedByName
+          ? `الدردشة مكتومة حالياً من قِبل ${settings.mutedByName}`
+          : 'الدردشة مكتومة حالياً من قِبل القيادة',
+      });
+    }
+
+    const body = req.body || {};
+    const text = String(body.text || '').trim().slice(0, 1500);
+    let imageData = null;
+    if (typeof body.imageData === 'string' && body.imageData.trim()) {
+      const candidate = body.imageData.trim();
+      if (!/^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(candidate)) {
+        return res.status(400).json({ error: 'صيغة الصورة غير مدعومة (يرجى رفع PNG أو JPG أو WebP)' });
+      }
+      if (candidate.length > MAX_CHAT_IMAGE_CHARS) {
+        return res.status(400).json({ error: 'حجم الصورة كبير جداً بعد الضغط، يرجى اختيار صورة أصغر' });
+      }
+      imageData = candidate;
+    }
+
+    if (!text && !imageData) {
+      return res.status(400).json({ error: 'يرجى كتابة رسالة أو إرفاق صورة قبل الإرسال' });
+    }
+
+    let replyTo = null;
+    if (body.replyTo && Number.isFinite(Number(body.replyTo.id))) {
+      replyTo = {
+        id: Number(body.replyTo.id),
+        senderName: String(body.replyTo.senderName || '').trim().slice(0, 80) || 'عضو',
+        snippet: String(body.replyTo.snippet || '').trim().slice(0, 140) || 'صورة مرفقة',
+      };
+    }
+
+    await purgeExpiredChatMessages();
+    let message;
+    if (!isNeon) {
+      const db = readLocal();
+      db.counters.chatMessages += 1;
+      const nowMs = Date.now();
+      message = {
+        id: db.counters.chatMessages,
+        senderId: user.id,
+        senderName: user.fullName,
+        senderRole: user.role,
+        senderUnit: user.unit,
+        senderIsSupreme: isSupremePresident(user),
+        text,
+        imageData,
+        replyTo,
+        createdAt: new Date(nowMs).toISOString(),
+        expiresAt: new Date(nowMs + CHAT_RETENTION_MS).toISOString(),
+      };
+      db.chatMessages.push(message);
+      writeLocal(db);
+    } else {
+      const r = await getPool().query(
+        `INSERT INTO chat_messages
+          (sender_id, sender_name, sender_role, sender_unit, sender_is_supreme, text_content, image_data, reply_to, created_at, expires_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb, NOW(), NOW() + INTERVAL '2 days') RETURNING *`,
+        [
+          user.id,
+          user.fullName,
+          user.role,
+          user.unit,
+          isSupremePresident(user),
+          text,
+          imageData,
+          replyTo ? JSON.stringify(replyTo) : null,
+        ]
+      );
+      message = mapPgChatMessage(r.rows[0]);
+    }
+
+    broadcastChatEvent({ type: 'chat:message:created', message });
+    res.status(201).json({ message });
+  } catch {
+    res.status(500).json({ error: 'تعذر إرسال الرسالة' });
+  }
+});
+
+app.delete('/api/chat/messages/:id', requireAuth, async (req, res) => {
+  try {
+    await ensureReady();
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'معرف الرسالة غير صالح' });
+    let existing = null;
+    if (!isNeon) {
+      existing = readLocal().chatMessages.find((m) => m.id === id) || null;
+    } else {
+      const r = await getPool().query('SELECT * FROM chat_messages WHERE id = $1 LIMIT 1', [id]);
+      existing = r.rows[0] ? mapPgChatMessage(r.rows[0]) : null;
+    }
+    if (!existing) return res.status(404).json({ error: 'الرسالة غير موجودة أو انتهت صلاحيتها' });
+    if (existing.senderId !== req.user.id && !canModerateChat(req.user)) {
+      return res.status(403).json({ error: 'لا يمكنك حذف رسائل الآخرين' });
+    }
+    if (!isNeon) {
+      const db = readLocal();
+      db.chatMessages = db.chatMessages.filter((m) => m.id !== id);
+      writeLocal(db);
+    } else {
+      await getPool().query('DELETE FROM chat_messages WHERE id = $1', [id]);
+    }
+    broadcastChatEvent({ type: 'chat:message:deleted', id });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'تعذر حذف الرسالة' });
+  }
+});
+
+app.post('/api/chat/clear', requireAuth, async (req, res) => {
+  try {
+    if (!canModerateChat(req.user)) {
+      return res.status(403).json({ error: 'مسح الدردشة مخصص للرئيس المؤسس ونائب الرئيس فقط' });
+    }
+    await ensureReady();
+    if (!isNeon) {
+      const db = readLocal();
+      db.chatMessages = [];
+      writeLocal(db);
+    } else {
+      await getPool().query('DELETE FROM chat_messages');
+    }
+    broadcastChatEvent({ type: 'chat:cleared', clearedByName: req.user.fullName });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'تعذر مسح المحادثة' });
+  }
+});
+
+app.patch('/api/chat/mute', requireAuth, async (req, res) => {
+  try {
+    if (!canModerateChat(req.user)) {
+      return res.status(403).json({ error: 'التحكم بإسكات الدردشة مخصص للرئيس المؤسس ونائب الرئيس فقط' });
+    }
+    const mutedAll = Boolean(req.body?.mutedAll);
+    const settings = await setChatMute(mutedAll, req.user.fullName);
+    broadcastChatEvent({ type: 'chat:mute:updated', settings });
+    res.json({ settings });
+  } catch {
+    res.status(500).json({ error: 'تعذر تحديث حالة إسكات الدردشة' });
+  }
+});
+
 app.get(['/app.js', '/assets/app.js'], (_req, res) => {
   res.sendFile(path.join(__dirname, 'app.js'));
 });
@@ -2903,6 +3240,86 @@ app.get('*', (req, res, next) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const httpServer = http.createServer(app);
+const chatWss = new WebSocketServer({ noServer: true });
+
+httpServer.on('upgrade', async (request, socket, head) => {
+  try {
+    const parsedUrl = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+    if (parsedUrl.pathname !== '/ws/chat') {
+      socket.destroy();
+      return;
+    }
+    const token = (parsedUrl.searchParams.get('token') || '').trim();
+    if (!token) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    const payload = jwt.verify(token, JWT_SECRET);
+    const rawUser = await findUserById(payload.userId);
+    if (!rawUser || !rawUser.isActive) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    const user = sanitizeUser(rawUser);
+
+    chatWss.handleUpgrade(request, socket, head, async (ws) => {
+      const client = { ws, user, isAlive: true };
+      chatClients.add(client);
+
+      ws.on('pong', () => { client.isAlive = true; });
+      ws.on('close', () => { chatClients.delete(client); broadcastChatPresence(); });
+      ws.on('error', () => { chatClients.delete(client); broadcastChatPresence(); });
+
+      try {
+        const [messages, settings] = await Promise.all([listChatMessages(150), getChatSettings()]);
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'chat:init',
+            messages,
+            settings,
+            onlineUsers: getOnlineChatUsers(),
+            retentionHours: CHAT_RETENTION_HOURS,
+          }));
+        }
+        broadcastChatPresence();
+      } catch { /* ignore */ }
+    });
+  } catch {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    socket.destroy();
+  }
+});
+
+const wsHeartbeat = setInterval(() => {
+  let changed = false;
+  for (const c of chatClients) {
+    if (!c.isAlive) {
+      chatClients.delete(c);
+      c.ws.terminate();
+      changed = true;
+      continue;
+    }
+    c.isAlive = false;
+    try { c.ws.ping(); } catch { chatClients.delete(c); changed = true; }
+  }
+  if (changed) broadcastChatPresence();
+}, 30_000);
+wsHeartbeat.unref?.();
+
+const chatPurgeTimer = setInterval(async () => {
+  try {
+    const removed = await purgeExpiredChatMessages();
+    if (removed > 0 && chatClients.size > 0) {
+      const messages = await listChatMessages(150);
+      broadcastChatEvent({ type: 'chat:purged', removedCount: removed, messages });
+    }
+  } catch { /* ignore */ }
+}, 15 * 60 * 1000);
+chatPurgeTimer.unref?.();
+
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Student Activity System running on port ${PORT}`);
 });
