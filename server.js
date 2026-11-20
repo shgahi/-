@@ -46,6 +46,32 @@ const canModerateChat = (user) =>
 const CHAT_RETENTION_HOURS = 48;
 const CHAT_RETENTION_MS = CHAT_RETENTION_HOURS * 60 * 60 * 1000;
 const MAX_CHAT_IMAGE_CHARS = 2_000_000;
+const getTomorrowHijriDate = () => {
+  const target = new Date(Date.now() + 86_400_000);
+  const toEn = (s) =>
+    String(s || '')
+      .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+      .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  for (const cal of ['islamic-umalqura', 'islamic-tbla', 'islamic']) {
+    try {
+      const parts = new Intl.DateTimeFormat(`en-u-ca-${cal}-nu-latn`, {
+        timeZone: 'Asia/Riyadh',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(target);
+      const y = toEn(parts.find((p) => p.type === 'year')?.value || '');
+      const m = toEn(parts.find((p) => p.type === 'month')?.value || '');
+      const d = toEn(parts.find((p) => p.type === 'day')?.value || '');
+      if (y && m && d && Number(y) > 1300 && Number(y) < 1700) {
+        return `${y}/${m.padStart(2, '0')}/${d.padStart(2, '0')}هـ`;
+      }
+    } catch {
+      // try next calendar
+    }
+  }
+  return target.toISOString().slice(0, 10);
+};
 const hasPerm = (user, perm) => {
   if (!user) return false;
   if (isSupremePresident(user)) return true;
@@ -540,7 +566,7 @@ function createInitialData() {
       {
         id: 1,
         title: 'إذاعة الانضباط والهمة العالية',
-        airDate: '2026-11-17',
+        airDate: getTomorrowHijriDate(),
         airTime: '07:15',
         theme: 'القيم والانضباط',
         presenters: 'يُحدد من أفراد الإذاعة',
@@ -897,6 +923,11 @@ async function ensureReady() {
             [d.title, d.content, d.targetUnit, d.priority, d.issuedById || 1, d.issuedByName, d.issuedByRole, JSON.stringify(d.acknowledgedByIds || [1])]
           );
         }
+      } else {
+        await p.query(
+          "UPDATE broadcasts SET air_date = $1 WHERE title = 'إذاعة الانضباط والهمة العالية' AND air_date = '2026-11-17'",
+          [getTomorrowHijriDate()]
+        );
       }
     })();
   }
@@ -1903,7 +1934,8 @@ app.post('/api/broadcasts', requireAuth, async (req, res) => {
     }
     await ensureReady();
     const { title, airDate, airTime, theme, presenters, segments } = req.body || {};
-    if (!title || !airDate || !airTime) return res.status(400).json({ error: 'يرجى إدخال عنوان الإذاعة والتاريخ والوقت' });
+    const resolvedAirDate = String(airDate || '').trim() || getTomorrowHijriDate();
+    if (!title || !airTime) return res.status(400).json({ error: 'يرجى إدخال عنوان الإذاعة ووقت البث' });
     const autoApprove = req.user.role === 'president' || req.user.role === 'vice_president';
     const status = autoApprove ? 'approved' : 'pending_approval';
     const reviewNote = autoApprove ? 'معتمدة مباشرة' : 'بانتظار مراجعة واعتماد القيادة';
@@ -1919,7 +1951,7 @@ app.post('/api/broadcasts', requireAuth, async (req, res) => {
       const db = readLocal();
       db.counters.broadcasts += 1;
       const item = {
-        id: db.counters.broadcasts, title: title.trim(), airDate, airTime,
+        id: db.counters.broadcasts, title: title.trim(), airDate: resolvedAirDate, airTime,
         theme: theme || 'عام', presenters: presenters || req.user.fullName,
         supervisorName: isMgmt(req.user.role) ? req.user.fullName : 'الإدارة',
         status, officerChecked: false, reviewNote, segments: segs,
@@ -1932,7 +1964,7 @@ app.post('/api/broadcasts', requireAuth, async (req, res) => {
     const r = await getPool().query(
       `INSERT INTO broadcasts (title, air_date, air_time, theme, presenters, supervisor_name, status, review_note, segments)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) RETURNING *`,
-      [title.trim(), airDate, airTime, theme || 'عام', presenters || req.user.fullName, isMgmt(req.user.role) ? req.user.fullName : 'الإدارة', status, reviewNote, JSON.stringify(segs)]
+      [title.trim(), resolvedAirDate, airTime, theme || 'عام', presenters || req.user.fullName, isMgmt(req.user.role) ? req.user.fullName : 'الإدارة', status, reviewNote, JSON.stringify(segs)]
     );
     res.status(201).json({ broadcast: mapBroadcast(r.rows[0]) });
   } catch {
