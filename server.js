@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'node:crypto';
 import express from 'express';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -7,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pg from 'pg';
+import * as webpush from 'web-push';
 import { WebSocketServer, WebSocket } from 'ws';
 
 const { Pool } = pg;
@@ -611,6 +613,8 @@ function createInitialData() {
       mutedByName: null,
       updatedAt: now,
     },
+    pushSubscriptions: [],
+    pushVapidKeys: null,
   };
 }
 
@@ -677,6 +681,8 @@ function readLocal() {
     mutedByName: null,
     updatedAt: new Date().toISOString(),
   };
+  parsed.pushSubscriptions = Array.isArray(parsed.pushSubscriptions) ? parsed.pushSubscriptions : [];
+  parsed.pushVapidKeys = parsed.pushVapidKeys || null;
   return parsed;
 }
 
@@ -891,6 +897,23 @@ async function ensureReady() {
         INSERT INTO chat_settings (id, muted_all, muted_by_name)
         VALUES (1, FALSE, NULL)
         ON CONFLICT (id) DO NOTHING;
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          endpoint TEXT NOT NULL UNIQUE,
+          p256dh TEXT NOT NULL,
+          auth TEXT NOT NULL,
+          user_agent TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions (user_id);
+        CREATE TABLE IF NOT EXISTS push_vapid_config (
+          id INTEGER PRIMARY KEY,
+          public_key TEXT NOT NULL,
+          private_key TEXT NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
       `);
       const countRes = await p.query('SELECT COUNT(*)::int AS cnt FROM users');
       if (countRes.rows[0].cnt === 0) {
@@ -3177,9 +3200,271 @@ app.post('/api/chat/messages', requireAuth, async (req, res) => {
     }
 
     broadcastChatEvent({ type: 'chat:message:created', message });
+    void sendPushNotificationForChatMessage(message);
     res.status(201).json({ message });
   } catch {
     res.status(500).json({ error: 'تعذر إرسال الرسالة' });
+  }
+});
+
+// ===== إشعارات الخلفية (Web Push Notifications) =====
+function normalizeVapidKeys(rawPrivate, rawPublic) {
+  const cleanPriv = String(rawPrivate || '')
+    .replace(/-----BEGIN[^-]+-----|-----END[^-]+-----/g, '')
+    .replace(/[^A-Za-z0-9+/=_-]/g, '')
+    .trim();
+  const cleanPub = String(rawPublic || '').trim();
+  if (!cleanPriv) return null;
+
+  const isValidRawPub = (() => {
+    if (!cleanPub || cleanPub.includes('ECPublicKey') || cleanPub.includes('object at')) return false;
+    try {
+      return Buffer.from(cleanPub, 'base64url').length === 65;
+    } catch {
+      return false;
+    }
+  })();
+
+  try {
+    const der = Buffer.from(cleanPriv, 'base64');
+    const privKeyObj = crypto.createPrivateKey({ key: der, format: 'der', type: 'pkcs8' });
+    const jwk = privKeyObj.export({ format: 'jwk' });
+    if (jwk.crv === 'P-256' && jwk.d && jwk.x && jwk.y) {
+      const derivedPub = Buffer.concat([
+        Buffer.from([0x04]),
+        Buffer.from(jwk.x, 'base64url'),
+        Buffer.from(jwk.y, 'base64url'),
+      ]).toString('base64url');
+      return {
+        privateKey: jwk.d,
+        publicKey: isValidRawPub ? cleanPub : derivedPub,
+      };
+    }
+  } catch {
+    // Try raw 32-byte scalar next
+  }
+
+  try {
+    const rawScalar = Buffer.from(cleanPriv, 'base64url');
+    if (rawScalar.length === 32) {
+      const ecdh = crypto.createECDH('prime256v1');
+      ecdh.setPrivateKey(rawScalar);
+      const derivedPub = ecdh.getPublicKey(null, 'uncompressed').toString('base64url');
+      return {
+        privateKey: rawScalar.toString('base64url'),
+        publicKey: isValidRawPub ? cleanPub : derivedPub,
+      };
+    }
+  } catch {
+    // Invalid private key
+  }
+  return null;
+}
+
+async function getOrCreatePushVapidKeys() {
+  await ensureReady();
+  if (!isNeon) {
+    const db = readLocal();
+    if (db.pushVapidKeys?.publicKey && db.pushVapidKeys?.privateKey) {
+      return db.pushVapidKeys;
+    }
+    const generated = webpush.generateVAPIDKeys();
+    db.pushVapidKeys = generated;
+    writeLocal(db);
+    return generated;
+  }
+  const p = getPool();
+  const existing = await p.query('SELECT public_key, private_key FROM push_vapid_config WHERE id = 1 LIMIT 1');
+  if (existing.rows[0]?.public_key && existing.rows[0]?.private_key) {
+    return { publicKey: existing.rows[0].public_key, privateKey: existing.rows[0].private_key };
+  }
+  const generated = webpush.generateVAPIDKeys();
+  const inserted = await p.query(
+    `INSERT INTO push_vapid_config (id, public_key, private_key, updated_at)
+     VALUES (1, $1, $2, NOW())
+     ON CONFLICT (id) DO UPDATE SET updated_at = push_vapid_config.updated_at
+     RETURNING public_key, private_key`,
+    [generated.publicKey, generated.privateKey]
+  );
+  return { publicKey: inserted.rows[0].public_key, privateKey: inserted.rows[0].private_key };
+}
+
+async function getActiveVapidConfig() {
+  const subject = (process.env.VAPID_SUBJECT || 'mailto:admin@student-activity.edu.sa').trim();
+  const envPriv = (process.env.VAPID_PRIVATE_KEY || '').trim();
+  const envPub = (process.env.VAPID_PUBLIC_KEY || '').trim();
+  if (envPriv) {
+    const normalized = normalizeVapidKeys(envPriv, envPub);
+    if (normalized) {
+      return { ...normalized, subject, source: 'env' };
+    }
+    console.warn('VAPID_PRIVATE_KEY is invalid P-256 format; falling back to stored VAPID keys.');
+  }
+  const stored = await getOrCreatePushVapidKeys();
+  return { ...stored, subject, source: 'db' };
+}
+
+async function savePushSubscriptionRecord(input) {
+  await ensureReady();
+  const now = new Date().toISOString();
+  if (!isNeon) {
+    const db = readLocal();
+    const list = db.pushSubscriptions || [];
+    const idx = list.findIndex((s) => s.endpoint === input.endpoint);
+    if (idx !== -1) {
+      list[idx] = {
+        ...list[idx],
+        userId: input.userId,
+        keys: { p256dh: input.p256dh, auth: input.auth },
+        userAgent: input.userAgent,
+        updatedAt: now,
+      };
+    } else {
+      list.push({
+        id: list.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1,
+        userId: input.userId,
+        endpoint: input.endpoint,
+        keys: { p256dh: input.p256dh, auth: input.auth },
+        userAgent: input.userAgent,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    db.pushSubscriptions = list;
+    writeLocal(db);
+    return;
+  }
+  await getPool().query(
+    `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+     ON CONFLICT (endpoint) DO UPDATE
+       SET user_id = EXCLUDED.user_id,
+           p256dh = EXCLUDED.p256dh,
+           auth = EXCLUDED.auth,
+           user_agent = EXCLUDED.user_agent,
+           updated_at = NOW()`,
+    [input.userId, input.endpoint, input.p256dh, input.auth, input.userAgent.slice(0, 300)]
+  );
+}
+
+async function deletePushSubscriptionByEndpoint(endpoint, userId) {
+  await ensureReady();
+  if (!isNeon) {
+    const db = readLocal();
+    db.pushSubscriptions = (db.pushSubscriptions || []).filter((s) =>
+      userId ? !(s.endpoint === endpoint && s.userId === userId) : s.endpoint !== endpoint
+    );
+    writeLocal(db);
+    return;
+  }
+  if (userId) {
+    await getPool().query('DELETE FROM push_subscriptions WHERE endpoint = $1 AND user_id = $2', [endpoint, userId]);
+  } else {
+    await getPool().query('DELETE FROM push_subscriptions WHERE endpoint = $1', [endpoint]);
+  }
+}
+
+async function listAllPushSubscriptions() {
+  await ensureReady();
+  if (!isNeon) return readLocal().pushSubscriptions || [];
+  const r = await getPool().query('SELECT id, user_id, endpoint, p256dh, auth, user_agent, created_at, updated_at FROM push_subscriptions');
+  return r.rows.map((row) => ({
+    id: row.id,
+    userId: Number(row.user_id),
+    endpoint: row.endpoint,
+    keys: { p256dh: row.p256dh, auth: row.auth },
+    userAgent: row.user_agent || '',
+    createdAt: new Date(row.created_at).toISOString(),
+    updatedAt: new Date(row.updated_at).toISOString(),
+  }));
+}
+
+async function sendPushNotificationForChatMessage(message) {
+  try {
+    const [config, subscriptions] = await Promise.all([
+      getActiveVapidConfig(),
+      listAllPushSubscriptions(),
+    ]);
+    const targets = subscriptions.filter((sub) => sub.userId !== message.senderId);
+    if (targets.length === 0) return;
+
+    webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
+    const bodyText = message.text
+      ? String(message.text).slice(0, 140)
+      : 'أرسل صورة جديدة في الدردشة العامة';
+    const payload = JSON.stringify({
+      title: `${message.senderName} · الدردشة العامة`,
+      body: bodyText,
+      icon: '/assets/moe-logo.png',
+      badge: '/assets/moe-logo.png',
+      tag: 'public-chat-message',
+      messageId: message.id,
+      data: { url: '/?section=chat', messageId: message.id },
+    });
+
+    await Promise.all(
+      targets.map(async (sub) => {
+        try {
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } },
+            payload,
+            { TTL: 60 * 60 * 24 }
+          );
+        } catch (err) {
+          const statusCode = err?.statusCode;
+          if (statusCode === 404 || statusCode === 410) {
+            await deletePushSubscriptionByEndpoint(sub.endpoint);
+          } else {
+            console.error('Web Push send error:', statusCode || err);
+          }
+        }
+      })
+    );
+  } catch (err) {
+    console.error('sendPushNotificationForChatMessage failed:', err);
+  }
+}
+
+app.get('/api/push/public-key', requireAuth, async (_req, res) => {
+  try {
+    const config = await getActiveVapidConfig();
+    res.json({ publicKey: config.publicKey, source: config.source });
+  } catch {
+    res.status(500).json({ error: 'تعذر جلب مفتاح الإشعارات' });
+  }
+});
+
+app.post('/api/save-subscription', requireAuth, async (req, res) => {
+  try {
+    const raw = req.body || {};
+    const sub = raw.subscription || raw;
+    const endpoint = String(sub.endpoint || '').trim();
+    const p256dh = String(sub.keys?.p256dh || '').trim();
+    const auth = String(sub.keys?.auth || '').trim();
+    if (!endpoint || !p256dh || !auth || !/^https?:\/\//i.test(endpoint)) {
+      return res.status(400).json({ error: 'بيانات اشتراك الإشعارات غير صالحة' });
+    }
+    await savePushSubscriptionRecord({
+      userId: req.user.id,
+      endpoint,
+      p256dh,
+      auth,
+      userAgent: String(req.headers['user-agent'] || ''),
+    });
+    res.status(201).json({ ok: true, subscribed: true });
+  } catch {
+    res.status(500).json({ error: 'تعذر حفظ اشتراك الإشعارات' });
+  }
+});
+
+app.post('/api/remove-subscription', requireAuth, async (req, res) => {
+  try {
+    const endpoint = String(req.body?.endpoint || '').trim();
+    if (!endpoint) return res.status(400).json({ error: 'معرف الاشتراك مطلوب' });
+    await deletePushSubscriptionByEndpoint(endpoint, req.user.id);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'تعذر إلغاء اشتراك الإشعارات' });
   }
 });
 
@@ -3266,6 +3551,114 @@ app.get(['/portal_hero_scene_1794824065167.jpg', '/src/assets/images/portal_hero
 app.use('/assets', express.static(path.join(__dirname, 'assets'), {
   maxAge: '7d',
 }));
+
+const SERVICE_WORKER_JS = `self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('push', (event) => {
+  let payload = {
+    title: 'رسالة جديدة في الدردشة العامة',
+    body: 'وصلت رسالة جديدة في دردشة النشاط الطلابي.',
+    icon: '/assets/moe-logo.png',
+    badge: '/assets/moe-logo.png',
+    tag: 'public-chat-message',
+    url: '/?section=chat',
+  };
+
+  if (event.data) {
+    try {
+      const parsed = event.data.json();
+      payload = {
+        ...payload,
+        ...parsed,
+        url: parsed?.data?.url || parsed?.url || payload.url,
+      };
+    } catch {
+      const text = event.data.text();
+      if (text) payload.body = text;
+    }
+  }
+
+  const options = {
+    body: payload.body,
+    icon: payload.icon || '/assets/moe-logo.png',
+    badge: payload.badge || '/assets/moe-logo.png',
+    tag: payload.tag || 'public-chat-message',
+    renotify: true,
+    dir: 'rtl',
+    lang: 'ar',
+    vibrate: [180, 90, 180],
+    data: {
+      url: payload.url || '/?section=chat',
+      messageId: payload.messageId || null,
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(payload.title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const rawUrl = (event.notification.data && event.notification.data.url) || '/?section=chat';
+  const targetUrl = new URL(rawUrl, self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url.startsWith(self.location.origin)) {
+          try {
+            client.postMessage({ type: 'NAVIGATE_CHAT', url: targetUrl });
+          } catch {
+            // ignore
+          }
+          if ('focus' in client) {
+            return client.focus();
+          }
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+      return undefined;
+    })
+  );
+});
+`;
+
+const WEB_MANIFEST_JSON = JSON.stringify({
+  id: '/',
+  name: 'منظومة النشاط الطلابي',
+  short_name: 'النشاط',
+  description: 'نظام إدارة النشاط الطلابي والدردشة المباشرة والإذاعة المدرسية',
+  start_url: '/',
+  scope: '/',
+  display: 'standalone',
+  dir: 'rtl',
+  lang: 'ar',
+  theme_color: '#0e5645',
+  background_color: '#f8fafc',
+  icons: [
+    { src: '/assets/moe-logo.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+    { src: '/assets/moe-logo.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+  ],
+}, null, 2);
+
+app.get('/sw.js', (_req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.send(SERVICE_WORKER_JS);
+});
+
+app.get('/manifest.webmanifest', (_req, res) => {
+  res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(WEB_MANIFEST_JSON);
+});
 
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
