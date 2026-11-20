@@ -3533,10 +3533,12 @@ app.patch('/api/chat/mute', requireAuth, async (req, res) => {
 });
 
 app.get(['/app.js', '/assets/app.js'], (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(__dirname, 'app.js'));
 });
 
 app.get(['/app.css', '/assets/app.css'], (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(__dirname, 'app.css'));
 });
 
@@ -3662,6 +3664,7 @@ app.get('/manifest.webmanifest', (_req, res) => {
 
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
