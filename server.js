@@ -187,7 +187,7 @@ function buildFallbackReportContent(title, executors) {
     return {
       field: 'المختبر',
       beneficiaries: 'الطلاب',
-      beneficiariesCount: 'اقل من 70 طالب',
+      beneficiariesCount: 'جميع الطلاب',
       steps: [
         `1- تجهيز أدوات وتجارب برنامج «${cleanTitle}» داخل المختبر ومراعاة وسائل السلامة بإشراف ${cleanExec}.`,
         `2- شرح المفهوم العلمي لـ«${cleanTitle}» وربطه بالظواهر الواقعية للطلاب.`,
@@ -206,7 +206,7 @@ function buildFallbackReportContent(title, executors) {
     return {
       field: 'القيمي والإسلامي',
       beneficiaries: 'الطلاب',
-      beneficiariesCount: 'اقل من 70 طالب',
+      beneficiariesCount: 'جميع الطلاب',
       steps: [
         `1- الإعداد التربوي لبرنامج «${cleanTitle}» وتجهيز المحتوى القيمي بإشراف ${cleanExec}.`,
         `2- افتتاح اللقاء بتلاوة عطرة وتقديم محاور «${cleanTitle}» بأسلوب مؤثر وقريب من الطلاب.`,
@@ -225,7 +225,7 @@ function buildFallbackReportContent(title, executors) {
     return {
       field: 'الرياضي',
       beneficiaries: 'الطلاب',
-      beneficiariesCount: 'اقل من 70 طالب',
+      beneficiariesCount: 'جميع الطلاب',
       steps: [
         `1- الإعلان عن برنامج «${cleanTitle}» وتجهيز الملعب والأدوات الرياضية بإشراف ${cleanExec}.`,
         `2- تقسيم الفرق المشاركة وتوضيح القوانين واللوائح التنظيمية للطلاب.`,
@@ -244,7 +244,7 @@ function buildFallbackReportContent(title, executors) {
     return {
       field: 'التوعوي والصحي',
       beneficiaries: 'الطلاب',
-      beneficiariesCount: 'اقل من 70 طالب',
+      beneficiariesCount: 'جميع الطلاب',
       steps: [
         `1- إعداد المادة التوعوية والوسائل الإيضاحية لبرنامج «${cleanTitle}» بقيادة ${cleanExec}.`,
         `2- تنفيذ اللقاء التوعوي وتوضيح أبرز المخاطر والسلوكيات الوقائية المرتبطة بـ«${cleanTitle}».`,
@@ -263,7 +263,7 @@ function buildFallbackReportContent(title, executors) {
     return {
       field: 'التقني والرقمي',
       beneficiaries: 'الطلاب',
-      beneficiariesCount: 'اقل من 70 طالب',
+      beneficiariesCount: 'جميع الطلاب',
       steps: [
         `1- تجهيز معمل الحاسب والأدوات الرقمية اللازمة لتنفيذ «${cleanTitle}» بإشراف ${cleanExec}.`,
         `2- تقديم شرح تطبيقي لأساسيات ومهارات «${cleanTitle}» بخطوات مبسطة.`,
@@ -281,7 +281,7 @@ function buildFallbackReportContent(title, executors) {
   return {
     field: /كشف|انضباط|وطن|بيئة|تطوع|شراكة|أسر/.test(t) ? 'الاجتماعي والوطني' : 'الثقافي',
     beneficiaries: 'الطلاب',
-    beneficiariesCount: 'اقل من 70 طالب',
+    beneficiariesCount: 'جميع الطلاب',
     steps: [
       `1- التخطيط المسبق لبرنامج «${cleanTitle}» وتحديد الأدوار ومحاور العرض بإشراف ${cleanExec}.`,
       `2- تهيئة مقر التنفيذ وتجهيز الوسائل واللوحات الداعمة لموضوع «${cleanTitle}».`,
@@ -319,7 +319,7 @@ async function generateProgramReportWithAI(title, executors, executionDate) {
 {
   "field": "مجال البرنامج المناسب للعنوان",
   "beneficiaries": "الطلاب",
-  "beneficiariesCount": "اقل من 70 طالب",
+  "beneficiariesCount": "جميع الطلاب",
   "steps": ["1- ...", "2- ...", "3- ...", "4- ..."],
   "objectives": ["1- ...", "2- ...", "3- ...", "4- ..."]
 }`;
@@ -330,7 +330,7 @@ async function generateProgramReportWithAI(title, executors, executionDate) {
     return {
       field: String(parsed.field || '').trim() || fallback.field,
       beneficiaries: String(parsed.beneficiaries || '').trim() || fallback.beneficiaries,
-      beneficiariesCount: String(parsed.beneficiariesCount || '').trim() || fallback.beneficiariesCount,
+      beneficiariesCount: 'جميع الطلاب',
       steps: Array.isArray(parsed.steps) && parsed.steps.length ? parsed.steps.map((s) => String(s).trim()).filter(Boolean) : fallback.steps,
       objectives: Array.isArray(parsed.objectives) && parsed.objectives.length ? parsed.objectives.map((o) => String(o).trim()).filter(Boolean) : fallback.objectives,
       source: 'groq',
@@ -670,10 +670,17 @@ function readLocal() {
   parsed.submissions = parsed.submissions || [];
   parsed.complaints = parsed.complaints || [];
   parsed.suggestions = parsed.suggestions || [];
-  parsed.programReports = (parsed.programReports || []).map((r) => ({
-    ...r,
-    departmentName: r.departmentName || 'النشاط الطلابي',
-  }));
+  parsed.programReports = (parsed.programReports || []).map((r) => {
+    const rawCount = String(r.beneficiariesCount || '').trim();
+    const normalizedCount = (!rawCount || rawCount === 'اقل من 70 طالب' || rawCount === 'أقل من 70 طالب')
+      ? 'جميع الطلاب'
+      : rawCount;
+    return {
+      ...r,
+      departmentName: r.departmentName || 'النشاط الطلابي',
+      beneficiariesCount: normalizedCount,
+    };
+  });
   parsed.certificates = parsed.certificates || [];
   parsed.chatMessages = Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [];
   parsed.chatSettings = parsed.chatSettings || {
@@ -848,7 +855,7 @@ async function ensureReady() {
           executors TEXT NOT NULL,
           execution_date TEXT NOT NULL,
           beneficiaries TEXT NOT NULL DEFAULT 'الطلاب',
-          beneficiaries_count TEXT NOT NULL DEFAULT '',
+          beneficiaries_count TEXT NOT NULL DEFAULT 'جميع الطلاب',
           steps JSONB NOT NULL DEFAULT '[]'::jsonb,
           objectives JSONB NOT NULL DEFAULT '[]'::jsonb,
           images JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -857,6 +864,8 @@ async function ensureReady() {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         ALTER TABLE program_reports ADD COLUMN IF NOT EXISTS department_name TEXT NOT NULL DEFAULT 'النشاط الطلابي';
+        ALTER TABLE program_reports ALTER COLUMN beneficiaries_count SET DEFAULT 'جميع الطلاب';
+        UPDATE program_reports SET beneficiaries_count = 'جميع الطلاب' WHERE beneficiaries_count = '' OR beneficiaries_count IN ('اقل من 70 طالب', 'أقل من 70 طالب');
         CREATE TABLE IF NOT EXISTS certificates (
           id SERIAL PRIMARY KEY,
           student_id INTEGER,
@@ -1110,7 +1119,7 @@ const mapProgramReport = (r) => ({
   executors: r.executors,
   executionDate: r.execution_date,
   beneficiaries: r.beneficiaries,
-  beneficiariesCount: r.beneficiaries_count,
+  beneficiariesCount: String(r.beneficiaries_count || '').trim() || 'جميع الطلاب',
   steps: Array.isArray(r.steps) ? r.steps : [],
   objectives: Array.isArray(r.objectives) ? r.objectives : [],
   images: Array.isArray(r.images) ? r.images : [],
